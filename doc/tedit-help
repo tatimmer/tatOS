@@ -1,0 +1,118 @@
+README-tedit
+Dec 2015
+
+tedit is the text editor included with tatOS. 
+It is assembled into tlib as executable code.
+
+tedit uses a double link list starting at 0x100000
+1meg is reserved allowing for 750,000 max chars per file
+
+CUT/COPY/PASTE is same as windows CTRL+X, CTRL+C, CTRL+V
+selection is made with SHIFT down and moving arrow keys
+Ctrl+y yanks/copies a single word at the caret to CLIPBOARD 
+
+scrolling is done with the arrow keys, PAGEUP, PAGEDN, HOME, END
+thru the manipulation of the "toplink"
+toplink is the address of the first char drawn at upper left
+
+Ctrl+f to enter a string to find/search 
+Ctrl+n to find the next instance
+Ctrl+8 jumps to the next instance of word at caret, then Ctrl+n
+
+Goto is handled with Ctrl+g to jump to a line number
+
+there are several options to delete characters:
+Delete 1 character at the caret
+Ctrl+Delete delete 1 word
+Alt+Delete  delete a large block of chars from starting charnum (prompt) to caret
+Shift+Arrows then Delete the selection
+
+by default tedit file->open appends data to the existing link list at the caret
+unless you press F7 to clear first. 
+if your usb File->save fails you can reinit the controller and flash
+and return to your tedit memory block and repeat the save
+
+each tedit link is 12 bytes:
+  byte char     (this is the ascii keypress)
+  byte select   (1=selected, 0=not selected)
+  word unused   (added to keep dword alignment
+  dword prev    (address of prev char link)
+  dword next    (address of next char link)
+
+if ebp holds address of a link then:
+ byte  [ebp]   = the ascii char
+ byte  [ebp+1] = selected or not
+ dword [ebp+4] = address of previous link
+ dword [ebp+8] = address of next link
+
+messagepointer
+to display a 0 terminated string along the bottom of the screen
+do mov dword [messagepointer],AddressofMyString
+on the next paint cycle your message will show up
+
+
+Navigation
+***********
+The caret is a non blinking rectangle. Text is inserted left of 
+the caret.  Insert mode is permanent and always active. There is 
+no overstrike mode.  
+
+The caret can be moved around the screen with 
+the usual keys and combinations.  See the comments in the source.  
+[up/dn/left/right, home/end, Ctrl+home, Ctrl+end, Ctrl+right, 
+Ctrl+left, Ctrl+up, Ctrl+dn]
+
+
+Line Numbers
+*************
+tatOS.config has a variable TEDITSHOWLINENUMBERS 
+if this value is 1 then line numbers will be displayed in the left column
+with line numbers you are limited to 75 chars per line
+without line numbers you can have 80 chars per line
+tedit uses the font01
+
+
+
+Function Keys
+**************
+The tedit menu is shown at the bottom of the screen
+
+F1 = Open file off tatOS formatted fat16 flash drive
+
+F2 = Save file to tatOS formatted fat16 flash drive
+
+F3 = Metrics: caretbyte/qtybytes, line/qtylines, caretascii.
+
+F4 = Run calculator
+
+F6 = Show Dump
+
+F7 = Clear screen
+
+F10 = Run code currently assembled to STARTOFEXE
+
+F11 = Assemble with ttasm 
+Ctrl+F11 = Run tlink
+
+F12 = quit
+
+
+
+
+
+Undo
+*****
+None.
+
+
+
+Mouse Support
+**************
+None.
+
+
+
+Thats all folks !
+
+
+

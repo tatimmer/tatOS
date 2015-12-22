@@ -1,0 +1,241 @@
+README-tatOS  Dec 2013
+
+
+Q: What is tatOS ?
+A: tatos is a simple hobby operating system for 32bit x86 intel/amd 
+	processors designed for direct access read/write to USB 
+	Mass Storage PenDrive/MemoryStick/FlashDrive.
+
+
+Q: What are the main features of tatos ?
+A:  * Direct access to video linear frame buffer 800x600x8bpp
+	* All programmed in assembly language on Linux using NASM
+	* Has its own assembler (ttasm) and text editor (tedit)
+	* 32bit, protected mode, ring0 or ring3, flat memory, with paging
+	  single task, no segments, FAT16 file system for flash
+	* driver for USB mass storage pen drive/memory stick via UHCI or EHCI
+	* driver for USB-HID human interface device mouse
+
+
+Q: So what are the main parts of the tatOS code ?
+A: 	1) bootloaders: boot1, boot2
+	2) drivers (keyboard, mouse, video, usb)
+	3) tlib    (string, graphics)
+	4) ttasm assembler
+	5) tedit text editor
+
+
+
+For a list of supported hardware see tatOS/doc/hardware
+
+
+
+
+256 color video graphics mode 
+*******************************
+tatOS only supports the 800x600 pixel screen size with 8bpp=256 colors.
+It is true that this is an antiquated DAC mode that was only supported up to
+Windows 98. For a hobby OS that does not focus on displaying real world images
+this mode gives faster response since video memory is smaller, usually only 480,000 bytes 
+must be copied to the LFB. Drawing is done to a back buffer in memory then copied
+to the Linear Frame Buffer with reasonable speed without any graphics accelerator,
+more speed because there is less memory to copy, 1/4th the memory compared to 32bpp
+modes.
+
+
+
+Boot tatOS from Floppy
+************************
+I test tatOS on a real machine by booting from internal floppy drive.
+You need some flavor of linux up and running. 
+Copy the tatOS.img file to a floppy disc using 
+"dd if=tatOS.img of=/dev/fd0" and boot the floppy. 
+The image file boots directly to the tatOS shell.
+You can use RawWrite in Windows to make the boot floppy as well.
+
+
+
+Boot tatOS from External Floppy 
+*********************************
+If you have a newer computer and want to build tatos 
+you may not have an internal floppy drive.
+Then go buy an external floppy drive that attaches to usb. 
+I bought a "Manhattan brand" external floppy drive that
+works great on all newer computers I tested. Its small and lightweight.
+On my linux this drive is identified as /dev/sda instead of /dev/fd0.
+
+
+
+Boot tatOS from Flash Drive
+****************************
+On newer computers this is the preferred way, its fast.
+You need a flash drive that you are willing to trash the filesystem.
+The tatOS image is copied to the first LBA of the flash with:
+dd if=tatOS.img of=/dev/sda
+The tatOS image file contains a floppy VBR but I have found this to work
+on computers with bios expecting both 00 floppy and one with 80 hard drive emulation.
+
+
+How to make the bootable tatOS.img file from scratch
+********************************************************
+You need the NASM assembler installed. See the makefile. 
+Edit the file tatos.config depending on your hardware.
+Every time you type "make" a complete assemble of every 
+file is done. It only takes a few seconds. The resulting 
+tatOS.img file is created in the top level directory. 
+Copy this file to floppy disc with dd on Linux or RawWRite on Windows.
+
+
+
+tatOS and Graphics
+********************
+The monitor is operated in 800x600x256 color graphic mode but 
+tatos does not provide the look and feel of windows.
+There are a few controls like an "edit box" and "list control".
+Each app may draw over the entire screen. All graphics functions
+by default draw to the backbuffer. BACKBUF is the starting address
+of the pixel at 0,0 upper left. The screen is setup for 800x600 but
+the bits per scanline may be greater in the video buffer. The width of a
+scanline is saved at [BPSL] so use it to set pixels across each row.
+To make things showup on the screen you copy the back buffer to the video's
+linear frame buffer using "call [SWAPBUF]".  Or you may draw directly to 
+the video buffer.  The address of the starting pixel 0,0 is stored at [LFB].
+
+
+
+Protect Mode OS 
+******************
+tatOS operates in protected mode with kernel code given ring0 privilege
+and the userland code given ring3 privilege. 
+Userland code is executed by pressing "run" from within tedit after 
+assembling your app.
+See tlib/paging.s for a description of how memory is divided.
+See tlib/tlibentry.s for a list of all current kernel functions available
+to user apps. All available kernel functions are accessed by setting the appropriate
+kernel function ID in register eax then issueing "sysenter".
+
+
+
+Event driven or Polling ?
+*******************************
+The keyboard and mouse interrupt service routines are 
+designed to preserve a byte value and then immediately exit. 
+See doc/memorymap and and boot/keyboard.s for details.
+tatOS is basically set up to be procedural driven code. 
+You have an "app_main_loop" which checks/polls for keyboard and 
+mouse activities or timer events and then acts accordingly. 
+See the /apps directory for examples.
+
+
+
+Process Errors & Interrupts
+*******************************
+Currently if the processor generates a fault/trap/abort  
+an interrupt service routine will print a feedback message 
+at the bottom of the screen and then hang. You can then
+press Ctrl+Alt+Del to jmp back to start of the shell.
+See boot/gdtidttss.s for details.
+Returning to tedit will reload the tedit text buffer.
+
+
+
+Read/Write Files on Flash
+****************************
+tatOS supports the FAT16 filesystem for your flash drive, but
+you must format your flash drive with the tatOS format utility.
+This creates a non-partitioned FAT16 filesystem on your drive, which
+is supported by both Linux and Windows. File names on Windows must be
+upper case and follow the 8.3 dos convention.
+tatOS can not understand a partitioned flash key. 
+See the code in fat16.s The READ10 and WRITE10 functions do the actually 
+copying of bytes from your flash drive to memory.
+User apps should use fatreadfile and fatwritefile.
+
+
+
+Virtual Memory Manager
+**********************
+Since all kernel and userland pages are identity mapped
+all memory addresses are "real".
+Kernel code has an alloc function available.
+User apps must manually divide up their user page as needed.
+
+
+
+
+Set Pixels
+************
+The bios on startup sets your monitor to 800x600 pixels.
+You have 256 colors available (8bpp). Each color is a byte
+value from 0->255 (0xff) in the DAC palette. 
+See tatos/tlib/palette.s
+Color 0xff is reserved for the background color.
+Values 0xef->0xfe are the basic 16 vga colors.
+By default, the origin of the screen is upper left 0,0
+The lower right corner is 799,599
+This is "top down" graphics drawing.
+This is the way the VGA video buffer is setup.
+Some graphic functions respond to setting the global
+value "YORIENT" which sets y=0 to the bottom scanline
+for "bottom up" drawing. 
+tlib provides functions to set pixels, line, circle, rect...
+You normally draw to the BACKBUF then SWAPBUF
+User apps may draw to a private pixel buffer then use swapuserbuf
+
+
+Keyboard Programming
+***********************
+With each ps2 keypress a byte value is saved to [0x504] see boot/keyboard.s 
+There are special byte value combinations:
+Cut   = Ctrl+x  (0xa1 saved to 0x504)
+Copy  = Ctrl+c  (0xa2 saved to 0x504)
+Paste = Ctrl+v  (0xa3 saved to 0x504)
+PrintScreen: see below
+GETC    = blocking function to retrieve the keypress 
+CHECKC  = non-blocking alternative. 
+The kernel has access to [CTRLKEYSTATE], [ALTKEYSTATE], [SHIFTKEYSTATE]
+User apps should use "getkeystate"
+
+
+
+Sample Code
+**************
+See tatOS/apps. All these programs were written with tedit
+and assembled with ttasm and they all use tlib functions accessed
+thru tlibentry.s 
+
+
+
+Code Timing
+************
+You can time a piece of code by looking at the value of 
+PITCOUNTER before and after the section. The pit is initialized
+to give appx 1000 hits/seconds. Or just use the clock() function
+in time.s
+
+
+
+Print Screen
+***************
+Pressing the "PrntScrn" key will create a tatOS BTS file in memory at address IMAGEBUFFER.
+See tlib/bits.s for what a BTS file is.
+From the bitmap viewer this file data may be saved to flash as BTS or Windows BMP.
+
+
+
+Failed USB Transactions
+***********************
+This happens most often when going thru the flash drive init sequence.
+The best thing to do is wait for your computer to "warm up" after booting.
+Linux calls this "waiting for the device to settle".
+You must reinit the controller and flash after a failed transaction.
+If fatwritefile fails, do a restore FAT2->Fat1  (see xxd.s)
+
+
+
+
+Tom Timmermann
+Janesville, WI USA
+
+
+

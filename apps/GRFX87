@@ -1,0 +1,542 @@
+
+;*******************************************************************
+;Graphic Primative Demo
+
+;June 2013
+;rev Sept 2013 for protected mode interface
+
+;demonstrates a variety of graphic functions in tlib
+
+;note this program use YORIENT=-1
+;so Y=0 is at the bottom and Y=599 is at the top
+
+;assemble as flat binary with ttasm for the tatOS operating system
+;*********************************************************************
+
+org STARTOFEXE
+
+
+
+;************
+;    DATA
+;************
+
+
+;200,000 byte memory block for subdivision demo
+equ SUBDIVPTS,0x02010000
+;24,000 byte memory block for points defining the rose
+equ ROSEPTS,0x2050000
+
+
+Array1:
+db 2,2,2,2,2
+
+Array2:
+db0 100
+
+amplitude:
+dd 50
+
+yoffset:
+dd 500
+
+xc:
+dd 400
+
+yc:
+dd 300
+
+radius:
+dd 100
+
+color:
+dd 0
+
+angle:
+dd 0
+
+
+
+points1:
+dd 0,300, 100,350, 250,50, 350,150, 550,50, 650,150, 550,200
+
+
+
+;for Chamfer demo
+;*****************
+
+vector1:
+dq 700.0
+dq 300.0
+dq 600.0
+dq 400.0
+
+vector2:
+dq 700.0
+dq 300.0
+dq 600.0
+dq 200.0
+
+vector3:
+dq 0.0
+dq 0.0
+dq 0.0
+dq 0.0
+
+
+chamfsize:
+dq 100.0
+
+
+;as of May 2012 ARC structure now has 8 args
+;xc,yc,radius,AngleStart,AngleEnd,AngleInc,color,linetype
+ArcN1:
+dd 400,420,100,0,45,5,0xfe,SOLIDLINE
+
+
+
+
+;for Fillet demo
+;*****************
+
+vector4:
+dq 0.0
+dq 0.0
+dq 200.0
+dq 0.0
+
+vector5:
+dq 0.0
+dq 0.0
+dq 200.0
+dq 200.0
+
+
+filletsize:
+dq 80.0
+
+
+;a call to fillet will fill in the first 20 bytes 
+;needed for arc drawing
+filletArc:
+db0 20
+;and the last 12 bytes we hard code
+dd 5          ;angle_inc
+dd 0xfe       ;color
+dd SOLIDLINE  ;linetype
+
+
+filletbuf2:
+db0 64
+
+
+
+
+
+;strings
+;*************
+str1:
+db 'filled circle',0
+str2:
+db 'filled rect',0
+str3:
+db 'scriptT',0
+str4:
+db 'subdivision',0
+str5:
+db 'chamfer',0
+str6:
+db 'PolarLines',0
+str7:
+db 'circle',0
+str8:
+db 'arc',0
+str9:
+db 'SetPixel',0
+str10:
+db 'HiddenLine',0
+str11:
+db 'CenterLine',0
+str12:
+db 'sincos',0
+str13:
+db 'X0 center',0
+str14:
+db 'Y0 center',0
+str15:
+db 'arc radius',0
+str16:
+db 'arc angle_start,deg',0
+str17:
+db 'arc angle_end',0
+str18:
+db 'fillet',0
+str19:
+db 'Hershey Scaleable Font',0
+str20:
+db 'Font01 for normal text output used by tedit, file manager, viewtxt...',0
+str21:
+db 'Font02 for menus & labels',0
+str22:
+db 'rose',0
+str23:
+db 'Sept 2013 tatOS',0
+
+
+
+
+;data for ROSE
+;**************
+rose_Amplitude:
+dq 50.0
+rose_Kfactor:
+dq 1.42857
+rose_Xcenter:
+dq 100.0
+rose_Ycenter:
+dq 450.0
+
+
+
+
+
+;************
+;    CODE
+;************
+
+
+..start
+
+
+	;black background
+	fillrect 0,0,800,600,BLA
+
+
+	;set the Yaxis orientation to bottom up
+	;so bottom of screen is Y=0 and +Y goes up
+	mov eax,28  ;setYorient
+	mov ebx,-1
+	sysenter
+
+
+	mov eax,38  ;grid
+	mov ebx,100 ;spacing
+	mov ecx,GRA ;color
+	sysenter
+
+
+	;main diagonals
+	line HIDDENLINE,0,0,799,599,RED
+	puts FONT02,20,20,str10,0xfeef
+	line CENTERLINE,0,599,799,0,YEL
+	puts FONT02,20,580,str11,0xfeef
+
+
+
+	;horiz/vert dividers
+	line SOLIDLINE,0,299,799,299,GRE
+	line SOLIDLINE,400,0,400,599,BLU
+
+
+
+	;rectangle in center
+	rectangle 300,200,200,200,LMA
+
+
+	;border
+	rectangle 0,0,799,599,BRN
+
+
+	;just some random pixels
+	setpixel 111,111,WHI
+	setpixel 444,111,WHI
+	setpixel 222,444,WHI
+	setpixel 555,510,WHI
+
+	puts FONT02,555,500,str9,0xfeef
+
+
+
+
+
+	;this large circle actually looks like an ellipse on my old CRT
+	;because the pixels are not square
+	;tatOS does not provide any way to adjust the extents for 
+	;non-square pixels
+	circle 0,400,300,299,GRA
+	puts FONT02,280,580,str7,0xfeef
+
+
+	;show scriptT
+	puts FONT02,670,30,str3,0xfeef
+	mov eax,41  ;putscriptT
+	mov ebx,730
+	mov ecx,30
+	sysenter
+
+
+
+	call DrawPolarLines
+	puts FONT02,400,300,str6,0xfeef
+
+
+
+
+
+	;subdivision demo
+	;*****************
+	;show original polyline of 7 points
+	polyline 0,SOLIDLINE,points1,7,LBL
+
+	mov eax,42  ;subdivide
+	mov ebx,points1
+	mov ecx,7
+	mov edx,SUBDIVPTS
+	sysenter
+
+	;show the subdivided spline of 42 points (8N-14)=42
+	polyline 0,SOLIDLINE,SUBDIVPTS,42,LGR
+	puts FONT02,5,300,str4,0xfeef
+
+
+
+
+
+	;chamfer demo
+	;**************
+	mov eax,43  ;putvectorq
+	mov ebx,vector1
+	mov ecx,LBL
+	sysenter
+
+	mov eax,43  ;putvectorq
+	mov ebx,vector2
+	mov ecx,LBL
+	sysenter
+
+	mov eax,44   ;chamfer
+	mov ebx,vector1
+	mov ecx,vector2
+	mov edx,vector3
+	mov esi,chamfsize
+	sysenter
+
+	mov eax,43  ;putvectorq
+	mov ebx,vector3
+	mov ecx,WHI
+	sysenter
+
+	puts FONT02,630,330,str5,0xfeef
+
+
+
+
+	;arc demo
+	;***********
+	mov eax,46  ;arc
+	mov ebp,ArcN1
+	sysenter
+
+	mov eax,45   ;linepolar
+	mov ebx,SOLIDLINE
+	mov ecx,400  ;x
+	mov edx,420  ;y
+	mov esi,150  ;radius
+	mov edi,45   ;angle,deg
+	mov ebp,BLU  ;color
+	sysenter
+
+	mov eax,45   ;linepolar
+	mov ebx,SOLIDLINE
+	mov ecx,400  ;x
+	mov edx,420  ;y
+	mov esi,150  ;radius
+	mov edi,0   ;angle,deg
+	mov ebp,BLU  ;color
+	sysenter
+
+
+	puts FONT02,440,450,str8,0xfeef
+
+
+
+
+
+	;fillet demo
+	;**************
+	mov eax,43  ;putvectorq
+	mov ebx,vector4
+	mov ecx,BLU
+	sysenter
+
+	mov eax,43  ;putvectorq
+	mov ebx,vector5
+	mov ecx,BLU
+	sysenter
+
+	mov eax,47  ;fillet
+	mov ebx,vector4
+	mov ecx,vector5
+	mov edx,filletsize
+	mov esi,filletArc
+	mov edi,filletbuf2
+	sysenter
+
+	;fillet will return xc,yc,radius,AngleStart,AngleEnd
+	;in our filletArc buffer
+	mov ebx,[filletArc]
+	dumpebx ebx,str13
+
+	mov ebx,[filletArc+4]
+	dumpebx ebx,str14
+
+	mov ebx,[filletArc+8]
+	dumpebx ebx,str15
+
+	mov ebx,[filletArc+12]
+	dumpebx ebx,str16
+
+	mov eax,[filletArc+16]
+	dumpebx ebx,str17
+
+	
+	mov eax,46  ;arc
+	mov ebp,filletArc
+	sysenter
+
+	puts FONT02,120,50,str18,0xfeef
+
+	mov esi,filletbuf2
+	mov eax,43  ;putvectorq
+	mov ebx,esi
+	mov ecx,YEL
+	sysenter
+	add esi,32
+	mov eax,43  ;putvectorq
+	mov ebx,esi
+	mov ecx,YEL
+	sysenter
+
+
+
+
+	;show a filled circle
+	circle 1,700,500,50,RED
+	puts FONT02,690,500,str1,0xfeef
+
+	;show a filled rectangle
+	fillrect 700,200,100,100,0x34
+	puts FONT02,700,200,str2,0xfeef
+
+
+
+	;Hershey fonts must use Yorient=1
+	mov eax,28  ;setyorient
+	mov ebx,1
+	sysenter
+	putshershey 50,50,str19,GRE,0,3
+	mov eax,28  ;setyorient
+	mov ebx,-1
+	sysenter
+
+
+
+	;font01 and font02 demo
+	puts FONT01,50,220,str20,0x20ef
+	puts FONT02,50,240,str21,0x10ef
+
+
+	;rose demo
+	;you can draw many "spirograph" type curves
+	;just change the value of rose_Kfactor
+	;generate points defining a rose 
+	mov eax,49
+	mov edi,ROSEPTS
+	fld qword [rose_Ycenter]
+	fld qword [rose_Xcenter]
+	fld qword [rose_Amplitude]
+	fld qword [rose_Kfactor]
+	sysenter
+	;display the rose
+	polyline 0,SOLIDLINE,ROSEPTS,3000,RED
+	puts FONT02,100,400,str22,0xfeef
+
+
+
+	;date
+	puts FONT02,400,20,str23,0xf2ef
+
+
+donemain:
+	swapbuf
+	getc
+	exit
+
+
+	;end of Graphics Primitives Demo
+
+
+
+
+
+
+
+;**************************
+;        SUBROUTINES
+;**************************
+
+
+DrawPolarLines:
+
+	;draw a bunch of lines emanating from a point
+	;each line is same length, just differant angles
+
+	;draw a circle to border the radial line endpoints
+	circle 0,[xc],[yc],[radius],BLU
+
+
+	mov dword [angle],0    ;init angle
+	mov dword [color],120  ;init color
+
+DrawRadialLine:
+
+	mov eax,45  ;linepolar
+	mov ebx,0xffffffff
+	mov ecx,[xc]
+	mov edx,[yc]
+	mov esi,[radius]
+	mov edi,[angle]
+	mov ebp,[color]
+	sysenter
+
+	;increment color
+	add dword [color],1
+
+	;increment angle by 10 deg
+	add dword [angle],10
+
+	cmp dword [angle],360
+	jb DrawRadialLine
+
+DoneDrawPolar:
+	ret
+
+
+
+
+
+     
+;*************************TheEnd********************************
+   
+
+
+
+
+
+
+
+
+
+
+
+    

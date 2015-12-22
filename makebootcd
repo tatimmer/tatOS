@@ -1,0 +1,26 @@
+#!/bin/sh
+# a Linux script for making a single track bootCD
+# using a CD-R or CD-RW disc
+# be sure you have a full 1474560 byte img file first !
+
+
+#make new file.iso from the img file
+#-b option is for El Torito bootcd
+mkisofs -b ddusb.img -R -o file.iso /home/tom/projects/ddusb/ddusb.img
+
+
+#if CD-RW, first you must erase the disc
+#my drive does not accept blank=track
+#my drive will accept blank=all but its a 15 minute operation
+#blank=fast takes about 30 seconds
+sudo cdrecord -v blank=fast speed=8  dev=/dev/hdd
+
+
+#burn cd
+sudo cdrecord -v -tao speed=8  dev=/dev/hdd  -data  file.iso
+
+
+#remove the file.iso
+rm file.iso
+
+

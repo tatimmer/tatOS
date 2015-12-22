@@ -1,0 +1,435 @@
+
+;*******************************************************
+;Plasma.s
+;Our first attempt at fpu programming
+;uses a lookup table to compute 
+;128 + 256*sin(i*2PI/256) for i=0->255
+;the colors on the screen are the sum of 4 sin waves
+;palette rotation provides the dynamic affect
+;this code is based on "Plasma2.cpp" for DOS mode13
+;the author and date were not given
+
+;there are 2 ways to assemble and run this program
+;see note [1] which shows how to comment out certain
+;lines allowing you to just show the animated palette
+;or alternately show the full animated sine waves
+
+;assemble this code with ttasm and run under tatOS
+;2012 Tom Timmermann
+;rev Sep 2013 for protected mode interface
+
+;*******************************************************
+
+org STARTOFEXE
+
+
+
+
+;***************
+;    DATA
+;***************
+
+
+;we need 1200 bytes for a sin table
+equ SINETABLE,0x2001000
+
+;we draw to a private pixel buffer
+;then use swapuserbuf to copy to the linear frame buffer
+;this is the starting address of the private pixel buffer
+equ PLASMAVIDEOBUF,0x2002000
+
+
+
+
+OneTwentyEight:
+dd 128
+TwoFiftySix:
+dd 256
+twoPIover256:
+dq .024543693
+i:
+dd 0
+stor:
+dd 0
+inp11:
+dd 563
+inp12:
+dd 233
+inp13:
+dd 4325
+inp14:
+dd 312556
+p11:
+dd 0
+p12:
+dd 0
+p13:
+dd 0
+p14:
+dd 0
+BitsPerScanLine:
+dd 0
+
+
+
+PlasmaPalette:
+db0 800
+
+stor_r:
+db 0
+stor_green:
+db 0
+stor_b:
+db 0
+
+
+
+;***************
+;    CODE
+;***************
+
+
+..start
+
+
+
+	;build a lookup sine table
+	;which is used later to determine color index
+	;sinetable[] = 128 + 256*sin(i*2PI/256)
+
+	mov dword [i],0 
+
+	mov eax,22  ;get BPSL
+	sysenter
+	mov [BitsPerScanLine],eax
+
+	mov esi,SINETABLE
+	mov ecx,0
+
+buildsinetable:
+
+	fld   qword [twoPIover256]
+	fimul dword [i] 
+	fsin 
+	fimul dword [TwoFiftySix] 
+	fiadd dword [OneTwentyEight]
+	fistp dword [esi]
+	add esi,4
+	inc dword [i]
+	inc ecx
+	cmp ecx,256
+
+	jb buildsinetable
+
+	
+
+
+	;build a new palette array (256*3 colors)
+	;the colors go from black->dkred->red->orange->yellow
+	;and back again
+
+	;1st quarter
+	mov edi,PlasmaPalette
+	mov ecx,0
+buildPalette1:
+	mov al,cl
+	stosb
+	mov al,0
+	stosb
+	stosb
+	inc ecx
+	cmp ecx,64
+	jb buildPalette1
+
+
+	;2nd quarter
+	mov edi,PlasmaPalette
+	add edi,192
+	mov ecx,0
+buildPalette2:
+	mov al,63
+	stosb
+	mov al,cl
+	stosb
+	mov al,0
+	stosb
+	inc ecx
+	cmp ecx,64
+	jb buildPalette2
+
+
+
+	;3rd quarter
+	mov edi,PlasmaPalette
+	add edi,384
+	mov ecx,0
+buildPalette3:
+	mov eax,63
+	stosb
+	sub eax,ecx
+	stosb
+	mov al,0
+	stosb
+	inc ecx
+	cmp ecx,64
+	jb buildPalette3
+
+
+
+	;4th quarter
+	mov edi,PlasmaPalette
+	add edi,576
+	mov ecx,0
+buildPalette4:
+	mov eax,63
+	sub eax,ecx
+	stosb
+	mov al,0
+	stosb
+	stosb
+	inc ecx
+	cmp ecx,64
+	jb buildPalette4
+
+
+
+	mov eax,17  ;setpalette
+	mov ebx,PlasmaPalette
+	sysenter
+
+
+
+	;setup for plotting pixels
+
+	rand 0
+	;returns dword in eax
+	xor edx,edx
+	mov ebx,10
+	div ebx
+	;remainder in edx
+	add [inp11],edx
+
+	rand 0
+	xor edx,edx
+	mov ebx,10
+	div ebx
+	sub [inp12],edx
+
+	rand 0
+	xor edx,edx
+	mov ebx,10
+	div ebx
+	add [inp13],edx
+
+	rand 0
+	xor edx,edx
+	mov ebx,10
+	div ebx
+	sub [inp14],edx
+
+	mov eax,[inp11]
+	mov [p11],eax
+	mov eax,[inp12]
+	mov [p12],eax
+	mov eax,[inp13]
+	mov [p13],eax
+	mov eax,[inp14]
+	mov [p14],eax
+
+
+
+
+	;Double loop to plot sine waves of various colors in our palette
+	;****************************************************************
+
+
+	;begin paint
+	mov edi,PLASMAVIDEOBUF
+
+
+
+	;[1]
+	;for debug to just see what the palette looks like
+	;uncomment these 2 lines which skips over the
+	;sine wave drawing and just shows the palette
+	;call [PUTPALETTE]
+	;jmp EndPaint
+
+
+
+	;counter for Yloop
+	mov ebp,0
+
+Yloop:
+
+	mov eax,[inp11]
+	mov [p11],eax
+	mov eax,[inp12]
+	mov [p12],eax
+
+
+	;counter for Xloop
+	mov edx,0
+
+	;save address at beginning of scanline
+	push edi
+
+Xloop:
+
+	;color to set is sum of 4 sin waves
+
+	;sin1
+	mov ecx,[p11]
+	and ecx,0xff
+	mov eax,SINETABLE[ecx]
+
+	;sin2
+	mov ecx,[p12]
+	and ecx,0xff
+	mov ebx,SINETABLE[ecx]
+	add eax,ebx
+
+	;sin3
+	mov ecx,[p13]
+	and ecx,0xff
+	mov ebx,SINETABLE[ecx]
+	add eax,ebx
+
+	;sin4
+	mov ecx,[p14]
+	and ecx,0xff
+	mov ebx,SINETABLE[ecx]
+	add eax,ebx
+	
+	;set pixel
+	stosb
+
+	;increment
+	add dword [p11],3
+	sub dword [p12],4
+
+	inc edx
+	cmp edx,800
+	jb Xloop
+
+
+	;prepare for next scanline
+	pop edi
+	add edi,[BitsPerScanLine]
+	add dword [p13],2
+	add dword [p14],5
+	inc ebp
+	cmp ebp,600
+	jb Yloop
+
+
+
+
+EndPaint:
+	mov eax,23  ;swapuserbuf
+	mov esi,PLASMAVIDEOBUF
+	sysenter
+
+
+
+
+
+	;the above code has done its job of setting pixels 1 time
+	;now to animate all we do is rotate the palette
+	;here is the animation loop
+	;***********************************************************
+
+RotatePalette:
+
+
+
+	;[1]
+	;for debug to see what the palette rotation looks like
+	;uncomment these 3 lines which rotates the palette with each keypress
+	;hold the spacebar down to see how the palette is rotated
+	;press F1 to exit the program
+	;call [GETC]
+	;cmp al,F1
+	;jz Quit
+
+
+
+	;first save the first r,g,b
+	mov esi,PlasmaPalette
+	lodsb
+	mov [stor_r],al
+	lodsb
+	mov [stor_green],al
+	lodsb
+	mov [stor_b],al
+
+	;now slide the next 765 bytes of the PlasmaPalette left 3 bytes
+	mov esi,PlasmaPalette
+	mov edi,esi
+	add esi,3
+	mov ecx,765
+	cld
+	repmovsb
+
+	;copy the first r,g,b to the end
+	mov al,[stor_r]
+	stosb
+	mov al,[stor_green]
+	stosb
+	mov al,[stor_b]
+	stosb
+	
+
+
+	;set the palette to the DAC
+	mov eax,17  ;setpalette
+	mov ebx,PlasmaPalette
+	sysenter
+
+
+
+	;timings and speed will of course depend on your processor etc
+	;I develop this code on a 550 MHZ processor 
+	;family/model/stepping = 06/07/03
+	;I vary sleep time from 1->50 ms
+	;for maximum speed just comment out this sleep code
+	;I cant watch at full speed, its too crazy !
+	mov eax,37  ;sleep
+	mov ebx,3   ;milliseconds
+	sysenter
+
+
+
+
+	;[1]
+	;and comment out this CHECKC if you are showing just the palette 
+	mov eax,12  ;checkc
+	sysenter
+
+
+	jz RotatePalette
+
+Quit:
+done:
+
+
+	;restore the stdpalette
+	mov eax,17
+	mov ebx,0
+	sysenter
+	
+	exit
+
+
+     
+    
+;***********************TheEnd *************************
+
+
+
+
+
+
+    
+
+             

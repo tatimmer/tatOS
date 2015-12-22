@@ -1,0 +1,143 @@
+
+;**********************************************
+;RANDRECT
+;simto Charles Petzold in Programming Windows
+;assemble with ttasm for tatOS
+;Oct 2012
+;revised Aug 2013 to use dword values
+;and new tatOS system calls
+;**********************************************
+
+org STARTOFEXE
+
+
+;**********
+; DATA
+;**********
+
+x:
+dd 0
+y:
+dd 0
+w:
+dd 0
+h:
+dd 0
+c:
+dd 0
+
+clipw:
+dd 790
+cliph:
+dd 590
+
+str1:
+db 'Random Rectangles',10
+db 'This routine is inspired by a similar program',10
+db 'written by Charles Petzold in "Programming Windows"',10
+db 'press any key to continue',10
+db 'Press another key to quit',0
+
+
+;**********
+; CODE
+;**********
+
+..start
+
+
+	;3 overlapping startup rectangles
+	fillrect 200,50,100,100,GRE
+	fillrect 250,100,100,100,BLU
+	fillrect 300,150,100,100,YEL
+
+	;background rectangle for startup message
+	fillrect 150,350,600,100,BLA
+
+	;startup message inside black rectangle
+	putsml FONT01,150,350,str1,0xf4ef
+
+	swapbuf  ;make everything show up
+	getc     ;get going after user hits a key
+
+
+	;assign a value of 333 as SEED for rand
+	rand 333
+
+
+.mainloop:
+
+
+	;set X
+	rand 0
+	;returns random number in eax
+	mov edx,0  ;0 out before div
+	div dword [clipw]
+	;div returns quotient in eax and remainder in edx
+	mov [x],edx
+
+
+
+
+
+	;set Y
+	rand 0
+	mov edx,0
+	div dword [cliph] 
+	mov [y],edx
+
+
+	;set WIDTH
+	rand 0
+	mov edx,0
+	div dword [clipw] 
+	;fillrect does not like w or h = 0
+	add edx,10
+	mov [w],edx
+
+
+	;set HEIGHT
+	rand 0
+	mov edx,0
+	div dword [cliph] 
+	add edx,10
+	mov [h],edx
+
+
+	;set color
+	inc dword [c]
+	cmp dword [c],255
+	jb .doneColor
+	mov dword [c],0
+.doneColor:
+
+
+
+
+	cliprect [x],[y],[w],[h]
+	;return clipped values in eax,ebx,esi,edi for x,y,w,h
+
+
+
+
+	;draw the clipped rect
+	mov ecx,eax  ;x=ecx
+	xchg ebx,ecx ;x=ebx, y=ecx
+	fillrect ebx,ecx,esi,edi,[c]
+
+
+	swapbuf
+	checkc  ;any keypress will kill the app
+	jz .mainloop
+
+
+	exit  ;back to tedit
+
+
+
+;***********************TheEnd ***************************
+
+
+
+
+               

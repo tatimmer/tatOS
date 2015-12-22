@@ -1,0 +1,165 @@
+;MANDELBROT
+;This code is taken from A-linux
+;a-linux.img is the bootable floppy image
+;see linuxassembly.org for more info
+;Tom Timmermann modified for 800x600x8bpp pmode 32bit 
+;assembles with ttasm as flat binary
+;Dec 2008
+;rev Oct 2013 for tatOS protected mode interface
+
+
+;*****************************************************************
+;
+; MANDELBROT GENERATOR 
+;
+; $Id: mandelbrot.asm,v 1.1 2006/02/09 07:36:07 konst Exp $
+;
+; Original code by Tenie Remmel & John Eckerdal
+; ported to Linux/framebuffer by Stephan Walter <stephan.walter@gmx.ch>
+;
+; (c) 2002 by Stephan Walter - licensed under the GNU GPL
+;
+; v1.0 2002-06-02 --- First release (175 bytes)
+;
+;
+; Well, it's nothing new, just another Mandelbrot proggie. It uses
+; 640x480x8 fb mode (like all the other asmutils gfx programs).
+; Use Ctrl-C to exit.
+;
+; Color palette is not set. If you run fire256 or X11 before running
+; this program, you'll get different colors.
+;
+; The size of the DOS/INT10h program was 61 bytes, my version has 175 :-(
+;
+;
+; Original file comment:
+;================================================================
+;This is a small implementation of a mandelbrot generator. 
+;I've found this gem a some time ago in a swedish fido-net meeting 
+;as a UUencoded file. All comments have been inserted by me 
+;(John Eckerdal). I have tried to give some information about what 
+;the program acutally calculates. This information might however be 
+;incorrect.  The source and a compiled version is available for 
+;download (1092 bytes). 
+
+; mandelbrot plotter, 61 bytes - Tenie Remmel
+;===============================================================
+
+org STARTOFEXE
+
+
+
+;*****************
+;    DATA
+;*****************
+
+;we set pixels in a private userland buffer
+;in the same page and directly after users code
+equ USERBUF,0x02005000
+
+bitsperscanline:
+dd 0
+
+
+;*****************
+;    CODE
+;*****************
+
+start
+
+
+	;get bitsperscanline
+	mov eax,22
+	sysenter
+	mov [bitsperscanline],eax
+
+
+	cld
+
+	;set edi to point to first pixel of users private buffer
+	mov edi,USERBUF
+	mov ecx,600   ;height and outer loop counter
+
+	
+
+outer_loop:
+	mov esi,[bitsperscanline]
+	
+
+inner_loop:
+	mov ebp, 127 	
+	; number of iterations. Can be >127 but then
+	; it uses 2 more bytes. >255 makes no sense
+	; because this is used for the pixel color.
+
+	xor ebx,ebx
+	;  re := 0
+	xor edx,edx
+	;  im := 0
+
+complex_loop:
+
+	push edx
+	mov eax, ebx
+	sub eax,edx
+	;  eax := re - im
+	add edx,ebx
+	;  edx := re + im
+	imul edx
+	;  u := (re-im) * (im+re) = re^2 - im^2
+	sar eax,8
+	;  u := u / 2^8
+	pop edx
+
+	xchg ebx, eax
+	sub ebx,esi
+	;  new_re := u - width
+        
+	imul edx
+
+	;shld edx, eax, 25	
+	;ttasm does not support shld so we hardcode
+	db 0x0f,0xa4,0xc2,0x19
+	;  edx := 2(re * im) / 2^8
+
+	sub edx,ecx
+	;  new_im := 2(rm * im) / 2^8 - height
+
+	;test dh,dh		
+	;yet another instruction unsupported by ttasm
+	db 0x84,0xf6
+	; if j>=256 plot pixel
+
+	jg plot_color
+
+	dec ebp
+	; next iteration
+	jnz complex_loop
+
+plot_color:
+
+	xchg ebp,eax
+
+	stosb    ;plot pixel, al->edi, edi++
+
+
+	dec esi
+	jnz inner_loop
+
+	loop outer_loop
+
+	
+
+	mov eax,23  ;swapuserbuf
+	mov esi,USERBUF
+	sysenter
+
+	getc
+	exit
+
+
+
+;*********************TheEnd**********************************
+
+
+ 

@@ -1,0 +1,98 @@
+asmWin
+
+In case you find yourself on a windows machine
+and have the itch to develope some asm code.
+Put code in a file main.s
+Need nasm and gcc/mingw installed
+
+Makefile would look something like this:
+
+	#To produce main.obj
+	nasm -f win32 main.s
+	
+	#To create windows executable and link with Clib 
+	gcc -o main.exe main.obj
+
+
+;**********************************************************
+
+bits 32
+
+global _WinMain@16
+extern _scanf, _printf, _getchar, _putchar, _fputs, _puts
+
+section .text
+_WinMain@16:
+
+
+	;print contents of eax
+	mov eax,123456
+	push eax
+	push format
+	call _printf  ;call C function
+	pop ecx       ;in C the caller does cleanup
+	pop ecx  
+
+	;print some dots
+	push '.'
+	call _putchar
+	pop ecx
+	push '.'
+	call _putchar
+	pop ecx
+
+	;print newline
+	push 0xa
+	call _putchar
+	pop ecx
+
+	;print string
+	;make sure DF is clear or else results are unpredictable
+	cld
+	push string1
+	call _puts
+	pop ecx
+
+
+	;print double precision floating point qword
+	push dword [dbl+4]
+	push dword [dbl]
+	push formatF
+	call _printf
+	pop ecx
+	pop ecx
+	pop ecx
+
+
+	;print contents of eax plus a string
+	;e.g. "1234...Hello World !"
+	;note the address of format string is pushed last
+	;the address of args within format are pushed right->left
+	mov eax,1234
+	push string1
+	push eax
+	push format3
+	call _printf
+	pop ecx
+	pop ecx
+	pop ecx
+
+
+	ret
+
+
+
+section .data
+string1 db "Hello World !",0
+format  db "%d",0
+formatF db "%.10g",0
+format3 db "%d...%s",0
+dbl     dq 345.6789
+
+
+
+
+
+Check out Ollydebug.
+
+

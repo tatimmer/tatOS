@@ -1,0 +1,59 @@
+auto-local variables
+**********************
+
+Assembly programmers can use the stack to create space 
+for what C calls auto or local variables. These variables live 
+for the duration of the procedure and when the procedure returns 
+these variables are no longer available.
+
+
+;example to call a procedure requiring 3 args on the stack
+push dword A
+push dword B
+push dword C
+call myproc
+
+
+
+
+;this subroutine requires 3 args on the stack
+
+;input:
+;push dword A  [ebp+16]
+;push dword B  [ebp+12]
+;push dword C  [ebp+8]
+
+myproc:
+
+	push ebp
+	mov ebp,esp
+
+	;create space on stack for 4 local dwords = 16 bytes
+	;these locals can be accessed at [ebp-4], [ebp-8], [ebp-12], [ebp-16]
+	;see note [1] below
+	sub esp,16  
+
+	;other code
+
+.done:
+	mov esp,ebp    ;deallocate locals 
+	pop ebp
+	retn 12
+
+
+
+
+note [1]:
+	now the stack looks like this after [sub esp,16]:
+	esp points here--->
+	ebp-16  ;local dword storage
+	ebp-12  ;local dword storage
+	ebp-8   ;local dword storage
+	ebp-4   ;local dword storage
+	ebp     ;value of ebp when "push"ed
+	ebp+4   ;return address placed on stack by "call"
+	ebp+8   ;dword C
+	ebp+12  ;dword B
+	ebp+16  ;dword A
+
+

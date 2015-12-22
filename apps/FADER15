@@ -1,0 +1,121 @@
+
+;************************************************
+;textfader
+
+;this demonstrates animation of one entry 
+;in the DAC palette
+
+;program speed is controlled by the sleep function
+;and will quit automatically (no need for keypress)
+
+;Oct 2012
+;rev Oct 2013 for tatOS protected mode interface
+;************************************************
+
+org STARTOFEXE
+
+
+
+;*********
+;  DATA
+;*********
+
+blue:
+db 0
+
+col:
+dd 0
+row:
+dd 0
+
+str1:
+db 'Hello World',0
+
+;*********
+;  CODE
+;*********
+
+start
+
+	
+	;black screen
+	fillrect 0,0,800,600,BLA
+
+	;draw a bunch of "hellow worlds" to fill the screen
+	;draw a column from bottom up and right to left
+	mov dword [col],640
+	mov dword [row],580
+
+	;we will animate the text color in the DAC palette
+	;index=0 is initially the same as the background color
+	;so the text wont show at first
+.1:
+	puts FONT01,[col],[row],str1,0x00ef
+	sub dword [row],15
+	jns .1
+
+	;move left
+	mov dword [row],580
+	sub dword [col],150
+	jns .1
+
+	swapbuf
+
+
+
+
+ 	;make the text color go from black->blue
+.FadeIN_loop:
+
+	mov eax,61     ;setdaccolor
+	mov dl,0       ;red
+	mov dh,0       ;green
+	mov bl,[blue]  ;blue
+	mov ecx,0      ;set color index=0 in DAC
+	sysenter
+	
+	mov eax,37     ;sleep
+	mov ebx,100    ;milliseconds
+	sysenter
+
+	;increment blue
+	inc byte [blue]  ;brighten the text color
+
+	;DAC colors are 6bit 
+	cmp byte [blue],0x3f 
+	jb .FadeIN_loop
+
+
+
+
+	;make the text go from blue->black
+.FadeOUT_loop:
+
+	mov eax,61   ;setdaccolor
+	mov dl,0  
+	mov dh,0  
+	mov bl,[blue]
+	mov ecx,0
+	sysenter
+
+	mov eax,37    ;sleep
+	mov ebx,100
+	sysenter
+
+	dec byte [blue] ;darken the text color
+
+	cmp byte [blue],0 
+	ja .FadeOUT_loop
+
+
+
+	exit  ;to tedit
+
+
+;***********************TheEnd *****************************
+
+
+
+
+
+ 

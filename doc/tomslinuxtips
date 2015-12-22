@@ -1,0 +1,1715 @@
+***************************************
+tomslinuxtips
+command line, setup, configuration
+alphabetical list of programs/utilities/tips
+rev: Dec 2015
+***************************************
+
+There are references in here to Mandrake Linux 10.1 which was my
+original linux. Then I switched to Ubuntu Breezy Linux and now I use Debian Lenny.
+
+&  (put this after command and shell returns immediately)
+*  (multi-char wildcard)
+?  (single char wildcard, ??? denotes 3 char)
+>  (pipe output to)
+>> (append)
+/dev/null  you can also direct output here
+
+
+
+alt+F2 invokes run dialog
+
+
+
+adduser,addgroup
+just what they mean
+see also groupadd, useradd
+
+
+
+ald
+assembly language debugger by Patrick Alken
+vary nice debugger to step thru assembly code on linux
+shows whats in every register
+<ald exename> to invoke
+<n> for next instruction
+<s> step into subroutine
+<help> within ald to see list of interactive commands
+<set step-display-fpregs on> to see the fpu registers
+see also ~/.aldrc  resource file
+http://ald.sourceforge.net
+linker ld needs to include -g debugging symbols
+
+
+
+alias
+create shortcut commands in your .bashrc
+alias ticon='sudo pon ticon'
+alias connect='sudo pon ticon'
+
+
+
+alsa
+/proc/asound/version
+Advanced Linux Sound Architecture Driver Version 1.0.6.
+Compiled on Sep  8 2004 for kernel 2.6.8.1-10mdk.
+/usr/share/doc/libalsa2-docs-1.0.6 contains lots of html help (no man files)
+/usr/include/alsa/ has headers for alsa development
+/usr/lib/ao/plugins-2/ has some alsa shared libraries
+we have installed the alsa devel and doc rpm packages
+run "speaker-test" to here white noise
+run "alsamixer" to adjust sound parameters
+run "alsaconf" to load drivers for your sound card
+
+
+
+alsamixer
+ncurses mixer control program (low level sound card control)
+run <alsamixer> from commandline
+or install the package gnome-alsamixer for graphical 
+Playback loudness is controlled by "Master" and "PCM"
+use "m" key to toggle on-off 00=on, MM=off
+use up/dn arrow to set level
+see also "amixer" similar program
+if you have recording problems
+hit tab key to switch from "playback" to "capture" screen
+then adjust "capture" level to 100% with up arrow
+
+
+
+
+apt-get
+you need to run these apt-get commands from root
+see tomsaptgetips
+a favorite ubuntu command: sudo apt-get install ...
+<apt-cache search notsureofpackagename> get package name
+<apt-cache showpkg packagename>show package info
+<apt-get update> sources list
+<apt-get install packagename>
+<apt-get remove packagename>
+<apt-get upgrade> all installed packages
+<apt-get dist-upgrade>
+<dpkg -l *package-name-pattern*> List installed packages matching pattern
+<dpkg -S filename>  Which installed package owns the file?
+<dpkg -L package> List files in the package
+<dpkg -i package> install package
+<apt-get autoclean> Run periodically to clean out .deb archives
+
+some good apt-get packages 2 download (or install from Debian DVD distro): 
+manpages-dev, xfig+transfig+fig2ps, xpdf, xxd, gnuplot, timidity, mc, sox, imagemagick, xpaint, libx11-dev, libxmu-dev, libxpm-dev, man2html, gawk, cdtool, info, audacity, gv, cvs, csound, csound-doc, libcairo2-doc, mozilla-acroread, nasm, tofrodos, vim-full, ctags, gnome-commander, pmount, dosfstools, ffmpeg, dosbox
+
+
+
+
+arch
+print machine architecture
+all it displayis is "i686" on my gateway PentiumII
+
+
+
+aspell
+an interactive very cool command line spell checker
+debian packages: aspell and aspell-en for the english dictionary
+<aspell -c filename> gets your going
+
+
+
+audacity
+sound file analyser 
+you can view and manipulate sound waves with this program
+can view stereo tracks side by side
+
+
+
+autopackage
+some programs are packaged with autopackage
+from the commandline "bash packagename.package"
+will get things going
+
+
+
+.bashrc
+read at startup of each terminal
+see also .bash_profile
+
+
+bitmap
+the x11 bitmap (.xpm) editor 
+
+
+
+bochs
+pc emulator
+sudo apt-get install bochs (also bochs-docs and bochs-sdl)
+/usr/share/doc/bochs-doc/user is where you find html help files
+~/.bochsrc is the file to edit for customizations
+you can just put a "bochsrc" file in the cwd and 
+bochs will read this first.
+push Scroll Lock key for full screen mode
+push Alt-F4 to close the window
+Ctrl+MiddleMouse to disable emulated mouse and get Xwindow mouse
+
+
+
+
+bunzip2
+<bunzip2 -d filename.tar.bz2> will extract to filename.tar
+then use tar xvf filename.tar to extract the remainder
+see tar which can handle both tar.gz/tar.bz2 in one step
+
+
+
+
+cairo
+a vector graphics library with c functions
+libcairo2-doc installs to /usr/share/gtk-doc/html/cairo
+once you have learned postscript move on to this
+outputs to png, pdf, or X or MS windows
+
+
+
+cal
+prints a the monthly calender
+
+
+
+
+cat
+concatenates files to stdout
+the entire file is spooled
+see also more, less, head, tail
+
+
+
+cd
+change directory
+cd dir
+.   (current dir)
+..  (parent dir)
+~   (home dir = /home/tat)
+/   (root dir)
+
+
+
+cdtool
+commandline control of audio cd
+cdplay, cdstop, cdir, cdeject, cdinfo
+<cdplay -d /dev/hdc start> or just <cdplay> works
+see also alsamixer
+must have 4-pin wire from cd drive to sound card
+will not play thru pci bus like gnome-cd
+
+
+
+chmod
+change file access permissions for OWNER/GROUP/OTHERS
+u=user/owner, g=group, o=others a=all
+r=read,w=write,x=execute,X=directory execute
+<chmod u=rw,g=r,o=r filename>
+<chmod a=rwx fileordirname> gives everybody read/write/execute
+<chmod 755 /> will set permissions on / to rwxr-xr-x
+if you have login or su problems check permissions on / and /home/tom
+typically I use on files:u=rw,g=r,o=r and dir:u=rwx,g=r,o=r
+
+
+
+
+chown
+change file owner: user/group
+<chown tom filename> changes the user
+<chown :group filename> changes the group
+<chown tom:family filename> changes user and group
+
+
+
+color
+std x11 colors are defined as "rgb:rr/gg/bb" or "name"
+see /usr/X11R6/lib/X11/rgb.txt for about 750 defined names
+
+
+
+convert
+imagemagick jpg/png/bmp converter 
+convert -stroke 'rgb(200,0,0)' -draw 'line 0,0 50,50' in.jpg out.jpg
+convert in.jpg -resize 50% out.jpg
+convert in.jpg -resize 800x out.jpg  (force 800 pixel width)
+convert in.jpg -crop 90% out.jpg  (crop width/height to 90%)
+convert picture.bmp picture.png
+convert -colors 256 -depth 8 -compression none image24bit.bmp image8bit.bmp
+
+
+
+cut/copy/paste
+not consistant in Linux 
+copy = Ldrag(rxvt) or shift+Ldrag(mc)
+paste = (in vi insert mode) shift+insert or shift+Mclick
+in gnometerminal you can Lclickdbl for copy then Mclick for paste
+
+
+
+cp
+copy files or directories
+cp src dest
+cp  file1 /dir             copy to /dir
+-r recursive decent thru all files in all subdir
+-f force no prompt
+cp file ..                 copy file to directory 1 level up
+cp -r dir1 dir2            copy dir1 and contents to dir2-
+                           if dir2 exists then dir1 is a subdir
+cp -r dir1/* dir2          copy contents of dir1 to dir2
+cp -r * /home/tom          copy everything in current dir to /home/tom
+cp -r dir /media/pendrive  copy dir to pendrive
+cp * /media/floppy         copy everything in cur dir to mounted floppy
+
+
+
+cron
+see /etc/cron.daily for scripts that are run automatically
+just move the scripts to disable the cron activity
+
+
+
+
+csound
+audio synthesis and a whole lot more
+see "/usr/share/doc/csound-doc/manual/index.html" for help
+
+
+
+
+ctags
+generate a tag file of your "C" project
+<ctags filename> creates a tags file for filename only
+<ctags -R> goes thru all files and subdir recursively in current dir
+put cursor over a function call or struct type and hit Ctrl-] to jump to def
+Ctrl-T jump back. 
+tags file will not catch function definitions if you have any mismatched blocks {}.
+
+
+
+
+Ctrl+c             (kill process)
+Ctrl+Alt+Backspace (reboot xserver)
+Ctrl+Alt+F2        (kill xserver, login as root)
+
+
+
+date
+to set date su to root
+example: date 072923161998 
+sets date to July 29, 1998 ...2316 is military time hhmm
+to get date just type "date" (Sun Feb 19 18:13:58 CST 2006)
+date -s "1 Sep 2009 15:45:00" is a little simpler
+this changes the date as it shows in the upper right of gnome
+
+
+
+dd
+raw byte copy and file converter
+can copy any amount of bytes from anywhere to anywhere
+do not mount before or after
+raw dd copy to floppy wipes out floppy file system
+bs sets input and output block size to n bytes
+to copy image file to make boot floppy:
+<dd if=file.img of=/dev/fd0 bs=2x80x18b>
+it also works to omit the bs= 
+to create image file from floppy:
+<dd if=/dev/fd0 of=file.img>
+to backup hard drive to sda:
+<dd if=/dev/hda of=/dev/sda conv=noerror,sync bs=4k>
+to copy mbr first 446 bytes of sda to file:
+<dd if=/dev/sda  of=/home/mbr.img  bs=446 count=1>
+to zero first 512 bytes of partition:
+<dd if=/dev/zero of=/dev/hda1 bs=512 count=1>
+to copy the first block off your pen drive to a file
+<dd if=/dev/sda of=temp bs=512 count=1>
+to copy a file to your pen drive skipping the first 670 blocks
+<dd if=file of=/dev/sda seek=670>
+to copy 100 blocks off your pen drive skipping the first block
+<dd if=/dev/sda of=temp skip=1 count=100>
+ 
+
+
+
+/dev
+fd0=floppy
+sda1=usb pendrive if its formatted with fat16
+sda if pendrive is not formatted at all (MBR and FAT have been overwritten)
+hda=hard drive
+hda1=Windows partition
+hda2=Linux partition
+hdc=dvd (master cdrom)
+hdd=cdburner (slave cdrom)
+ttyS0=modemSerielPort
+sndstat=sound card/driver info
+
+
+
+diff
+looks for differences between 2 files
+diff -w file1 file2
+
+
+
+
+display
+imagemagick image viewer
+<display imagefilename> will pop up an x-window of the image
+see also, ImageMagick, convert, import
+M-click to create a magnified window image
+
+
+dosbox
+dos emulator allows you to run old .com files on Linux and Windows
+
+
+du
+disk usage
+<du -k filename> 
+<du -s -k dirname> size of directory contents
+-s summary only (default is echo each file to stdout)
+-k units=kilobytes
+to check the size of all files on a floppy first mount
+the floppy then cd to /media/floppy then issue "du -k"
+which will give you the number of kilobytes on the floppy
+
+
+
+
+df
+report filesystem disk space usage
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/hda5             3.1G  2.4G  587M  81% /
+/dev/hda7             2.0G   66M  2.0G   4% /home
+/dev/hda1             4.0G  2.1G  1.9G  53% /mnt/windows
+
+
+
+dmesg
+kernel message log can be viewed with this command
+for example after plugging in flash drive run dmesg:
+CSI device sda: 505856 512-byte hdwr sectors (259 MB)
+[4297774.392000] sda: Write Protect is off
+[4297774.392000] sda: Mode Sense: 03 00 00 00
+[4297774.392000] sda: assuming drive cache: write through
+
+
+dos2unix
+to get rid of annoying ^M in your text files install Debian package "tofrodos" 
+this contains the programs fromdos and todos
+
+
+
+dosfsck
+check the fat file system of your storage device, flash drive or whatever
+this must be executed from root
+dosfsck -l -n -v /dev/sda > myfscheck.txt
+-l list path names of files
+-n no operation mode, just check but dont write to disc
+-v verbose
+
+
+
+dpkg
+debian installer also ubuntu
+--install  --info   --list   --contents
+<sudo dpkg --install  packagename.deb>
+
+
+
+
+eject 
+opens cd tray
+see also cdtool and cdcd
+
+
+
+export
+set environmental variable
+<export FPATH=~/scripts> 
+<export CVSROOT=/usr/local/whatever> 
+see also printenv
+to make perminant edit .bashrc or .bash_profile
+<FPATH=~/scripts;export FPATH> save file then run
+<source ~/.bashrc> 
+
+
+
+
+fdformat 
+do not mount floppy
+to format a floppy is a 2 step process on Linux
+[1] fdformat /dev/fd0
+this will erase all data including the file system
+[2] mkdosfs -v -F 32 /dev/fd0
+this will create FAT32 filesystem on floppy
+now you are ready to mount floppy and cp files
+you will need these commands if you have a boot floppy
+and want to instead store files on it with a file system.
+
+
+
+
+fdisk
+manipulate/list  disc partitions
+plug in your pen drive and then <fdisk -l>
+see also "parted"
+
+
+
+ffmpeg
+avi->mpeg video converter
+debian package by same name
+to convert video clip off your camera to mp2 compressed (20:1 compression ratio)
+need -ar 22050 because my camera records sound at 11024 which is not mp2 valid
+ffmpeg -i myvideo.avi -ar 22050 myvideo.mpg
+to create mp2 video file without sound:
+ffmpeg -i myvideo.avi -an myvideo.mpg
+to play the mp2 video clip see mplayer
+
+
+
+file
+tells you something about the file type
+
+
+
+
+find  
+use to find files, see also slocate and whereis
+find /usr -xdev -name 'libpng*'
+-H do not follow sym links
+-name 'some string with wildcards'
+-xdev (dont look on windows partition)
+-size +100000k  (look for big files)
+this will start at /usr and print all files containing 
+the string 'libpng*'
+<find /somedir/ -mtime 1> all files modified in last day
+<find ~/ -name '*.txt'>   all files ending in txt
+<find ~/oggs/ -iname "*.mp3" -exec rm {} \;> remove a bunch of mp3's
+<find ~ -mtime -5 -name \.\*> hidden files changed in last 3 days
+<find . -size +599c -and -size -701c> files of 600-700 bytes
+<find /etc -type f \! -user root -exec ls -l {}\;> belonging to a certain user
+<find . -type d -name '*_of_*'> dir with "of" in name
+
+
+
+
+firefox
+install the "mozilla-acroread" package for online pdf viewing
+
+
+
+fonts
+<xfd -fn 9x13> displays the 9x13 font
+<xlsfonts> spools tons of font names to the terminal
+<xfontsel> lets you interactively pick fonts
+servers: xfs, xfstt
+
+
+
+free
+shows memory usage and disc space
+
+
+
+fuser
+identify processes using files or sockets
+
+
+
+fstab
+/etc/fstab controls how cdrom/dvd/floppy/hard drives are mounted to the filesystem
+see /help/sysfiles/fstab and fstab_mandrake for details
+# /etc/fstab: static file system information.
+# <file system> <mount point>   <type>  <options>       <dump>  <pass>
+proc            /proc           proc    defaults        0       0
+/dev/hda1       /               ext3    errors=remount-ro 0       1
+/dev/hda5       none            swap    sw              0       0
+/dev/hdc        /media/cdrom0   udf,iso9660 user,noauto     0       0
+#external floppy drive with usb attach
+/dev/sda        /media/floppy0  auto    rw,user,noauto  0       0
+#usb pen drive plugged into front usb port on E-machines
+/dev/sdf1      /media/pendrive  vfat    rw,user         0       0
+#pen drive plugged into an older uhci type computer
+/dev/sda1     everything else same as above
+
+
+
+gcc
+our c compiler
+we have gcc-3.4.1-3mdk installed but c++ compiler had to be added see TomsURPMtips
+need gcc-c++-3.4.1-3mdk.i586.rpm to compile fox
+/usr/bin/cc -> /usr/bin/gcc -> /etc/alternatives/gcc  ->  /usr/bin/gcc-3.4.1
+/usr/bin/cpp -> /etc/alternatives/cpp -> /usr/bin/cpp-3.4.1
+/usr/bin/g++ ->  /etc/alternatives/g++ -> /usr/bin/g++-3.4.1
+note cpp is the c preprocessor not the c++ compiler
+to link with static library libtom.a  you would use gcc -o  main  main.c -ltom
+to link with shared library libtom.so you would use gcc -o  main  main.c -ltom
+if both exist then gcc will always grab the shared library first, 
+
+
+
+git
+content tracker
+install Debian packages: git, git-core, git-arch, git-doc
+
+
+glxgears
+3 gears meshing 
+located at /usr/X11R6/bin/glxgears
+debian package "mesa-utils" required
+run also glxinfo, glxheads, glxdemo
+
+
+gnome-ppp
+use to connect modem to internel
+modem-lights applet is discontinued
+ModemMonitor applet has bugs
+
+
+
+gpasswd
+administer the /etc/group file
+<gpasswd -a tatimmer admin>
+
+
+grep
+grep searches the named input FILEs 
+for lines containing a match to the given PATTERN.
+<grep " tom " file> look for space-tom-space in file
+<grep string *> look for string in all files of cwd
+<grep -r string . > recursive decend to subdir
+-i, case insensitive
+
+
+
+
+groff
+document formatting, txt2postscript
+-tep for tbl/eqn/pic support
+-man is required for text support
+your pic picture can be exported from xfig
+to generate postscript viewable by Kghostview or gv:
+groff -tep -man -Tps sutb.1 > sutb.ps
+with html, the tables will be generated as seperate .png files
+groff -t -man -Thtml sutb.1 > sutb.html
+see also ps2pdf, man2html and troff.org
+
+
+
+grub
+boot loader
+/boot/grub/menu.lst (thats "L"st not "1"st)
+this file contains info grub needs to boot
+edit this file to select the default OS to boot with Ubuntu
+or to add kernels to boot
+/boot/vmlinuz-2.6.12-9-386 is our kernel
+to make grub boot floppy (in case mbr is messed up):
+cd /lib/grub/i386-pc
+dd if=stage1 of=/dev/fd0 bs=512 count=1
+dd if=stage2 of=/dev/fd0 bs=512 seek=1
+to boot my ubuntu insert grub boot floppy, @ grub prompt:
+grub>root   (hd0,1)
+grub>kernel /boot/vmlinuz-2.6.12-9-386 root=/dev/hda2 ro quiet splash
+grub>initrd /boot/initrd.img-2.6.12-9-386
+grub>boot
+to boot in safe mode replace 'quiet splash' with 'single'
+to boot windows:
+grub>rootnoverify (hd0,0)
+grub>makeactive
+grub>chainloader +1
+grub>boot
+to put grub on hard drive mbr with stage1/stage2 files on #1part:
+grub>root (hd0,1)  ....grub will mount here
+grub>setup (hd0)   ....puts grub on mbr of hd0
+grub>quit
+
+
+
+
+gnuplot
+program to plot xy data or functions
+see /usr/share/doc/gnuplot-doc/gnuplot.html for help
+see /usr/share/doc/gnuplot-doc/examples
+<load "filename.dem"> will create an X-window plot of the file
+q=quit the window
+g=toggle graph grid
+3d plots like discrete.dem can be rotated with arrow keys
+
+
+
+gs
+ghostscript 
+interactive postscript file viewer/converter
+<gs> to enter interactive session, 
+at GS> prompt you can type postscript commands
+GS>quit    will get you out
+<gs file.ps> to view a postscript file
+<lpr file.ps> to print same
+to get a printout of your .ps file as text 
+just edit the first line placing some .... dots before %
+to convert a .ps file to a .pdf
+<gs -sDEVICE=pdfwrite -sOutputFile=myfile.pdf  myfile.ps>
+other output devices are: 
+pnggray for grayscale
+png16m  for png color
+jpeg    for jpeg  (ps->png is recommended)
+-dBATCH causes gs to exit quietly instead of jump to interactive
+
+
+
+
+gtk
+to write gtk 2.0 programs
+install ubuntu package libgtk2.0-dev
+
+
+
+gunzip
+this is a single compressed file, not a collection of files
+<gunzip filename.gz>  can unzip this file dont use tar
+
+
+
+
+gv
+postscript and pdf file viewer
+complete x-window interface  with buttons/menu opts
+gv can also view compressed .ps.gz
+
+
+
+
+
+
+hal
+hdwre abstraction layer
+works with gnome-volume-manager, udev, hotplug
+<hal-device-manager> is a windowed device tree view that 
+should change dynamically as devices are plugged in
+
+
+
+
+head
+display the beginning of a file (first 10 lines)
+head --lines=100 filename 
+
+
+
+
+hostname
+used to set or display the hostname
+HOSTNAME is determined in /etc/profile by /bin/hostname
+
+
+
+
+
+icewm
+ice window manager, see tomsicetips 
+
+
+
+icons
+/usr/share/icons  (png)
+/usr/share/pixmaps (png and xpm)
+
+
+
+identify
+part of imagemagick command line tools
+<identify tat.bmp> gives image file info
+add -verbose for more info
+
+
+
+ifconfig
+configure a network interface
+issue this command after internet connect to see some wonderful stuff
+see also route -n
+
+
+
+imagemagick
+jpg/png/bmp image manipulation routines
+see also "convert", "import", "display", "identify"
+help file: /usr/share/doc/imagemagick/index.html
+
+
+
+import
+imagemagick utility to capture Xwindow as jpg or png (screenshot)
+1. start Xwindow for capture
+2. run xwininfo and Lclick to get window id (e.g. 0x2600001)
+3. move window so as not 2b cutoff or covered by other windows
+then from command line: 
+<import -window 0x2600001 filename.png>
+
+
+
+info
+GNU info (help) simto "man"
+type <info subject> for help
+
+
+
+
+
+kcolorshooser
+select colors and get r,g,b values 
+
+
+kernel
+/usr/src/linux
+
+
+
+kghostview
+viewer for *.pdf and *.ps postscript files
+
+
+
+kill
+shut down a running process
+use ps to see the list of processes
+get the pid of the process in the first column
+<kill pidnum> works for most processes
+<kill -s 9 pidnum> is required to kill an ill started pppd sessions
+killall processname
+see also <top>
+
+
+
+ksnapshot
+screen copy to file
+
+
+
+kuickshow
+very nice image viewer
+
+
+
+lame
+audio file converter from say wav to mp3
+compression ratios of 10:1 are typical
+<lame mysong.wav mysong.mp3>
+you can download lame from source then do ./configure, make, makeinstall (as root)
+you can play the mp3 with "mplayer horse.mp3" or with sox utility "play"
+
+
+
+ldconfig
+create shared library links
+must be run after every install/removal of an *.so file
+/etc/ld.so.conf  (ld.so searches to build /etc/ld.so.cache )
+see also depmod
+
+
+
+ldd
+list shared libraries that are required to run an executable 
+warning! do no run on suspicous code because it has to 
+execute the code to get library info
+<ldd exename>
+
+
+
+libraries
+/lib (system startup libs)
+/usr/lib (most of your system libs are in here)
+/usr/local/lib  (non-system libs you want to add)
+Libraries Update:
+1) cp libc.a /usr/lib  (overwrites)
+2) cp libc.so.5.4.7  /lib  (copy new so)
+3) ls -sf lib/libc.so.newversion  /lib/libc.so.oldlink  (update links)
+Static Library = *.a  (/usr/lib)
+Shared/Dynamic Lib = *.so  (/lib)
+-L controls where gcc looks for libraries
+* general tips for upgrading libraries
+copy old libraries & links to another folder listed in /etc/ld.so.conf
+cp -df /lib/libc.so.5*  /usr/lib
+run ldconfig
+recreate sameold link to new library version
+ln -sf ./libc.so.5.0.48  libc.so.5
+copy link and library
+cp -df libc.so.5* /lib
+
+
+
+
+ln
+create link to librarys or executables
+su to root and cd to /usr/bin or /usr/local/bin
+-s for symbolic otherwise hard link
+<ln -s target linkname> 
+<ln -s  /home/tom/scripts/midife> creates symlink midife->
+<ln -s /mnt/windows/windows/Desktop  windows>
+if you have a bad link you can force it to point to a good file with -sf
+the executable must have appropriate privaledges, chmod a=rwx myexe
+
+
+
+lpr,lp
+lpr file_to_print
+the file can be ASCII text or postscript or pdf
+<cat -n filename | lpr> gives you a printout with line numbers
+<lp -o page-left=value filename> (value=points,1/72")
+also page-right, page-top, page-bottom, prettyprint
+page-ranges=1-4,7,9-12, landscape
+you need page-top page-bottom otherwise lines are cut off
+
+
+
+
+ls
+list files and directories
+-l   (long File Listing-Details)
+-a   (show all including hidden .files)
+ls foo*      list all files that begin with foo
+ls foo?.tar  list all files such as foo1.tar, foo2.tar
+<ls -ld />  displays permissions on the root dir
+
+
+
+
+lshal
+list hal devices
+hald is a daemon for Hardware Abstraction Layer
+works with udev and gnome-volume-manager 
+to autodetect and mount removable media
+
+
+
+lsmod
+program to show the loaded modules/drivers 
+must be run from root
+/proc/modules also tells us what modules are loaded
+extra modules are stored in /lib/modules/2.6.8.1-10mdk/kernel/sound/drivers/
+see also modprobe to manually load modules
+
+
+
+
+lspci
+<lspci -v> gives us lots of pci device info including this about our sound:
+-vv and -vvv give even more info
+00:0f.0 Multimedia audio controller: Ensoniq 5880 AudioPCI (rev 04)
+Subsystem: Ensoniq Sound Blaster 16PCI 4.1ch
+Flags: bus master, slow devsel, latency 64, IRQ 9
+I/O ports at ef00 [size=64]
+Capabilities: <available only to root>
+
+
+
+lsusb
+Bus 001 Device 001: ID 0000:0000
+try -v for verbose
+
+
+
+man
+text based (groff) manual files (help)
+man files are copied to /usr/local/man/man1 or man5 or man8 or /usr/share/man/man8
+<man subject> displays the help file in a terminal
+or <man 5 subject> or <man 8 subject> for multiples
+navigation: pageUP,pageDN,q=quit
+search is similar to vi, type </string> then <n> for next
+<man filename | lpr> to print man page
+xman is the Xwindows man page viewer
+see also "info"
+
+
+
+manpath
+tells your full path for location of man files
+
+
+
+mc
+midnight commander file manager
+edit files in /home/tat/.mc to customize
+shift+drag  select to copy, shift+Mclick or shift-insert to paste, same as rxvt
+C-x-i   gives you info on the file selected
+M-enter copies the selected file to the command line
+C-x+p   copies the current path name to the command line
+C-o     switch between mc and rxvt
+see also "gnome-commander" for X-windows style 2 pane file manager
+
+
+
+
+mkdir
+make directory
+<mkdir dirname>
+
+
+
+mkdosfs
+make a dos filesystem on a floppy, pendrive or harddrive partition
+-v (verbose)
+-F 32 (FAT32)
+mkdosfs -v -F 32 /dev/fd0   (make a FAT32 filesystem on a floppy)
+mkdosfs -I /dev/sda         (format pen drive like superfloppy)
+mkdosfs seems to be depreciated in favor of mkfs.vfat or mkfs.msdos
+mkfs.vfat -v -I -F 16 -n /dev/sda  (make a FAT16 filesystem on a pendrive)
+use mke2fs to create ext2 filesystem better supported by Linux
+see also mkfs and fdformat
+debian package dosfstools is reqd
+
+
+
+modem
+/dev/ttySL0 on Mandrake 10.1 with Smartlink modem
+/dev/ttyS0 on Ubuntu 5.10 with Best Data hdwre modem
+
+
+
+modprobe
+give info or load a device module/driver into the kernal
+"modprobe slamr" loads the modem driver and creates /dev/slamr0
+use lsmod to see whats loaded
+"modepobe snd-seq" loads snd-seq, snd-timer...
+"modprobe -l lp" lists full path of lp driver
+see also /etc/modules
+
+
+
+more
+to display a text file
+more filename 
+spacebar=next page
+return=scroll 1 line
+example:
+ls > ~/temp  (puts directory listing in file temp in /home directory)
+more ~/temp  (to view contents without leaving current directory)
+
+
+
+
+mount
+attaches a device (/dev) to some directory on the file system
+mount -t filesys device directory
+dont remove device until umount first
+sudo or root privaledge may be needed for some
+umount /media/floppy
+mount -t msdos   /dev/fd0  /media/floppy       (msdos gives 8.3 truncated filenames)
+mount -t vfat    /dev/sda1 /media/pendrive
+mount -t vfat   /dev/sdf1  /media/pendrive
+if /dev/sdf does not work try /dev/sdf1  (1st partition)
+see dmesg after device is plugged in
+<sudo mount -t iso9660 /dev/hdc  /media/cdrom>
+<sudo mount -t vfat    /dev/hda1 /media/windowspartition>
+<sudo mount -t ext3    /dev/hda2 /media/linuxpartition>
+<mount> lists all devices mounted
+<sudo mount -a> reload and mount everything in /etc/fstab 
+<sudo eject> will unmount the cdrom and open the tray
+see also /etc/fstab, /etc/mtab, /etc/modules, pmount
+
+
+
+mplayer
+use to play mp3 or wma audio files or avi/mpg video clips with or w/o sound
+seems to have the necessary codecs installed by default where sox needs libraries
+"mplayer myvideo.mpg"
+to convert avi to mpg/mp2 see ffmpeg
+
+
+mv
+this just renames source arguments to destination directories
+mv file1 /dir (move file to directory)
+mv old_file_name new_file_name 
+mv old_dir_name  new_dir_name
+be careful to use complete path names if going outside a directory
+
+
+
+nasm
+netwide assembler
+
+
+objdump
+print out elf executable symbol table and assembly instructions
+
+
+od
+dump files in octal and other formats
+	   
+
+ogg
+alternate encode/decode to mp3
+we installed the libogg0-devel and mp32ogg34 rpm packages .
+this give us mp32ogg and oggenc (ogg encoder) oggdec in /usr/bin
+<oggenc filename.wav> converts a wav to filename.ogg, -q for quality
+audacity can also convert between wav, ogg, mp3
+
+
+
+openoffice
+/usr/lib/openoffice2/program (on Ubuntu)
+smath, swriter, soffice, simpress, sdraw, scalc, sbase
+"s" stands for star, staroffice was originally developed in GDR
+
+
+
+
+
+passwd
+update a user's (authentication tokens) password
+<passwd -d tom> allows signon w/o password
+to activate/change root password: <sudo passwd root>
+
+
+
+
+path 
+see /etc/profile/
+
+
+
+pci
+/proc/pci gives some obscure info about pci devices
+we installed pciutils-2.1.11-6mdk.i586.rpm so now we have lspci
+
+
+
+
+
+
+ping 
+ping www.ticon.net
+send a message to ticon
+64 bytes from newton.ticon.net (66.181.128.4): 
+icmp_seq=4 ttl=243 time=200 ms
+
+
+
+
+play
+plays audio files
+<play filename.ogg>
+see also rec 
+
+
+
+
+plugin
+use dlopen to dynamically load shared library
+see also dlsys
+
+
+
+pmount
+mount arbitrary hotpluggable devices as normal user
+see /etc/pmount.allow
+device should not be listed in fstab
+pmount --read-write --exec --sync --type vfat  /dev/fd0   floppy
+pumount  /dev/fd0
+pmount --read-write --exec --sync --type vfat  /dev/sda1   pendrive
+pumount  /dev/sda1
+pmount --read-only --exec --type  iso9660  /dev/hdc  cdrom0    
+pumount /dev/hdc
+
+
+
+ppp
+point 2 point protocol
+modem control software from the command line
+run <pppconfig> to generate config files
+<sudo pon Ticon> starts the modem
+it uses /etc/ppp/peers/Ticon 
+which references /etc/chatscripts/Ticon
+<sudo poff> stops and <plog> gives some feedback
+username and password are in /etc/ppp/pap-secrets
+<man pon> and <man pppd> 
+
+
+
+
+pr
+prepare text files for printing
+columns, double space...
+
+
+
+printer
+"lpc status" provides some data on your printer
+ubuntu breezy has a bug, for HP deskjet 712:
+edit /etc/pnm2ppa.conf and add "version 712" 
+no need to reboot, this file is read with each print operation
+
+
+
+printenv
+print environmental variables
+echo $HOSTNAME = tatimmer@ticon.net
+$PATH, $PWD, $HOME, $PKG_CONFIG
+in a makefile use $(PWD) with parenthesis
+see also export
+
+
+
+
+proc
+various device files /proc
+cpuinfo, modules, meminfo, version, partitions, /asound
+
+
+
+
+ps
+report a snapshot of the current processes
+-e show all PID, TIME and process name only
+-u gives some interesting results
+<ps aux> gives you tons of process info
+
+
+
+
+ps2pdf
+convert postscript to pdf
+use groff to generate .ps first
+
+
+
+
+pstree
+similar to ps but lays it out in tree form
+
+
+
+pwd 
+Print Working Directory
+
+
+
+rdev
+set kernel image root device ram disk size or video mode
+
+
+rm 
+<rm filename>
+<rm -r dirname>
+-f to force read-only file deletion
+
+
+rmdir
+removes an empty dir
+
+
+rosegarden
+required libqt-mt.so.3 which is dependent on 
+libqt3-3.3.3-27.1.101mdk.i586 and qt3-common-3.3.3-27.1.101mdk.i586
+now it starts up and plays but no sound, perhaps need soundcard patch set
+
+
+
+
+route 
+route -n shows/sets up the network routing table
+you can manually add entries to the routing table
+e.g. route add -net default gw 192.168.2.1  dev  eth0
+
+
+
+
+rpm
+rpm [options] file.rpm
+-i --install 
+-a   (checks all installed packs-noo need to enter a *.rpm)
+-qpl (query contents of pack)
+-qa  (query all installed packages on system)
+-qf  (find out which package the file belongs to)
+-v   (verbose)
+-R   (list package dependencies)
+-qip (description of package)
+-q   (is it installed ?)
+-U   (install newer version of previously installed)
+-V   (checks for missing files of a particular package)
+-Va  (are all files of all packages accounted for-this runs a long time)
+--rebuilddb (rebuild database)
+--test      (test for dependencies)
+mandrake uses urpmi which does automatic download and dependency checks
+/var/cache/urpmi/headers contains some of the rpms i installed thru urpmi
+
+
+
+run level
+normal boot is runlevel=5 is x-windows
+see /etc/inittab
+if you messed up your system reboot in runlevel=1 and undo your changes
+the command <runlevel> tells you what level you are in
+
+
+
+rxvt
+this is a lightweight console 
+others are xterm or konsole or gnome-terminal
+<rxvt -bg white -fg black> gives white screen black font
+<rxvt -e scriptname> allows you to spawn a console and run a script 
+shift+pageup/dn or mouse scroll 
+shift+drag to select and copy in one step 
+shift+Mclick to paste
+to customize the colors add the following to .Xresources
+rxvt*background: White
+rxvt*foreground: Black
+after changes run xrdb .Xdefaults to load the new resources
+
+
+
+
+
+sdl
+simple direct layer
+install package libsdl1.2-dev
+
+
+
+sed
+edit multiple files from the command line
+< sed -i s/sutb-1.0/sutb-1.1/ * >
+
+
+
+service
+no man page on this but it can kill some processes (daemons)
+<service processname stop> or start or reset
+<service -s> gives some bizarre info
+<service xfs stop> stops the xfs font server
+see also mcc->system->service to prevent auto boot of services
+
+
+
+shortcut keys (gnome)
+alt+f4, close window
+alt+f,  access the "File" menu
+alt+space, access the window menu in title bar upper left 
+
+
+shutdown
+shutdown the computer
+<shutdown -h now> shuts down and turns off
+<shutdown -r now> shuts down and reboots
+
+
+
+slocate
+locate files on your system-I use this alot
+first to build a database starting from / and excluding some directories:
+<slocate -u / -e /mnt,/boot,/dev,/initrd,/opt,/root,/sys> 
+<slocate icewm>  normal search, add -i for case insensitive 
+<updatedb> will update the database if you have added/delete files
+
+
+
+sound
+I had yamaha onboard sound on my development computer PIII 
+linux debian 2.6.26 could not get the sound working
+moved the sound blaster card from my old gateway
+ens1371 Ensoniq 5880 AudioPCI (rev 04), snd-ens1371
+ran "alsaconf" which did all the work to set up drivers for this card
+sound works great now, have /dev/snd
+
+
+
+sort 
+a simple utility to sort a text file
+<sort file1 > file2> sorts file1 and outputs to file2
+
+
+
+sox
+command line utility for working on pcm sound files 
+play and rec are part of sox
+<play file.wav> will just play the song
+example to increase amplitude by 4x:
+<sox -v 4.0 filein.wav fileout.wav>
+example to record single channel, 44100 sample/sec byte data
+<rec -c 1 -r 44100 -s b file.wav>
+example to record dual channel, 44100 sample/sec word data
+<rec -c 2 -r 44100 -s w file.wav>
+see also alsamixer for adjusting soundcard playback and capture
+in order for sox to work with mp3 files on Debian you need "libsox-fmt-mp3" installed
+
+
+
+
+
+
+strace
+trace system calls and signals
+<strace gnome-volume-manager -n> gives a bunch or read/write/socket calls
+
+
+
+strings
+prints printable characters from a file
+<strings /usr/bin/gnome-volume-manager | grep pmount>
+
+
+
+su
+login as a user
+<su tom> to login as tom
+<su root> login as root
+
+
+
+sudo
+<sudo command> allows a user to run a script owned by root
+user must be found in /etc/sudoers
+<visudo -f sudoers> to edit /etc/sudoers as root
+add this line to give users tom and karin access to internetconnect script
+<tom,karin  ALL=(ALL) /home/tom/scripts/internetconnect>
+
+
+
+syscall
+linux assembly syscall numbers are in /include/asm/unistd.h
+
+
+syslog
+/etc/syslog.conf determines the various Linux log file names
+
+
+
+tab 
+command line completion
+start typing then hit tab to complete the filename
+
+
+
+tar
+extract/compress files similar to pkzip
+tar bundles and gzip compresses
+--list  --extract  --create  --file  
+--bzip2  --gzip --exclude=file
+tar tvfz  filename.tar.gz            (list)
+tar xvfz  filename.tar.gz            (extract)
+tar cvfz  filename.tar.gz  directory (compress)
+tar xvf   filename.tar               (extract)
+tar xvfj  filename.tar.bz2           (extract)
+see also guitar for graphic interface
+see 'zip' below if you want a windows style compressed collection of files
+
+
+tail
+tail -f /var/log/messages
+
+
+
+
+top
+show memory and cpu usage
+type k then process pid to kill (signal=SIGSEV)
+this is your main tool for monitoring processes 
+see also free and ps and pstree
+
+
+
+
+
+uname
+print system information
+<uname -a> gives all info
+<uname -r> kernal-release (2.6.12-9-386)
+on mandrake 10.1: 
+Linux localhost 2.6.8.1-10mdk #1 Wed Sep 8 17:00:52 CEST 
+2004 i686 Pentium II (Deschutes) unknown GNU/Linux
+on ubuntu 5.10:
+Linux tat 2.6.12-9-386 #1 Mon Oct 10 13:14:36 BST 2005 i686 GNU/Linux 
+
+
+
+
+
+
+
+
+unzip
+<unzip file> unzip a window/dos zip file
+<unzip -l file> list whats in the zip 
+
+
+
+urpmi
+this is the mandrake rpm installer/package manager
+see tomsurpmitips
+
+
+
+user/group
+<groupadd family> creates a new group called family
+<useradd -g family karin> creates /home/karin
+/etc/group  to define new groups
+/etc/passwd to add new users and assign default groups
+
+
+
+
+version
+/proc/version  tells us version of linux kernel
+Mandrake my 1st linux:
+Linux version 2.6.8.1-10mdk (nplanel@n3.mandrakesoft.com) 
+(gcc version 3.4.1 (Mandrakelinux (Alpha 3.4.1-3mdk)) 
+#1 Wed Sep 8 17:00:52 CEST 2004
+/etc/release tells us:
+(Mandrakelinux release 10.1 (Community) for i586)
+Ubuntu my 2nd linux:
+Linux version 2.6.12-9-386 (buildd@rothera) (gcc version 3.4.5 20050809 (prerelease) (Ubuntu 3.4.4-6ubuntu8)) #1 Mon Oct 10 13:14:36 BST 2005
+
+
+
+
+vim
+a text based editor
+see tomsvimtips
+
+
+
+vmlinux
+the linux kernel
+if you compile from src, this file appears in top level dir
+the compressed kernel is arch/i386/boot/bzImage
+
+
+
+wc
+word/line/byte count
+<wc -l filename> gives total qty lines
+
+
+
+wget
+The non-interactive network downloader.
+wget -c http://URL/filename.deb
+sudo dpkg -i filename*.deb 
+sudo apt-get install filename
+
+
+
+
+whereis
+locate binary, source or man pages
+usage: <whereis name>
+
+
+
+which
+returns full path of a command
+"which mount" returns /bin/mount
+
+
+
+windows
+two steps to manually mount a windows partition with ubuntu
+[1] sudo mkdir /media/windows (just do this once)
+[2] sudo mount /dev/hda1 /media/windows/ -t vfat -o umask=000
+
+
+
+
+X 
+<x -version> to see what version you are running run 
+<ctrl+alt+backspace> kill x and restart 
+<startx icewm> to get things going
+Release Date: 18 December 2003
+X Protocol Version 11, Revision 0, Release 6.7
+Build Operating System: Linux 2.6.8.1-2mdkenterprise i686 [ELF]
+Current Operating System: Linux localhost 2.6.8.1-10mdk #1 Wed Sep 8 17:00:52 CEST 2004 i686
+Build Date: 13 September 2004
+Before reporting problems, check http://wiki.X.Org
+to make sure that you have the latest version.
+Module Loader present
+developement headers for ubuntu are located at /usr/include/X11
+i.e. X.h, Xlib.h, /extensions/XShm.h and Xdbe.h
+
+
+
+xclipboard
+shows you whats in the xclipboard
+
+
+xclock
+this is an analog clock with hands
+
+
+
+x-development
+ubuntu package libx11-dev and maybe xlibs-dev
+/usr/include/X.h
+/usr/lib/libX11.so.6.2.0
+/usr/lib/libX11.so.6
+/usr/lib/libX11.a
+/usr/lib/libX11.so
+
+
+
+Xdbe
+double buffer extension
+see /usr/include/X11/extensions/Xdbe.h on ubuntu
+i.e. <man XdbeSwapBuffers> for help on this function call
+
+
+
+xdpyinfo
+for my ubuntu breezy
+name of display:    :0.0
+version number:    11.0
+vendor string:    The X.Org Foundation
+vendor release number:    60802000
+X.Org version: 6.8.2
+maximum request size:  16777212 bytes
+motion buffer size:  256
+bitmap unit, bit order, padding:    32, LSBFirst, 32
+image byte order:    LSBFirst
+number of supported pixmap formats:    7
+supported pixmap formats:
+    depth 1, bits_per_pixel 1, scanline_pad 32
+    depth 4, bits_per_pixel 8, scanline_pad 32
+    depth 8, bits_per_pixel 8, scanline_pad 32
+    depth 15, bits_per_pixel 16, scanline_pad 32
+    depth 16, bits_per_pixel 16, scanline_pad 32
+    depth 24, bits_per_pixel 32, scanline_pad 32
+    depth 32, bits_per_pixel 32, scanline_pad 32
+keycode range:    minimum 8, maximum 255
+focus:  window 0x240001b, revert to Parent
+number of extensions:    28
+    BIG-REQUESTS
+    DAMAGE
+    DPMS
+    Extended-Visual-Information
+    GLX
+    LBX
+    MIT-SCREEN-SAVER
+    MIT-SHM
+    MIT-SUNDRY-NONSTANDARD
+    RANDR
+    RENDER
+    SECURITY
+    SGI-GLX
+    SHAPE
+    SYNC
+    TOG-CUP
+    X-Resource
+    XC-APPGROUP
+    XC-MISC
+    XFIXES
+    XFree86-Bigfont
+    XFree86-DGA
+    XFree86-Misc
+    XFree86-VidModeExtension
+    XInputExtension
+    XKEYBOARD
+    XTEST
+    XVideo
+more follows but Ive ommitted it here
+
+
+xev
+Xevent
+shows x keyboard, mouse, focus events...
+same as MSWindows "spy" program
+
+
+
+
+xfd
+display X fonts
+<xfd -fn fontname>
+run "xlsfonts" to get a list of all fonts on the system
+
+
+
+xfig
+good vector drawing program
+to get this program on Mandrake just connect to internet and "urpmi xfig"
+on Ubuntu also get xfig-docs and xfig-lib (predrawn library figures)
+
+
+
+xfontsel
+graphic utility to build a font string
+
+
+
+xfs
+x font server
+if top says its going crazy using 90%cpu 
+goto MCC system->service and turn it off 
+
+
+
+
+xloadimage
+display a jpg or png image
+see also "display" part of ImageMagick
+
+
+
+xnview
+image viewer
+
+
+
+xorg.conf
+/etc/X11/xorg.conf is your Xwindows configuration
+Section "Module"
+Load "dbe"
+
+
+
+xpdf
+pdf file viewer
+see also Kghostscript, ghostview, gs, gv
+
+
+xrefresh
+redraw the entire screen
+
+
+xscreensaver
+first run "xscreensaver-demo" to select the saver you want
+run "xscreensaver-command - activate" to force the saver on
+daemon "xscreensaver" must be running in background (check with "ps af")
+
+
+
+xset
+user preference utility for X
+<xset s off> turn off screen blanking
+<xset fp rehash>
+also can edit .xinitrc to get same affect
+
+
+xsetroot
+can draw on the root window
+
+
+XShm
+shared memory extension
+see /usr/include/X11/extensions/XShm.h on ubuntu
+
+
+xwininfo
+gives some useful info about a running xwindow program
+run <xwininfo> then Lclick on desired window
+
+
+
+xxd
+program to generate hex dumps
+midnight commander does a fair job too
+[xxd file.bin > file.hex] hex dump with offset/ascii
+[xxd -p file.bin file.bin.hex] plain hex dump no off/ascii
+now edit file.bin.hex as desired
+[xxd -r -p file.bin.hex file2.bin] convert back to binary
+
+
+zip -r subdir subdir
+will make a windows style zip file of all files in subdir 
+to zip the tatos I just use <zip -r tatos tatos> and I get tatos.zip
+
+

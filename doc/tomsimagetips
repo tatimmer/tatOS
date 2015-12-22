@@ -1,0 +1,320 @@
+tatOS/doc/tomsimagetips
+rev:Dec 2009
+
+
+
+A few tips on how to deal with image files:
+* what is an image file
+* how to make an image file
+* how to put an image file on floppy,cdrom,memory stick
+* how to boot the device
+* how to shutdown
+* how to run the image file with bochs or qemu
+* how to access your bios settings
+* hardware requirements for running the image files
+* software requirements for developing my own image files
+
+
+What is an image file ?
+**************************
+An image file is executable code with direct hardware access.
+An image file may have an extension of img. 
+The file is usually associated with small hobby operating systems.  
+The image file contains the operating system, kernel and drivers 
+and applications all in one file. 
+
+The image file interacts with your computer hardware directly. 
+This means that your computer hardware must match exactly the 
+capabilities of the image file.  Also you can not run the image 
+file from Linux or Windows except with an emulator like Bochs or Qemu
+or VmWare. Instead you must copy the image file to a disc and boot the disc.
+
+
+
+How do I make an image file ?
+*********************************
+To build one of my image file projects on Linux, just cd to the 
+top level directory where the makefile is located and type "make". 
+You must have the GNU "make" utility and NASM assembler installed.
+Or you can just build the image file in steps according to what 
+the makefile tells you.  Using NASM:
+
+	nasm -f bin boot/boot1.s
+    nasm -f bin boot/boot2.s
+	nasm -f bin tlib/tlib.s 
+	nasm -f bin build.s -o tatos.img
+
+
+
+How do I get the image file onto a floppy disc ?
+*************************************************
+On Linux use the program "dd" to copy the image file to disc. 
+Do not mount the disc first. Insert a blank floppy into the fd0 
+drive then issue this command: 
+
+	dd if=myimagefile.img of=/dev/fd0
+
+Note that the filesystem on the disc is destroyed. You will not 
+be able to mount or view any files on the disc (no matter).
+
+Or you can also use "cp":
+
+	cp myimagefile.img /dev/fd0
+
+On Windows you can use the program "RawWrite" to write the image 
+file to floppy.
+
+If you have an external floppy with usb attach the command may be this:
+	dd if=myimagefile.img of=/dev/sda
+
+On Linux the usb ports are sda, sdb, sdc... Use the "dmesg" command to find
+out what the Linux dev number is. Just plug the device in then issue "dmesg"
+from a terminal. Linux will display all kinds of info about the device 
+including the sd? number assigned.  The sd? number will change on Linux 
+with an external floppy with usb attached because its "removable media" so
+if the device is plugged in before boot it will be assigned one number, but
+if its plugged in after boot it may be assigned another number, and if you 
+unplug after boot then replug you may get yet another sd? number assigned.
+Just use "dmesg" to see what sd? number was assigned.
+	
+
+
+
+How do I get the image file onto a cdrom ?
+*****************************************
+If your computer is of a modern vintage, you may not have a 
+floppy drive at all. Well you can instead make a boot cd.  My 
+1998 vintage computer can boot from floppy or cd. My Dell 
+desktop at work does not have a floppy drive. Booting from cd
+is of course preferred because the drive read speed is several 
+times faster than a floppy.
+
+This instructions are for linux users who have the commandline
+tools "mkisofs" and "cdrecord" installed.
+
+See instructions above for how to make an image file.
+Uncomment the following line in the file "build.s":
+
+	times 1474560 - ($-$$) db 0
+
+It is necessary to generate an image file for cdrom that is
+exactly the full size of a floppy disc (1470560 bytes).
+
+
+Once you have a 1474560 byte size image file, the next step is
+to generate an "iso" file. Read up on "man mkisofs" and especially 
+the -b option which allows for making the "El Torito" boot cd.
+
+ 	mkisofs -b myimagefile.img -R -o file.iso /home/tom/myimagefile.img
+ 
+ 
+Now use the commandline tool "cdrecord" to burn the file.iso to disc:
+
+	sudo cdrecord -v -tao speed=8  dev=/dev/hdd  file.iso
+
+
+If you are using CD-RW discs first blank the disc:
+	sudo cdrecord -v blank=fast speed=8  dev=/dev/hdd
+
+
+If all this seems like too much work, the top level directory may
+contain a script called "makebootcd" to automate the process.
+
+Windows users may be able to use a program like "Nero" to make a 
+bootable cd. I have not tested this.
+
+
+
+
+How do I get the disc image on a usb pendrive ?
+************************************************
+My computers are too old and the bios does not support 
+booting from a pen drive.
+
+But the boot code in boot2.s is written to support booting 
+from a usb mass storage device (pendrive/memory stick). As of Jan 2010
+a volume boot record has been added to /boot/boot1.s to inform the bios
+that tatOS should be booted like a floppy drive. This has been found to
+work on most newer laptops and desktops I have been able to test.
+The tatOS bootsector is really designed for booting from floppy as the 
+first 512 bytes do not have a partition table and do not have an MBR 
+master boot record. If your bios reads your flash and expects to find a
+partition table like a hard drive, it may not boot tatOS.
+	
+On linux you can use the program "dd" to copy to/from the pen drive.
+To put your image file on a pen drive use:
+
+	dd if=tatos.img of=/dev/sda
+
+Again remember that this operation will destroy the filesystem and
+so you will not be able to view contents thru a file manager. Its 
+best to have a spare pen drive for your image files. My pendrive stores
+the tatos.img starting at LBA=0 and I keep my tatOS applications on the 
+same pendrive starting at LBA=10,000 and beyond.
+
+
+
+
+
+So how do you boot a disc image ?
+************************************
+Booting a computer from removable media takes a bit of patience.  
+Each bios has its own quirks and keystrokes.
+
+First you must insert the disc into the drive when the computer 
+off. With a floppy disc or flash drive this is easy. With a cdrom 
+disc you cant normally push the button to get the door open without 
+power. In this case just take a paper clip and bend it straight and 
+insert it into the little hole in the front of you cd drive and push 
+gently until the door pops open. If you happen to be running your 
+favorite operating system (Linux) and want to run the cd image 
+just insert the bootcd, and reboot your computer.
+
+My older computers boot automatically from floppy which is nice.
+
+It seems the newer computers require some kind of intervention.
+The bios must scan all the removable media ports and devices to populate
+a potential boot list then you must pick your item, sometimes moving it
+to the top of the list.
+
+My Gateway tower at home, on startup will first check for a floppy to 
+boot then it checks for a cd to boot then lastly if no floppy or cd is 
+found it will boot from the hard drive.
+
+My Dell tower at work is differant. First there is no floppy and 
+it will automatically boot from hard drive unless you press F12 
+shortly after power up. This will suspend the normal boot process 
+and give you a menu to select boot from cd or boot from hard drive 
+or boot from usb mass storage device.
+
+My daughters 2009 HP Pavillion laptop requires you press the "ESC" key
+shortly after powerup and this will give you a menu where you select F9 
+for boot options and then it gives you a list of selected media to boot from.
+
+Two other slightly older HP Pavillions I tried require you to poll the f10 key
+on startup in order to enter the bios config menu. Then immediately
+exit the bios without saving changes. Then the external floppy drive
+is read and tatOS boots as desired.
+
+Some computers may only boot well from the first boot drive listed in the bios. 
+So you may have to go into the bios and if you want to boot from flash make 
+this the first boot drive. The bios may not save this so you will have to go back 
+into bios every time you boot.
+
+Dell Inspiron 1000 actually adds my flash drive to the boot list under "hard drives".
+You must get into the bios, find the hard drive boot list, and move your flash
+drive entry to the top of the list.  Poll F12 to get into the bios on this one.
+
+
+
+
+
+How do you access the bios setting ?
+***************************************
+You bios setting may need modification for booting a disc.
+This includes changing the boot order for removable media.
+
+How to access the bios settings will depend on your computer. 
+Read your boot messages or just use trial and error.
+
+On my Gateway at home, poll the F1 key shortly after startup. 
+
+On a Dell at work you poll the F2 key. 
+
+HP Pavillions require either the ESC key to interrupt boot or f10 to enter bios.
+
+Another computer I tested used the F2 key.
+
+Custom build with Asus motherboard requires DEL key on boot.
+
+Poll means to press and release the key about once every second. 
+Your bios will detect the key presses and suspend the boot 
+process and give you access to the bios menu settings.
+
+
+
+
+
+
+
+So how do I shutdown ?
+***********************
+My image files have no software to control Advanced Power 
+Management. There are no file buffers to flush as read10
+and write10 work immediately without buffers.
+All the software is loaded from floppy/cd immediately 
+on startup so you can remove the disc any time and just push your 
+computer power button to shutdown.
+
+
+
+
+
+To run your img file with an emulator
+********************************************
+Bochs and Qemu are swiss army knife programs that can run just 
+about any operating system or bootable image file because they 
+emulate the cpu instructions directly.  
+
+Bochs:
+On Debian need to install packages: bochs, bochs_doc, bochsbios, bochs_sdl
+First edit your bochsrc which is your startup/config file. 
+If you dont have bochsrc run bochs then pick option [4] "Save Options to.."
+Locate bochsrc in the same directory where your tatOS.img file is located. 
+Edit the bochsrc file as follows:
+	display_library: sdl
+	megs: 60
+	floppya: 1_44=/home/tom/projects/tatOS/tatOS.img, status=inserted
+	log:bochs.out
+	debug: action=report  (or action=ignore)
+	mouse:enabled=0, type=ps2
+
+Using debug action=report will generate a bochs.out file of several hundred megabyte
+so normally you should use action=ignore
+To run tatOS.img inside bochs, just cd to the tatOS.img directory and type "bochs" 
+
+
+Toggle the Scroll Lock key for a full screen window. 
+Alt-F4 to close a window. 
+Your img file mouse driver will be active immediately. 
+To toggle the mouse driver between bochs and Xwindow mouse use Ctrl+Alt+MiddleMouseButton
+
+
+
+Qemu:
+You will see slight improvements in speed over bochs without
+the accelerator package. Also fullscreen mode works. Download and 
+unpack the Linux package in your root directory. To run a bootable 
+floppy image from the commandline: 
+	"qemu  -no-kqemu -boot a -fda tictactoe.img"
+	-full-screen (Ctrl+Alt+f exit to window mode)
+	-snapshot    (write to tmp files instead)
+
+Clicking in the window will activate your img file mouse driver.
+Ctrl+Alt will return the mouse to the qemu Xwindow for closing.
+
+
+
+
+
+
+
+Development tools
+*****************
+If you want to develop your own image files.
+
+* Linux host OS
+* NASM assembler
+* make: to execute the makefile 
+* bochs or qemu emulator to test img b4 real hdwre
+* dd or cp: to copy the image to floppy disc or pen drive
+* mkisofs & cdrecord: to make a bootable cd
+* a couple old computers laying around for testing
+* a cd burner
+* a usb mass storage device aka pen drive memory stick
+* an external floppy drive with usb attach
+
+
+
+Enjoy your image file.
+Tom Timmermann

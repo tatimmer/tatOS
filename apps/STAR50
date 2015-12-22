@@ -1,0 +1,466 @@
+
+;********************************************************
+;STARFIELD
+;moving stars displayed in 3d
+;the affect is like traveling in space (Star Trek)
+
+;credit for the idea of this code
+;goes to freespace.virgin.net/hugo.elias/graphics/stars
+;his website includes more advanced concepts for stars
+;including motion blur and non-linear
+
+;this gives a basic introduction to 3d programming
+
+;this program gives a good example of the value of the 
+;tatOS protected mode interface because a faulty 
+;computation for star address results in an attempt to
+;write outside the users page and this will generate a
+;page fault to protect the kernel.
+
+;the dump is used to print out star x,y screen coordinates
+;and the pixel address in USERBUF
+
+;rev:Aug 2012
+;rev:Sept 2013 for tatOS protected mode interface
+;********************************************************
+
+
+org STARTOFEXE
+
+
+
+
+;**************
+;  DATA
+;**************
+
+;user draws to this buffer then we do swapuserbuf
+equ STARVIDEOBUF,0x2005000
+
+;arrays
+;need 100 dwords for each
+star_x:
+db0 400
+star_y:
+db0 400
+star_z:
+db0 400
+oldstaraddress:
+db0 400
+
+;dwords
+star_screenX:
+dd 0
+star_screenY:
+dd 0
+runstar:
+dd 0
+bitsperscanline:
+dd 0
+
+;strings
+str1:
+db 'Credit for the starfield concept goes to',10
+db 'freespace.virgin.net/hugo.elias',10
+db 'Press any key to quit',0
+
+
+;debug
+str2:
+db 'value of edi pixel address',0
+str3:
+db 'generate new star',0
+str4:
+db 'star_screenX',0
+str5:
+db 'star_screenY',0
+
+
+;**************
+;  CODE
+;**************
+
+
+..start
+
+
+	;get bitsperscanline
+	mov eax,22  ;getbpsl
+	sysenter
+	mov [bitsperscanline],eax
+
+
+	;initialize star_x, star_y, star_z arrays
+	mov ecx,0
+.1:
+	call GenNewStar
+	add ecx,1
+	cmp ecx,100
+	jb .1
+
+
+	;black background
+	cld
+	mov edi,STARVIDEOBUF
+	mov edx,0  ;rownum
+	mov al,BLA ;color
+.2:
+	push edi   ;save
+	mov ecx,[bitsperscanline]
+	repstosb   ;set a line of pixels
+	pop edi    ;restore
+	
+	add edi,[bitsperscanline]
+	add edx,1  ;inc rownum
+	cmp edx,599
+	jb .2
+	
+
+
+	;tell tlib function putsml that we want to draw to 
+	;a private pixel buffer
+	mov eax,60  ;setdesvideobuf
+	mov ebx,STARVIDEOBUF
+	mov ecx,800
+	sysenter
+
+
+
+	;display a text message giving credit to Hugo Elias
+	;any star drawn on top of a letter will be erased
+	;thus over time the letters will fade away
+	mov eax,7    ;putsml
+	mov ebx,FONT02
+	mov ecx,150  ;x
+	mov edx,400  ;y
+	mov esi,str1
+	mov edi,0xfeef
+	sysenter
+
+
+
+	;set edi to point to first pixel of the users  buffer
+	mov edi,STARVIDEOBUF
+
+
+	;the outer loop just keeps repeating the inner loop
+	;after pause you can strike a key to kill the app
+
+.outerloop:
+
+	;reset index for inner loop
+	mov ecx,0  
+	;ecx=star index (0-100)
+
+	
+	;the inner loop erases and draws 100 stars to STARVIDEOBUF
+	;then we swapuserbuf and pause so you can see
+	;if a star falls off the screen a new visible star is generated
+
+.innerloop:
+
+	;must preserve ecx in inner loop
+	;if you call any tlib function you must bound with push/pop ecx
+
+	;first get star address
+	mov edi,oldstaraddress[ecx]
+
+
+	;test if we have something to erase
+	;trying to write to address 0 will cause a page fault
+	cmp edi,0
+	jz .doneErase
+	mov byte [edi],BLA ;erase
+.doneErase:
+
+
+
+	;increment star position
+	;move the star closer in Z
+	;this could make star_z=0
+	sub star_z[ecx],5 
+
+
+
+
+
+.getScreenXY:
+
+	;compute new star_screenX and star_screenY 
+	call getscreenxy
+
+
+
+	;check if the star falls off the left side of screen
+	cmp dword [star_screenX],0 
+	jl .genNewStar
+
+	;check if star falls off the right side of screen
+	cmp dword [star_screenX],800
+	jge .genNewStar
+
+	;check if star falls off top of screen
+	cmp dword [star_screenY],0
+	jl .genNewStar
+
+	;check if star falls off bottom of screen
+	cmp dword [star_screenY],600
+	jge .genNewStar 
+
+
+	;star is visible, ok
+	jmp .computePixelAddress
+
+
+
+.genNewStar:
+	;new stars are generated somewhat randomly in the center of the screen
+	call GenNewStar
+	;now go back and convert star x,y,z coordinates to 2d screen coordinates
+	jmp .getScreenXY
+
+
+
+
+.computePixelAddress:
+
+	;compute address of star_screenX,star_screenY to draw
+     ;edi=star_screenY*bitsperscanline + star_screenX + STARVIDEOBUF
+	;edi=address of pixel in STARVIDEOBUF
+	mov eax,[star_screenY]
+	mov edx,[bitsperscanline]
+	mul edx   ;eax*=edx
+	add eax,STARVIDEOBUF
+	add eax,[star_screenX]
+	mov edi,eax
+
+
+
+	;for debug dump value of star address in STARVIDEOBUF
+	;it must be 0x02000000->0x02400000 or we get page fault
+	;mov ebx,edi
+	;push ecx
+	;dumpebx ebx,str2
+	;pop ecx
+
+
+	;draw new star (i.e. set pixel)
+	mov byte [edi],WHI 
+
+
+	;save address of star 
+	;for erase on next cycle 
+	mov oldstaraddress[ecx],edi
+
+
+	add ecx,1
+	cmp ecx,100 
+	jb .innerloop
+	;done inner loop
+
+
+
+
+	;show stars
+	push ecx
+	mov eax,23  ;swapuserbuf
+	mov esi,STARVIDEOBUF
+	sysenter
+	pop ecx
+	
+
+	;set a pause time 
+	;this controls how fast you are "flying" thru space
+	;a value of 1 ms is the fastest
+	;a value of 50ms is slow on my computer
+	push ecx
+	mov eax,37  ;sleep
+	mov ebx,1   ;milliseconds
+	sysenter
+	pop ecx
+
+
+
+	;any keypress will kill the app
+	checkc
+	jnz .done
+	jmp .outerloop 
+
+
+.done:
+	exit
+	;end of STARFIELD
+	
+
+
+
+
+;**************************************************************
+;GenNewStar
+;used by the starfield 
+;to set random x,y,z coordinates
+;for a single star
+;this is your star generator function
+;stars are "born" in a random pattern in the center
+;of the screen then move out toward the sides and corners
+;ecx=index to array of star_x, star_y, star_z
+;***************************************************************
+
+GenNewStar:
+
+	push ecx
+	dumpstr str3
+	pop ecx
+
+	push ebp
+	push eax
+	push edx
+	mov ebp,1000 
+	;divisor
+
+
+	;set star_x
+	;*************
+	push ecx   ;must preserve array index
+	mov eax,8  ;rand
+	mov ebx,0
+	sysenter  ;eax=random num
+	pop ecx
+
+	mov edx,0
+	div ebp          
+	;eax/ebp
+	sub edx,500             
+	;rand in range -500 to 500
+	mov star_x[ecx],edx  
+	;save star_x
+
+
+	;set star_y
+	;*************
+	push ecx
+	mov eax,8  ;rand
+	mov ebx,0
+	sysenter
+	pop ecx
+
+	mov edx,0
+	div ebp
+	sub edx,500              
+	;rand in range -500 to 500
+	mov star_y[ecx],edx   
+	;save star_y
+
+
+	;set star_z
+	;**********
+	mov ebp,900 
+	;divisor
+	push ecx
+	mov eax,8
+	mov ebx,0
+	sysenter
+	pop ecx
+
+	mov edx,0
+	div ebp
+	add edx,100              
+	;rand in range 100 to 1000
+	mov star_z[ecx],edx   
+	;save star_z
+
+
+	pop edx
+	pop eax
+	pop ebp
+	ret
+
+
+
+
+;**********************************************
+;getscreenxy
+;used by starfield
+;to convert x,y,z 3d coordinates
+;to x,y screen coordinates
+;no bounds checking
+
+;input:
+;ecx=index to array of star_x, star_y, star_z
+;return:
+;global dwords star_screenX, star_screenY are saved
+
+;calculation:
+;screenx = x * 100 / z  + screenwidth/2
+;screeny = y * 100 / z  + screenheight/2
+;**********************************************
+
+getscreenxy:
+
+	push eax
+	push ebx
+	push edx
+	push ebp
+
+	mov ebx,100
+	mov eax,star_x[ecx]
+	imul ebx 
+	;edx:eax = eax*ebx
+	mov ebp,star_z[ecx]
+
+
+	;decrementing star_z by 5, we could get 0
+	cmp ebp,0
+	jnz getscreen_1
+	mov ebp,1
+getscreen_1:
+
+
+	cdq          
+	;sign extend eax->edx
+	idiv ebp     
+	add eax,400  
+	;screen width/2
+	mov [star_screenX],eax  ;save X
+
+
+	;for debug dump star_screenX
+	;push ecx
+	;mov ebx,eax
+	;dumpebx ebx,str4
+	;pop ecx
+
+	
+	mov eax,star_y[ecx]
+	mov ebx,100
+	imul ebx
+	cdq
+	idiv ebp
+	add eax,300  
+	;screen height/2
+	mov [star_screenY],eax  ;save Y
+
+
+	;for debug dump star_screenY
+	;push ecx
+	;mov ebx,eax
+	;dumpebx ebx,str5
+	;pop ecx
+
+	pop ebp
+	pop edx
+	pop ebx
+	pop eax
+
+	ret
+
+
+
+
+
+;***********************TheEnd *************************
+
+
+
+
+     

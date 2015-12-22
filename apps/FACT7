@@ -1,0 +1,129 @@
+
+;******************************************************
+;Factorial
+
+;our first effort into the interesting field of
+;recursive programming. 
+
+;The first time I ran this program it triple faulted 
+;and rebooted the computer. Then I had 2 processor faults 
+;to deal with. (bad coding, recursive function not exiting)
+
+;A couple things to remember about writting a 
+;recursive function:
+;	* args are passed on stack
+;	* must use retn ?? end of recursive proc
+;	* must have a test to stop calling itself
+
+;this program is not interactive
+;you have to change the "push 10" below and re-assemble
+;this solution is displayed to the screen in reg eax
+;plus check the dump for more info
+
+;2009 tat for tatOS
+;latest rev Sept 2013 for protected mode interface
+;******************************************************
+
+org STARTOFEXE
+
+
+
+;*********
+;  DATA
+;*********
+
+
+stor:
+dd 1
+
+str1:
+db 'factorial value in ebx',0
+
+;*********
+;  CODE
+;*********
+
+
+..start
+
+	
+	mov dword [stor],1
+
+	;push a number to compute the factorial
+	;here we compute 10*9*8*7*6*5*4*3*2*1=0x375f00
+	;max allowable to push is 12
+	push 10
+	call Factorial
+
+	;display the solution
+	;the biggest number to fit in a 32bit reg is
+	;0xffffffff=4.29E9
+	;which means this program cant compute factorial
+	;for any number bigger than 12
+	;for bigger nums we need to save edx:eax after mul
+	;and compute a solution that fits in 2 dwords not 1
+	mov ebx,[stor]
+	putebx ebx,0,0,0xeffe,0
+	swapbuf
+	getc
+	exit
+
+
+
+
+
+;**************************************
+;Factorial
+;this function computes the factorial
+;of any integer smaller than 13
+
+;the factorial of numbers larger than 13
+;doesnt fit in one dword 
+
+;e.g. factorial of 5 = 5*4*3*2*1
+
+;input
+;push value to be computed on stack
+;solution is stored in global [stor]
+
+;this is a recursive function
+;because it calls itself
+;**************************************
+
+Factorial:
+
+	push ebp
+	mov ebp,esp
+
+	;get function arg
+	mov ebx,[ebp+8]
+
+	;dump the value in ebx
+	dumpebx ebx,str1
+
+	;multiply it by stor and resave
+	mov eax,[stor]
+	xor edx,edx
+	mul ebx
+	mov [stor],eax
+
+	;decrement the arg
+	dec ebx
+     
+	;done when ebx=1
+	cmp ebx,1
+	jz .done
+
+	;go again
+	push ebx
+	call Factorial  ;call self
+
+.done:
+	pop ebp
+	retn 4
+
+
+
+;***********************TheEnd *********************
+
+  

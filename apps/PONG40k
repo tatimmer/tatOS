@@ -1,0 +1,495 @@
+
+
+;PONG
+;creation date: Dec 2013 by tat
+;a recreation of the old Atari game by the same name
+;this is a 1 player game
+;a single paddle is moved up/dn with the usb mouse
+;assembles with ttasm as flat binary for the tatOS operating system
+
+;scoring 
+;the score is given in hex so you can improve your hex
+;Every time the  ball hits your blue paddle you score 1
+;if the ball gets past your paddle and hits the right edge of
+;the screen the ball scores 1
+
+;timing
+;roll the mouse wheel to speed up or slow down the frame rate
+;this changes the distance between ball center (ballDX,ballDY) each frame
+;on my old Piii the ball is advanced 10 pixels per frame
+;but this is too fast for my newer Asus netbook
+
+;2do
+;add some english/spin to the ball (ability to change direction)
+
+
+
+org STARTOFEXE
+
+
+
+;**************
+;    DATA
+;**************
+	
+equ PADDLEX,750
+equ PADDLELENGTH,80
+equ PADDLEXLessBallWidth,700
+
+;dwords
+ballX:
+dd 0
+ballY:
+dd 0
+signX:
+dd 1
+signY:
+dd 1
+ballDX:
+dd 0
+ballDY:
+dd 0
+paddleX:
+dd 0
+paddleY:
+dd 0
+scoreBall:
+dd 0
+scorePaddle:
+dd 0
+
+;strings
+str1:
+db 'Pong',0
+str2:
+db 'ball',0
+str3:
+db 'paddle',0
+
+
+;50x50 bitmap, uses the std palette
+;yes we are GreenBay Packer fans 
+;to varying degrees depending on which member of the family
+;you are talking to
+PackerBall:
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,35,35,35,35,35,35,35,35,35,35,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,35,35,35,35,35,35,35,35,35,35,35,35,35,35,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,35,35,35,12
+db 12,12,12,12,12,12,12,12,12,35,35,35,35,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,35,35,35,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,35,35,35,35,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,35,35,35,35,12,12,12,12,254,254,254,254,254,254,254,254
+db 254,12,12,12,12,35,35,35,35,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,35,35,35
+db 12,12,12,12,254,254,254,254,254,254,254,254,254,254,254,254,254,12
+db 12,12,12,35,35,35,35,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,35,35,35,12,12,12,12,254,254
+db 254,254,254,254,254,254,254,254,254,254,254,254,254,254,254,12,12,12
+db 12,35,35,35,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,35,35,35,12,12,12,254,254,254,254,254,254,254,254
+db 12,12,12,12,12,254,254,254,254,254,254,254,12,12,12,12,12,35
+db 35,35,12,12,12,12,12,12,12,12,12,12,12,12,12,12,35,35
+db 35,12,12,12,12,254,254,254,254,254,254,254,12,12,12,12,12,12
+db 12,12,12,254,254,254,254,254,254,254,12,12,12,12,35,35,35,12
+db 12,12,12,12,12,12,12,12,12,12,35,35,35,35,12,12,12,12
+db 254,254,254,254,254,254,12,12,12,12,12,12,12,12,12,12,12,12
+db 254,254,254,254,254,254,254,12,12,12,12,12,35,35,35,12,12,12
+db 12,12,12,12,12,35,35,35,12,12,12,12,12,254,254,254,254,254
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,254,254,254
+db 254,254,254,254,12,12,12,12,12,35,35,35,35,12,12,12,12,35
+db 35,35,12,12,12,12,12,12,254,254,254,254,254,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,254,254,254,254,254,254
+db 254,12,12,12,12,12,12,35,35,35,12,12,12,35,35,12,12,12
+db 12,12,12,12,254,254,254,254,254,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,254,254,254,254,254,254,254,12,12
+db 12,12,12,12,12,35,35,35,35,35,12,12,12,12,12,12,12,254
+db 254,254,254,254,254,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,254,254,254,254,254,254,254,254,12,12,12,12,12
+db 12,12,35,35,35,35,12,12,12,12,12,12,12,254,254,254,254,254
+db 254,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,35,35
+db 35,35,12,12,12,12,12,12,12,254,254,254,254,254,254,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,35,35,35,35,12,12
+db 12,12,12,12,12,254,254,254,254,254,254,12,12,12,12,12,12,12
+db 12,12,254,254,254,254,254,254,254,254,254,254,254,254,254,254,254,254
+db 254,12,12,12,12,12,12,12,35,35,35,35,12,12,12,12,12,12
+db 12,12,254,254,254,254,254,254,12,12,12,12,12,12,12,12,254,254
+db 254,254,254,254,254,254,254,254,254,254,254,254,254,254,254,12,12,12
+db 12,12,12,12,35,35,12,35,35,35,12,12,12,12,12,12,254,254
+db 254,254,254,254,254,12,12,12,12,12,12,12,254,254,254,254,254,254
+db 254,254,254,254,254,254,254,254,254,254,12,12,12,12,12,12,12,35
+db 35,12,12,12,35,35,35,35,12,12,12,12,12,254,254,254,254,254
+db 254,254,12,12,12,12,12,12,12,12,12,12,12,12,12,12,254,254
+db 254,254,254,254,254,12,12,12,12,12,12,35,35,35,35,12,12,12
+db 12,12,35,35,35,35,12,12,12,12,12,254,254,254,254,254,254,254
+db 12,12,12,12,12,12,12,12,12,12,12,254,254,254,254,254,254,254
+db 12,12,12,12,12,35,35,35,35,12,12,12,12,12,12,12,12,12
+db 35,35,35,35,12,12,12,12,12,254,254,254,254,254,254,254,12,12
+db 12,12,12,12,12,12,254,254,254,254,254,254,254,12,12,12,12,35
+db 35,35,35,12,12,12,12,12,12,12,12,12,12,12,12,12,35,35
+db 35,35,12,12,12,12,12,254,254,254,254,254,254,254,254,254,254,254
+db 254,254,254,254,254,254,254,12,12,12,12,35,35,35,35,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,35,35,35,35
+db 12,12,12,12,12,254,254,254,254,254,254,254,254,254,254,254,254,254
+db 254,254,12,12,12,35,35,35,35,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,35,35,35,35,12,12
+db 12,12,12,254,254,254,254,254,254,254,254,254,254,12,12,12,12,35
+db 35,35,35,35,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,35,35,35,35,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,35,35,35,35,35,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,35,35,35,35,35,35,12,12,12,12
+db 12,12,12,35,35,35,35,35,35,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,35,35,35,35,35,35,35,35,35,35,35,35
+db 35,35,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,35,35,35,35,35,35,35,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+db 12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+
+
+
+
+
+;**************
+;    CODE
+;**************
+
+..start
+
+
+
+	;the ball starts out in the middle of the screen
+	mov dword [ballX],400
+	mov dword [ballY],300
+	
+	;these values control the speed of the game
+	;on my old Piii a value of 10 is good
+	;this means the ball is moved 10 pixels
+	;with every redraw of the backbuf
+	;a value of 20 puts the ball movement speed to hi for me
+	;you can change ballDX,ballDY by rolling the mouse wheel
+	mov dword [ballDX],10
+	mov dword [ballDY],10
+
+	mov dword [scoreBall],0
+	mov dword [scorePaddle],0
+
+
+AppMainLoop:
+
+
+	;**********
+	; PAINT
+	;**********
+
+	backbufclear
+
+
+
+	;game title
+	mov eax,48     ;putshershey
+	mov ebx,500    ;x
+	mov ecx,540    ;y
+	mov edx,str1
+	mov esi,BLA    ;c
+	mov edi,1      ;hershey gothic
+	mov ebp,3      ;scale factor
+	sysenter
+
+
+
+
+	;draw the packer ball, 50x50
+	;the bitmap origin is the upper left corner
+	mov eax,68      ;putbits
+	mov ebx,[ballX]
+	mov ecx,[ballY]
+	mov edx,50      ;w
+	mov esi,50      ;h
+	mov edi,PackerBall
+	sysenter
+
+
+
+	;display score for ball and paddle in hex
+	mov ebx,[scoreBall]
+	putebx ebx,100,550,0xefff,0
+	puts FONT01,100,575,str2,0xefff
+	mov ebx,[scorePaddle]
+	putebx ebx,300,550,0xefff,0
+	puts FONT01,300,575,str3,0xefff
+
+
+
+	;get mouse position
+	mov eax,64         ;GetMouseXY
+	sysenter           ;returns eax=mouseX, ebx=mouseY
+	mov [paddleY],ebx
+	
+
+
+	;draw the paddle 
+	;the mouse controls the Y position
+	;there is no pointer other than the paddle
+	mov eax,6            ;fillrect
+	push ebx
+	mov ebx,PADDLEX      ;x
+	pop ecx              ;y=paddleY
+	mov edx,20           ;w
+	mov esi,PADDLELENGTH ;h
+	mov edi,0x6f         ;c
+	sysenter
+
+
+
+	swapbuf
+	;endpaint
+
+
+
+
+	;do not put a call to sleep in here to control game timing
+	;it will bog down your keyboard and mouse response
+	;intead we control game timing by drawing the ball
+	;with larger or smaller values of ballDX and ballDY
+
+	
+
+
+	;modify ballX position
+	;we limit the ball center to 1 pixel less than the radius
+	;to prevent wrapping the ball in the LFB
+	;when the ball gets within 26 pixels of the left/top/right/bottom
+	;of the screen we negate the sign 
+	;signX may be 1 or -1
+
+	;compute ballX
+	mov eax,[ballDX]
+	mov ebx,[signX]
+	imul ebx              ;eax=ballDX * signX
+	add [ballX],eax       ;ballX += ballDX * signX
+
+
+
+	;check ballX against screen left edge 
+	cmp dword [ballX],1   ;some offset to prevent wrapping the image
+	jg .doneLeftEdge
+	;the ball is at the left edge of screen
+	mov dword [ballX],0
+	neg dword [signX]
+	jmp .checkBallY
+.doneLeftEdge:
+	
+
+
+	;check ballX against paddle
+	;this test is only made if the ball is moving right (signX=1)
+	cmp dword [signX],1
+	jnz .donePaddleCheck
+	cmp dword [ballX],PADDLEXLessBallWidth
+	jle .donePaddleCheck
+	;if we got here the ball has made "contact" with the 
+	;imaginary vertical line representing the paddle contact edge
+	;because the ball is moved by ballDX 
+	;the ball may appear to have moved "into" the paddle slightly
+	;we cant help this unless the ball is moved by 1 pixel increments
+	;a further requirement of ball-paddle contact
+	;is the center of the ball must also be between 
+	;paddleY and paddleY+PADDLELENGTH
+	mov eax,[paddleY]
+	mov ebx,[ballY]
+	add ebx,25            ;ebx=vertical center of ball
+	cmp ebx,eax           ;check center of ball against top of paddle
+	jl .donePaddleCheck   ;ball is above the paddle
+	add eax,PADDLELENGTH
+	cmp ebx,eax           ;check center of ball against bottom of paddle
+	jg .donePaddleCheck   ;bottom of ball is below the paddle
+	;if we got here the ball vertical center
+	;is between paddleY and (paddleY+PADDLELENGTH)
+	inc dword [scorePaddle]
+	neg dword [signX]
+	jmp .checkBallY
+.donePaddleCheck:
+
+
+
+	;check ballX against screen right edge
+	cmp dword [ballX],749     ;749=800-BallBitmapWidth-1
+	jl .doneRightEdge
+	;the ball is at the right edge of screen
+	inc dword [scoreBall]
+	neg dword [signX]
+.doneRightEdge:
+
+
+
+
+.checkBallY:
+
+	;modify ballY position
+	mov eax,[ballDY]
+	mov ebx,[signY]
+	imul ebx               ;eax=ballDY * signY
+	add [ballY],eax
+
+
+	;check ballY against screen top edge
+	cmp dword [ballY],1    ;1 pixel from top
+	jg .doneTopEdge
+	;the ball is at the top of the screen
+	mov dword [ballY],0
+	neg dword [signY]
+.doneTopEdge:
+
+
+
+	;check ballY against screen bottom edge
+	cmp dword [ballY],549  ;549=600-BallBitmapHeight-1
+	jl .doneBottomEdge
+	;the ball is at the bottom edge of the screen
+	mov dword [ballY],550
+	neg dword [signY]
+.doneBottomEdge:
+
+
+
+
+
+
+
+	;****************
+	; PS2 Keyboard
+	;****************
+
+	checkc
+	jz endKeypress
+	
+	cmp al,ESCAPE
+	jz doQuit
+
+endKeypress:
+
+
+
+
+	;****************
+	; USB Mouse
+	;****************
+
+	;queue up a new usb mouse request
+	mov eax,63  ;usbcheckmouse
+	sysenter
+
+
+	cmp al,5
+	jz HandleWheelToward
+	cmp al,6
+	jz HandleWheelAway
+
+
+	jmp AppMainLoop
+
+
+
+	
+
+	;**********************************
+	;    Keyboard/Mouse Handlers
+	;***********************************
+
+doQuit:
+	exit  ;return to tedit
+
+
+HandleWheelToward: ;speed up the game
+	inc dword [ballDX]
+	inc dword [ballDY]
+	jmp AppMainLoop
+
+HandleWheelAway:  ;slow down the game
+	;if you want to see how the ball contacts the paddle 
+	;just slow the game way down just before the ball makes contact
+	;clamp the minimum value of ballDX
+	cmp dword [ballDX],1
+	jz AppMainLoop      
+	dec dword [ballDX]
+	dec dword [ballDY]
+	jmp AppMainLoop
+
+
+
+
+
+;****************TheEnd***************************************
+
+
+
+
+
+         

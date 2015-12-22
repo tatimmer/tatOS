@@ -1,0 +1,158 @@
+tatOS-Resources
+
+
+
+The following books, articles and source code have been helpful to me in learning 
+assembly language programming and developing the tatOS operating system. 
+
+Nasm Manual (I suggest to print out the entire pdf-excellent reference)
+"PC Assembly Language", Dr. Paul Carter (print out this pdf)
+"Assembly Language Step by Step", Jeff Duntemann
+"Grapics Programming Black Book", Michael Abrash
+
+Keith Kanios, DynatOS source, dynatos.sourceforge.net
+Linux-.01 source code from kernel.org
+Visopsys source by Andy Mclaughlin
+MenuetOS 32bit source
+Christoffer Bubach, 2003, BOSOS version 02 and 04
+Rdos operating system
+
+osdev.org/osfaq2/ numerous helpful articles/discussions
+"PIC", osdev.org/wiki
+"PIT", osdev.org/osfaq2
+
+Brans Kernel Development tuts from osdever.net
+Gregor Brunmar tutorials from osdever.net
+Christopher Giese pmode tuts
+
+prodebug/sourceforge.net/pmtut.html
+
+Intel manuals 1,2,3 on programming the Pentium
+Vol 1 - Basic Architecture
+Vol 2 - Instructions
+Vol 3 - System Programming
+
+"Writting your own Toy OS", Linux Gazette
+
+Ralph Browns Interrupt List
+bios interrupts from htl-steyr.ac.at/~morg/pcinfo/hardware/
+
+Daniel Rowell Faulkner tut on reading floppies
+
+Wikipedia, Cylinder-Head-Sector
+
+"Intercepting And Processing Hardware Interrupts", delorie.com
+
+"Interfacing the PC: Using Interrupts", beyondlogic.org
+
+keyboard driver, geocities.com/dev_das_2k
+
+freespace.virgin.net/hugo.elias/graphics
+
+FPU floating point programming: "Simply FPU" by Raymond Filiatreault
+
+Ron Thomas, "Graphics Programming Using Assembly", copywrite 1998
+free download from his website
+
+
+
+
+ ps/2 keyboard/mouse driver development:
+********************************************
+"The PS/2 Mouse Interface" by Adam Capweske
+"The AT keyboard controller" www.win.tue.nl/~aeb/linux/kbd
+driver code by Sanik from osdev.org
+driver code from menuetos
+"MouseInput" from OsFaqWiki
+mouse.cc from mattise os
+ps2mouse.c from mobius os
+driver code by Arkon 2003, ragestorm.net
+
+
+
+
+For USB UHCI/EHCI Universal Host Controller Driver Development:
+*****************************************************************
+[1] "Universal Serial Bus Mass Storage Class Bulk Only Transport", 
+rev 1.0 Sept 1999 Usb Implementors Forum
+
+[2] "Universal Serial Bus Specification", rev 1.1 1998 and rev 2.0, ch9 is most important
+
+[3] "USB Device Class Definition for Human Interface Device (HID) ver 1.11
+
+[4] "USB HID Usage Tables" ver 1.11
+
+[5] Intel "82371AB PCI-ISA Xcelerator (PIIX4)" Controller Manual and 
+"Universal Host Controller Interface (UHCI) Design Guide" rev 1.1, 
+these are your hardware manuals
+
+[6] "Working Draft American National Standard SCSI Block Commands (SBC-2)" 
+Nov 2004 and the "SCSI Primary Commands (SPC-2)"
+
+[7] "PCI Bios Spec" rev2.1
+
+[8] "Intel 82801EB (ICH5) Enhanced Host Controller Interface (EHCI), 
+Programmers Reference Manual", April 2003
+
+[9] "Enhanced Host Controller Specification for the Universal Seriel Bus", 
+rev 1.0, March 2002, Intel
+
+[10] Datasheet, VT6212, Pci Usb 2.0 Controller, Dec 2005, Via Technologies
+I bought this pci addon card for $25 to give my old computer the EHCI controller
+
+[11] "Simplified EHCI Data Structures for the High-End ColdFire Family USB Modules"
+Freescale Semiconductor. Shows how to fill in a QH and TD. Very good reference
+
+
+
+"Usb Simply Buffered Device Enumeration" and 
+"Usb Simply Buffered Mass Storage Class - Bulk Only Transport" 
+2007 Shakthi Kannan, actual bytes from usb transactions
+
+"USB Made Simple", web site with 7 part series.
+
+"SnoopyPro" software for windows to view some usb transaction data.
+
+LinuxBios usb_scsi_low.h
+
+Beyond Logic "Usb in a Nutshell" excellent website
+
+waste.org "PCI bus info and code from a programmers perspective"
+
+
+
+
+
+FAT16 Filesystem for Flash Drive
+**********************************
+[1] "File Allocation Table"  from Wikipedia
+
+[2] Use "dd" on Linux to copy the first sector off a new flash to memory 
+and study the bytes, Use the Linux or Windows format utility to reformat your flash
+and study the bytes.
+
+[3] "Operating Systems, Filesystems, FATFS", by FlushedSector fs@proglang.cjb.net from Pierres Library
+
+[4] "FAT16 Structure Information", by Jack Dobiash
+
+[5] "Pierres field guide to partition table recovery", www.datarescue.com/laboratory/partition.htm
+
+[6] "Partition Table", osdev.org/wiki/Partition_Table
+
+[7] "FAT16 File System", from Maverick OS, www.maverick-os.dk/FileSystemFormats/FAT16_FileSystem...
+
+[8] "FAT under Linux", fat-1.html and fat-2.html, source unknown
+
+[9] "FAT: General Overview of On-Disk Format", Microsoft Hardware White Paper, fatgen103.pdf
+
+[10] "Volume & File Structure of Disk Cartridges for Information Interchange", Standard ECMA-107
+
+
+
+
+
+
+
+Jan 2011 
+Tom Timmermann
+tatOS

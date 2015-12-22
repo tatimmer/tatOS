@@ -1,0 +1,221 @@
+
+
+;XOR
+
+;This code is the classic XOR background affect
+;the idea is taken from a program called "Galileo"
+;which comes from the collection of 256b.com
+;rewritten by Tom Timmermann for tatOS 800x600x256color
+
+;the xor background is very simple
+;the color of each pixel is just (X xor Y) 
+;where X and Y are the pixel coordinates
+;works only with a mono-tone gradient palette
+;the affect is a repeating checker board of shaded squares
+
+;May 2012
+;rev Oct 2013 for tatOS protected mode interface
+
+;Below are the intro comments from the original author of Galileo
+;his program draws the xor background then draws a very cool 
+;shaded sphere, all with the paletized mode 13h
+;this xor program omits the sphere
+
+
+;****************************************************************
+;                        G A L I L E O                         
+;****************************************************************
+; (C) 2001, loveC                       e-mail: lovec@cauldron.sk
+; Big thanx for baze and Spektra Soft & Hardware
+; Samozrejme moja vdaka patri aj Galileovi, ktory uz davno vedel ze:
+;                       "A predsa sa toci!"
+
+
+org STARTOFEXE
+
+
+
+;******************
+;   DATA
+;******************
+
+
+;we draw to a private pixel buffer
+equ XORBUF,0x02005000
+
+equ RED_LEAD 4
+
+bytesperscanline:
+dd 0
+
+;reserve space for our blue palette
+BluePalette:
+db0 800
+
+
+
+;******************
+;   CODe
+;******************
+
+
+..start
+
+	;save video LFB width
+	mov eax,22 ;getbpsl
+	sysenter
+	mov [bytesperscanline],eax
+
+
+	;we are not sure how to initialize the loop counter
+	;Galileo ran in dos which must have done the init
+	;a value of 63 works giving a palette of about 170 bytes then zeros
+	;a value of 255 works almost filling the palette
+	;at some value > 256 we get a GPF
+	;a value of 255 gives a palette with the first 16 entries light blue
+	;entry 17 is white and the rest gets progressively darker
+	;in shades of blue until we have black
+	;a value of 235 gets rid of the first 16 light blue entries
+	;changing this value gives more or less color in the palette
+	;which affects the look of the background texture
+	mov ecx,235
+
+
+	;build a custom palette with shades of blue
+	mov edi,BluePalette
+	cld
+
+
+
+BuildPalette:
+
+	mov eax,ecx
+
+
+	;set red
+	shr eax,2
+	add eax,RED_LEAD
+	;the DOS code used OUT to ports to directly change the DAC
+	stosb
+
+
+	;set green
+	sub eax,RED_LEAD
+	stosb
+
+
+	;set blue
+	cmp cl,63
+	;cmc, compliment the carry flag
+	db 0xf5
+	;salc, set al from carry, early undocument instruction
+	db 0xd6
+	;or al,cl
+	db 0x8,0xc8
+	stosb
+
+
+	loop BuildPalette
+
+
+
+
+
+	;now change our DAC palette
+	mov eax,17  ;setpalette
+	mov ebx,BluePalette 
+	mov edx,0xf5fe  ;kernel text red on white
+	sysenter
+
+	;Done building the palette
+
+
+
+
+
+
+;background Texture
+;this is the classic XOR grid texture
+;we just do (X xor Y) where X & Y are the coordinates of each pixel
+;*******************************************************************
+
+	cld
+
+	;get address of  buffer into edi
+	mov edi,XORBUF
+
+	;init eax=row, ebx=col
+	mov eax,0
+	mov ebx,0
+
+
+
+doXOR:
+
+	;save row
+	push eax
+
+	;sadly ttasm doesnt support this combo yet
+	;better get crackin Tom 
+	;xor eax,ebx
+	db 0x31, 0xd8
+
+	;set pixel al->edi, edi++
+	stosb
+
+	;restore row
+	pop eax
+
+	;move toward end of row
+	inc ebx
+
+	;make sure we dont exceed width of scanline
+	cmp ebx,[bytesperscanline]
+
+	jb doXOR
+	;done with one row
+
+
+	;reset col to 0
+	mov ebx,0
+
+	;move down to the next row
+	inc eax
+
+	;make sure we havent exceeded 599 rows
+	cmp eax,599
+
+	jb doXOR
+
+	;done with XOR grid texture
+
+
+
+
+done:
+
+	;make it show up
+	mov eax,23 ;swapuserbuf
+	mov esi,XORBUF
+	sysenter
+
+	;pause for user to gaze at the beauty :)
+	getc
+
+
+	;restore our standard palette
+	;if you dont, tatOS will become unuseable
+	;because the 0xff entry for background color in the palette is black
+	;and so is the text
+	mov eax,17  ;setpalette
+	mov ebx,0
+	sysenter
+
+
+	exit  ;return to tedit
+
+
+;****************END XOR ********************************
+
+
+ 

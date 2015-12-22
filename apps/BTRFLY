@@ -1,0 +1,359 @@
+
+;BUTTERFLY
+;this is based on code by Ron Thomas
+;originally done for MASM under DOS
+;the figure is an outline of the butterfly with one wing
+;in green dots on a black background
+;there are 5 inner loops like petals on a daisy
+;then there is a single right wing which looks very good
+;a very cool affect and excellent fpu demo
+;Ron has written an Ebook on assy, check it out
+;April 2009 tat for tatOS
+;rev Aug 2013
+
+
+;*******************************************************************
+; Butterfly Curve which is generated in polar coordinates by the equation :-
+
+;	rho = exp(cos(theta)) - 2*cos(4*theta) + sin(theta/12)**5
+
+;	where:
+;		rho is the radial distance of a point from the origin.
+;		theta is the angular rotation on radians
+;
+;		See T.Fay American Math Monthly. 96(5): 442-443	
+
+;	The program makes use of the Vesa Bios Extensions to provide a common
+;	interface for accessing the SVGA graphics adaptors and should therefore
+;	be hardware independent.  
+
+;
+;  Copyright (c) Ron Thomas, 1996
+;*******************************************************************
+
+
+org STARTOFEXE
+
+
+
+;***************
+;   DATA
+;***************
+
+
+temp:
+dd 0
+
+;these offsets are used to center the image on the screen
+x_offset:
+dd 280
+y_offset:
+dd 290
+
+;Rotation angle
+theta:
+dq 0.0
+
+incr:
+dq 0.01
+four:
+dq 4.0
+;1/12
+rep12:
+dq 0.08333333
+
+;Factor used to magnify image
+;a value of 25.0 makes a small butterfly on 800x600
+;a value of 125.0 makes a large image slighly bigger than the screen
+scale:
+dq 75.0
+
+;Factor to change to natural base
+change_base:
+dq 2.30258
+num2:
+dd 2
+num10:
+dq 10.000
+stor:
+dq 0.0
+exponent:
+dq 0.0
+returnval:
+dq 0.0
+credit:
+db 'Butterfly by Ron Thomas',0
+
+LoopCounter:
+dd 0
+
+
+;***************
+;   CODE
+;***************
+
+
+..start
+
+	;black background
+	fillrect 0,0,800,600,BLA
+
+
+	;2pi/.01=628 increments/rev * 25 revs = 15700  
+	;Using a larger index does not achieve anything futher 
+	;as the curve loops back onto itself
+	mov dword [LoopCounter],15700
+
+
+MainLoop:
+
+
+	fld qword [theta]
+	fld qword [rep12]
+	;st0=1/12, st1=theta
+
+	fmulp st1
+	;st0=theta/12
+
+	fsin
+	;st0=sin(theta/12)
+
+	fst st1
+	;st0=st1=sin(theta/12)
+
+	fmul st1
+	;st0=sin(theta/12)**2, st1=sin(theta/12)
+	fmul st1
+	;st0=sin(theta/12)**3, st1=sin(theta/12)
+	fmul st1
+	;st0=sin(theta/12)**4, st1=sin(theta/12)
+	fmul st1
+	;st0=sin(theta/12)**5, st1=sin(theta/12)
+
+	ffree st1
+
+	fld qword [theta] 
+	;st0=theta, 
+	;st1=sin(theta/12)**5, 
+
+	fld qword [four] 
+	;st0=4.00, 
+	;st1=theta, 
+	;st2=sin(theta/12)**5, 
+
+	fmulp st1
+	;st0=4*theta, 
+	;st1=sin(theta/12)**5, 
+
+	fcos
+	;st0=cos(4*theta),
+	;st1=sin(theta/12)**5, 
+
+	fild dword [num2] 
+	;st0=2.000, 
+	;st1=cos(4*theta),
+	;st2=sin(theta/12)**5, 
+
+	fmulp st1
+	;st0=2*cos(4*theta),
+	;st1=sin(theta/12)**5, 
+
+	fsubr st1
+	;st0=sin(theta/12)**5 - 2*cos(4*theta), 
+	;st1=sin(theta/12)**5, 
+
+	ffree st1
+
+	fld qword [theta] 
+	;st0=theta, 
+	;st1=sin(theta/12)**5 - 2*cos(4*theta), 
+
+	fcos
+	;st0=cos(theta), 
+	;st1=sin(theta/12)**5 - 2*cos(4*theta), 
+
+
+	;To evaluate required exp(cos(theta)), we make use of 
+	;the relationship ln(e**X)=x, therefore alog(cos(theta)) =
+	;2.303*exp(cos(theta))
+
+
+	;save the exponent
+	fstp qword [exponent]
+	;st0=sin(theta/12)**5 - 2*cos(4*theta), 
+
+
+
+	;compute 10^^(cos(theta))
+	pow num10,exponent,returnval
+
+	
+
+	fld qword [returnval] 
+	;st0=10^^(cos(theta)), 
+	;st1=sin(theta/12)**5 - 2*cos(4*theta), 
+
+
+	fld qword [change_base] 
+	;st0=2.303, 
+	;st1=10^^(cos(theta)), 
+	;st2=sin(theta/12)**5 - 2*cos(4*theta), 
+
+
+	fdivr st1
+	;st0=10^^(cos(theta))/2.303  = exp(cos(theta))
+	;st1=10^^(cos(theta)),
+	;st2=sin(theta/12)**5 - 2*cos(4*theta), 
+
+
+	fadd st2
+	;st0=rho=exp(cos(theta)) + sin(theta/12)**5 - 2cos(4theta)
+	;st1=10^^(cos(theta)),
+	;st2=sin(theta/12)**5 - 2*cos(4*theta), 
+
+
+	;at this point we have all the information needed to plot a dot
+	;in polor coordinates: radius = rho = value in st0
+	;and the angle = theta
+
+	ffree st1
+	ffree st2
+
+
+	fld qword [theta] 
+	;st0=theta
+	;st1=rho
+
+
+	fcos
+	;st0=cos(theta)
+	;st1=rho
+	
+
+	;Convert from polar to cartesian and obtain X coordinate
+
+
+	fmul st1
+	;st0=rho*cos(theta)=this is our x coordinate
+	;st1=rho
+
+
+	;Scale to fit the screen
+
+
+	fld qword [scale] 
+	;st0=scale
+	;st1=rho*cos(theta)
+	;st2=rho
+
+
+	fmulp st1
+	;st0=scale*rho*cos(theta)
+	;st1=rho
+
+
+	;save the integer part of X
+
+
+	fistp dword [temp] 
+	;st0=rho
+
+	mov ebx,[temp]
+	
+	;Adjust X position on screen
+	add ebx,[x_offset]
+
+
+	
+	;now we need to compute rho*sin(theta) for Y coordinate
+
+
+		
+	fld qword [theta] 
+	;st0=theta
+	;st1=rho
+
+
+	fsin
+	;st0=sin(theta)
+	;st1=rho
+
+
+	;Convert from polar to cartesian and obtain Y coordinate
+
+
+	fmulp st1
+	;st0=rho*sin(theta)
+
+
+	fld qword [scale] 
+	;st0=scale
+	;st1=rho*sin(theta)
+
+
+	fmulp st1
+	;st0=scale*rho*sin(theta)
+
+
+	;Get integer part of Y
+
+
+	fistp dword [temp] 
+
+	;set Y  was using eax now ecx)
+	mov ecx,[temp]
+
+	
+	;Adjust Y position on screen
+	add ecx,[y_offset]
+
+
+	;Finally we get to plot a dot at x=ebx, y=ecx, color=GRE
+	setpixel ebx,ecx,GRE
+
+
+
+	;Get current angle
+	fld qword [theta] 
+	;st0=theta
+
+
+	;increment and go round again
+
+
+	fld qword [incr] 
+	;st0=incr
+	;st1=theta
+
+
+	fadd st1
+	;st0=incr+theta
+	;st1=theta
+
+
+	fstp qword [theta] 
+	;st0=theta
+
+
+	;free all used registers
+	ffree st0
+
+
+	sub dword [LoopCounter],1
+	jnz MainLoop
+
+
+	;display our Ron Thomas credit string
+	puts FONT01,50,500,credit,0xfeef
+
+
+	swapbuf
+	getc
+	exit  ;return to tedit
+
+
+
+;************************THE END*********************************
+
+
+     

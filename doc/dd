@@ -1,0 +1,56 @@
+**********
+	DD
+**********
+
+DD is a very powerful program on linux and you should get comfortable with it because it is your link to the outside world with tatos.
+
+
+
+DD and tatos.img
+*******************
+
+To copy your tatos.img file to a floppy disc starting at the first sector of the disc.
+
+Floppy drive built into desktop computer: 
+
+		dd if=tatos.img of=/dev/fd0
+
+External floppy drive that plugs into a usb port:
+
+		dd if=tatos.img of=/dev/sda
+
+Note that Linux labels your usb ports like sda, sdb, sdc, sdd, sde, sdf ...
+If I plug my flash drive into the front of my e-machines its /dev/sdf
+
+
+
+
+DD and Pen Drive
+******************
+
+Note as of Sept 2011 tatOS now supports the FAT16 formatted flash drive, but tatOS also provides a "dd" utility similar to Linux if you want to do direct read/write copy.
+
+tatos reads and writes to your pen drive with direct access by LBA logical block number and qty of blocks. Your pen drive can be divided up logically into a series of 512 byte blocks and tatos can read/write to any one of these blocks. See the functions READ10 and WRITE10 in tlib.  tatos does not know anything about a file system. It assumes data is stored on your pen drive as a series of sequential bytes. tatos WRITE10 function places the bytes all together in 1 chunk. It does not spread them out in differanct places. A "file" is just a collection of bytes with an "LBAstart" and a "qtyblocks" designation. You are responsible to make sure there is enough available space to put the data so WRITE10 does not overwrite other data. SPREAD OUT YOUR DATA !!!!
+
+Therefore you should purchase a seperate pen drive for use with tatos because any filesystem will be destroyed (most pen drives come pre-formatted with FAT file system). No matter because pen drives are cheep, and we can communicate with Linux using the program "dd".
+
+
+To copy from Linux -> pen drive:
+
+		 dd if=filename of=/dev/sda seek=123
+
+The seek value is the LBAstart on your pen drive.
+
+
+To copy from pen drive -> Linux:
+
+		 dd if=/dev/sda of=filename skip=456 count=78
+
+The skip value is the LBAstart and count is the number of 512 byte blocks. 
+
+
+After a transfer from your tatos pen drive to linux or vicaversa,  you will have to open the file and delete some spurious bytes found at the end. This is because tatos and Linux use differant methods to detect "end of file". tatos uses a zero byte to terminate ascii text.
+
+See "man dd" on Linux for more info.
+
+

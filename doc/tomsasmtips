@@ -1,0 +1,1351 @@
+tomsasmtips
+for assembly language programs 
+using NASM assembler on Linux
+or ttasm assembler on tatOS
+revised: Oct 2015
+
+
+
+[]
+memory reference
+mov dword [0x4000],123  ;write 123 to memory at 0x4000 as dword
+the next 2 lines do the same thing
+mov edi,0x4000
+mov [edi],123
+
+
+
+1 cycle instructions (speed)
+mov, add, sub, cmp, adc, sbb, xor, and, or
+test, lea, push/pop reg
+
+
+
+avoid mixed size instructions
+memory addressing requires use of 32bit registers in pmode
+use 'xor' to zero out register bits
+use 'and' to mask off
+
+
+
+adc
+add with carry 
+used for adding 64 bit or 96 bit or 128 bit numbers ...
+use add on the low 32 bits
+the next 32bits use adc
+the next 32bits use adc
+and so forth
+
+
+
+add
+result is stored in destination op 
+dest = reg/mem
+source = reg/mem/imm
+source op must be same size or smaller than dest
+add ebx,eax  ;add eax to ebx
+add eax,0x30 ;convert eax to ascii numerical
+add esi,[rand+edx] ;rand must be array of dd not dw not db
+add ax,[esi+6] ;add word at esi+6 to the contents of ax
+be careful when adding memory to reg, the reg size determines
+whats fetched from memory
+
+
+
+
+Agner Fog
+"Optimizing Subroutines in Assembly"
+Copenhagen University, see agner.org
+*avoid instr like inc/dec which dont write to complete reg
+*avoid consecutive instr which for a dependency (sum+=list[i])
+*the cpu can do many things simultaneously given a good mixture
+of instr like simple integer instr, fpu, mul, mem read, mem write
+*minimize jmps in time critical code because of instr prefetching
+*align time critical code on 16bit boundry
+*cache:code/data stored closer to pentium, main memory fetch is slow
+at 100 clocks, level1 cache a few clocks
+
+
+
+
+ald 
+assembly language debugger by Patrick Alken
+http://ald.sourceforge.net
+very nice debugger to step thru assembly code on linux
+shows whats in every register
+<ald exename> to invoke
+<help> within ald to see list of interactive commands
+<n> single step next instruction, skip over "call sub"
+<s> single step, jump into "call sub"
+<display buf -n 10> show 10 bytes starting address 'buf'
+<display esi -n 10> show 10 bytes starting address in esi
+<display 0x80497cd -n 10> show 10 bytes starting this hex address
+<break 0x80480B8> set breakpoint at this instruction address
+<d> disassemble get address etc for breakpoint
+<continue> run to breakpoint
+<register> display registers & flags, n&s also give you this
+<set step-display-fpregs on> to see the fpu registers
+see also ~/.aldrc  resource file
+to build do ./configure then make then make install
+if readline.h or history.h error just comment out these lines
+in /source/readln.c and do make over
+
+
+
+
+
+align
+nasm inserts nops to move address to some power of 2
+align 4      ;dword alignment, low nibble is 0,4,8,c
+align 0x10   ;low nibble is always 0
+align 0x1000 ;4k page boundary, low 3 nibbles are 0
+
+
+
+and
+use to clear/mask off bits (set to 0)
+set to 1 if both are 1 else set to 0
+and eax,0          ;clear all bits
+and eax,ffh        ;clear upper 24 bits of eax
+and al, 11011111b  ;clear bit5
+
+
+array
+memory access
+e.g. array dd 5,6,2,8
+remember this is not C - we access memory by bytes natively
+if eax is index into array then:
+a single dword in an array of dwords: [array + 4*eax]
+a single  word in an array of words : [array + 2*eax]
+a single  byte in an array of bytes : [array + eax]
+
+
+ascii
+0x0a linefeed dec=10 (unix newline \n)
+0x0d carriage return dec=13
+0x20 spacebar dec=32
+0x21 !  dec=33
+0x22 "  dec=34
+0x30 0  dec=48
+0x39 9  dec=57
+0x41 A  dec=65
+0x5a Z  dec=90
+0x61 a  dec=97
+0x7a z  dec=122
+0x7e ~  dec=126 (last ascii char that is key pressable)
+0x7f or dec 127 is the triangle
+actually above 0x7f is printable but they are the odd ones
+like (a with umlout)etc...
+add 0x30 to any number to make it printable
+
+
+
+base index scale
+addressing modes for arrays
+in pmode:
+[base + index*k + displacement]
+[eax + ecx*4 + 0x500]
+* k=scale factor,  may be 2,4,8
+* registers may only be added (no substraction)
+any of the 8 generalpurp 32bit registers work for base/index
+in real mode:
+[base + index + displacement]
+base = bp or bx
+only the base addresses may be dereferenced [bp] [bx] in rmode
+index = si or di 
+no multiply by a k factor
+[es:di + 0x28], [es:buf], [es:0x900]
+
+
+
+bcd
+binary coded decimal
+see daa/das/sbb
+see also the af auxillary carry flag
+the RealTimeClock uses BCD
+in BCD a value like 0x12 represents the 12th day of the month 
+to convert a bcd to binary:
+(LoNibble & 0xf) + (NextNibble>>4 & 0xf)*10 + (NextNibble>>8 & 0xf)*100 ...
+
+
+bits 32
+generate 32 bit code with nasm
+note: do not use bits32, this will generate 16bit code
+
+
+bochs
+PC emulator, useful for developing your own os in assembly
+
+
+bswap
+if eax=0x12345678 then after bswap eax, eax=0x78563412
+use this to change the endian
+
+
+bt
+bit test
+this seems easier to use than "test" but is for 16 or 32 bit reg only
+puts the bit into CF
+bt ax,7  ;move bit7 into the carry flag
+then jc/jnc
+
+
+call
+call label (jump to a function/subroutine)
+usually end with "ret" which pops top of stack in EIP and jumps
+can also do: mov eax,mysubroutine  then  call eax
+
+
+
+carry flag
+if the result of an operation causes a bit to be 
+"carried out" then cf is set else cf is cleared 
+e.g.  mov eax,100110b
+      shr eax,2    ;causes bit1 to be carried out setting cf
+causing a negative value will also set cf 
+e.g.  mov eax,5
+      sub eax,6   ;now eax=0xffffffff and cf is set
+	  adc eax,0   ;now eax=0 and cf is set again
+clc=clear carry flag
+stc=set carry flag
+this flag is conveniently used as a function return value
+by using clc and stc
+then jc/jnc immediately following the procedure
+e.g. bios int13h-2 sets cf on error
+the carry flag can be used for rounding up (adc eax,0)
+
+
+carry vs overflow
+carry means the "unsigned" answer cannot be represented in the current size.  overflow means the "signed" answer (2's compliment) cannot be represented in the current size.
+
+
+cdq
+Sign extensions
+you need to use this before idiv
+if the numerator (eax) is (-), cdq will sign extend eax
+into edx setting edx=0xffffffff making idiv work out
+otherwise idiv returns garbage
+
+
+cli
+clear interrupt flag
+this only affects hdwre interrupts
+it has no affect on software (trap/exception) interrupts
+see also sti
+used to prevent additional hdwre interrupts during an irq
+
+
+cmp
+cmp op1,op2
+this is subtraction (op1-op2) and set flags
+operands should be r/m, r/r, r/i, m/i same size
+immediate data must be 2nd operand
+cmp eax,71h
+cmp byte[buf],'q'  ;test for q
+cmp byte[ebp],0x0a ;test for return key
+cmp dword [i],9
+jump based on cmp
+see also test
+cmp isnt the only instruction to set flags
+see also or,xor,and,inc,dec,neg,adc,sbb,sal/r,add,sub
+if counting down in a loop just use dec then jz/jnz 
+
+
+
+cmpsb
+compare two strings
+esi = source
+edi = destination
+sets flags as result of comparision
+inc/dec depending on direction flag
+repe/repne up to ecx times until first unequal/equal found
+example:
+orange db '1234567890.'
+apple  db '1294567890.'
+cld
+mov esi,orange
+mov edi,apple
+mov ecx,11
+repe cmpsb  ;repeat while equal
+results in ecx=8 and zf is not set
+esi and edi are incremented until the first unequal pair of bytes are found
+if both strings are equal then results in ecx=0 and zf is set
+
+
+
+colors
+for 80x25 vga text mode 0x03
+hi nibble is background color, lo nibble is text color
+example: 0x4e means red background, yellow text
+0=black, 1=blue, 2=green, 3=cyan, 4=red, 5=magenta, 6=brown
+7=white, 8=dk gray, 9=bright blue, a=bright green, b=bright cyan
+c=pink, d=bright magenta, e=yellow, f=bright white
+if bit 7 msb of color is set, text will blink
+cyan is a blue/gray
+magenta is a purple/pink
+
+
+
+counter
+you can use whatever but ecx is common
+generally initialize to the max and count down
+important if 32bit reg is used for addressing memory
+
+
+
+daa
+decimal adjustments after add
+mov al,0x35
+add al,0x48
+;now al=0x7d
+daa
+;now al=0x83 (35+48=83bcd)
+
+
+
+das
+decimal adjustments after subtract
+mov al,0x85
+sub al,0x48
+;now al = 0x3d
+das
+;now al=0x37 (85-48=37bcd)
+to convert a nibble in al to ascii:
+cmp al,10
+sbb al,69h
+das
+
+
+
+debug
+on a windows box you can test out some 16 bit code
+open a "cmd" window
+create a .com file with org 0x100
+read in the file with "debug main.com"
+register contents is displayed after each instruction
+single step thru the code with "t" trace
+"q" to quit, "r" to dump registers again, 
+"d" to display next 128 bytes of code in memory
+"r cx" to change value in cx manually then enter value
+flags:
+zero:      NF=set, NZ=clear
+carry:     CY=set, NC=clear
+direction: DN=set, UP=clear
+sign:      NG=set, PL=clear
+
+
+
+dec/inc 
+change reg or mem by 1
+inc eax
+if eax holds memory address this increments address to next byte
+carry flag not affected by these instructions
+if eax=1 then dec eax causes eax=0 and ZF set
+another dec eax causes eax=0xffffffff and SF set
+
+
+
+df
+direction flag
+cld=clear/inc, std=set/dec
+dont forget to set this or else
+you may find you are overwritting memory
+when using one of the rep string operations
+because you starting at the beginning of your string
+but the df is set to decrement - oops
+Warning: POPF can also change the direction flag
+
+
+%define STDIN 0
+%define STDOUT 1
+%define SYS_READ 3
+%define SYS_WRITE 4
+
+
+div
+unsigned divide
+numerator= al, ax or eax
+denominator=operand 
+operand= reg or mem 8/16/32 (not immediate)
+div rm8   ;ax/oper      quotient in al,  remainder in ah
+div rm16  ;dx:ax/oper   quotient in ax,  remainder in dx
+div r/m32 ;edx:eax/oper quotient in eax, remainder in edx
+in C programming the modulus % is the remainder after div
+be careful to set edx=0 before division
+examples: 
+if eax=10 & ebx=3 then div ebx yields eax=3 & edx=1
+if eax=130 & ebx=512 then div ebx yields eax=0 & edx=130
+if eax=0 then ebx doesnt matter and eax=edx=0 always
+
+
+dq
+used to initialize 64 bit data
+nasm .98.38 does not permit initializing to an integer
+it must be floating point
+I guess this is a bug since the MMX registers can move 64bit ints
+
+
+
+eflags
+eflags is a 32bit register on i386
+bit0  = CF carry             0x01
+bit6  = ZF zero              0x40
+bit7  = SF sign              0x80
+bit9  = IF interrupt enable  0x200
+bit10 = DF direction 
+bit11 = OF overflow 
+use pushfd/popfd for eflags
+
+
+
+endian
+so the pentium is "little endian"
+mov [0x500],bx will put bh at 0x501 and bl at 0x500
+doesnt this seem backward ?
+
+
+
+equ
+equate
+L1 equ $-s1  
+here s1 is address of first byte of string variable 
+$ is current location counter
+equ does not reserve memory so dont do [L1]
+
+
+errors
+nasm error messages are a little short some times
+"parser: instruction expected" can mean you forgot 
+to include an arg in a macro call
+
+
+
+
+
+idiv
+signed integer divide
+single operand is r/m 8,16 or 32
+edx:eax / operand
+returns quotient in eax, remainder in edx
+made sure to sign extend (cdq) eax b4 using idiv
+see also imul
+
+
+
+if x=a and y=b then
+mov eax,a
+mov ebx,b
+xor eax,x  ;eax=0 if x=a
+xor ebx,y  ;ebx=0 if y=b
+or eax,ebx ;eax=0 if x=a and y=b
+jnz else
+dothen:
+else:
+
+;compare 2 values ecx and edx with 0
+or ecx,0
+setz al
+or edx,0
+setz bl
+add al,bl
+;al=0 if both are non-zero
+;al=1 if one  is  non-zero
+;al=2 if both are zero
+
+
+in
+read data from ports
+in al,imm8
+in ax,imm8
+data is stored in al or ax
+port number is imm8 or may be in dx
+
+
+inc
+increment
+single operand is reg or mem  8,16,32
+if operating on memory specify byte/word/dword
+inc dword [i]
+
+
+%include
+%include "tmacros.inc"
+
+
+intel
+"Software Development Manuals"
+the definitive guide to programming the Pentium
+there are 3 pdf files available on the web
+Volume 1: Basic Architecture
+Volume 2: Instruction Set Reference
+Volume 3: System Programming
+
+
+invalid opcode
+interrupt 06
+you get this by jumping to some address containing data
+or exiting a ret instruction when you forgot equal
+push/pops within a function
+
+
+jecxz
+jecxz label
+short jump if ecx is zero
+useful for checking div/0 or skipping code if ecx=0
+
+
+
+jmp (to label)
+label must end with :
+if jmp is out of range use: jmp near label
+jmp $+2  ;heres a cute one
+
+
+
+jcc (conditional)
+ja/jnbe    cf=0 and zf=0   above/notbelowequal
+je/jz      zf=1            equal/zero
+jb/jnae    cf=1            below/notaboveequal
+jbe/jna    cf=1 or zf=1    belowequal/notabove
+jae/jnb    cf=0            aboveequal/notbelow
+jne/jnz    zf=0            notequal/notzero
+jc         cf=1            carry
+js         sf=1            sign
+
+signed jumps
+use jl/jge, je/jne, jg/jnle, jge/jnl, jle/jng
+in the unsigned world 0xffffffff > 0 so use ja or jb
+in the   signed world 0xffffffff < 0 so use jg or jl
+0xffffffff=-1 in the signed world
+
+
+
+
+
+
+jump table
+need "dd" because each label is a 32bit address
+mytable:
+dd label1, label2, default, label3, label4
+jmp [mytable+eax*4]  ;eax=0->10 for 9 choices
+
+
+
+jz
+jump if the result is zero (zf is set)
+jz label     ;short jump limited to 128 byte movement
+jz near quit ;jump anywhere in segment
+or jnz
+cmp->jz isnt the only sequence
+there are many instructions that affect zf (see below)
+
+
+
+label
+for jmp instructions or call
+any name starting with letter or . or _ ending with :
+local label starts with . 
+global label has no .
+local label is active until previous global label
+I find it best to start all labels with . within a procedure
+
+
+
+lds/lef/lefs/lgs/lss
+load far pointer from memory
+far pointer is stored in memory as:
+16 or 32 bits of offset (LOWORD)
+followed by 16 bits of segment (HIWORD) 
+lds ax,mem  loads offset into ax and segment into ds
+
+
+
+lea
+load effective address
+op1 must be 16 or 32bit reg, op2 is a memory address
+lea does not access memory even though the 2nd op used []
+use to do complicated address calcs which mov cant handle
+multiplier can be 2,4,8
+lea ebp,[tl_reg*4+esi]
+lea esi,[eax+ecx-1]  ;esi points to end of string
+lea ebx,[edi] and mov ebx,edi ;are equivalent
+lea esi,]ebx+edi] is good but mov esi,ebx+edi ;is invalid
+complicated example to build a polynomial:
+1) lea edx,[edx + edx*4]     ;y=5y
+   lea edx,[edx*8 + 14000]   ;y=40y+14000h
+   lea edi,[ebx + edx*8]     ;a=8(40y+14000h)
+2) lea eax,[ebx*8 + ebx]     ;eax=ebx*9
+   lea eax,[eax + ebx + 100] ;eax=ebx*10 + 100
+
+
+
+lods()
+load from string to register
+lodsb: al=[esi], esi++ or esi--
+lodsw: ax=[esi], esi++ or esi--
+lodsd:eax=[esi], esi++ or esi--
+cld=clear/inc, std=set/dec
+be careful: lodsb does not zero out bits above al
+this instruction combines a mov and inc/dec into 1
+
+
+
+loop
+loop label
+loop label,ecx (32bit default)
+loop decrements ecx and short jump to label if ecx not 0
+Agner Fog says to avoid and use add or sub and jcc
+minimize loop overhead
+there are two ways to loop to zero:
+1) start (i>0) and count down to 0
+mov ecx,n     ;number of iterations i=n
+test ecx,ecx  ;test for n<=0
+jng LoopEnd   ;fail
+LoopTop:
+	;loop body
+	sub ecx,1   ;loop overhead only 2 instr
+	jnz LoopTop ;loop overhead only 2 instr
+2) start (i<0) and count up to 0
+mov ecx,n
+lea esi,[array + 4*ecx]  ;ptr to end of string
+neg ecx
+LoopTop:
+	;loop body
+	;since ecx is negative we are moving toward
+	;smaller memory address
+	add dword [esi + 4*ecx],1  
+	add ecx,1
+	jz LoopTop
+
+
+
+
+loopz:  jump if ecx not 0 and zf is set
+loopnz: jump if ecx not 0 and zf not set
+loopz/nz incorporates jz/jnz and
+allows you to break out of loop before ecx hits 0
+
+
+
+macro
+%macro print 2  ;macro needs 2b called with 2 args
+	mov ecx,%1 ;first arg
+%%label:
+	mov edx,%2 ;2nd arg
+	jmp %%label
+%endmacro
+
+
+
+memory
+the first meg of RAM is used as follows
+0-3ff        real mode interrupt vector table
+400-4ff      bios data area
+500-9ffff    free memory 
+7c00...      bios boot sector
+a0000-bffff  video memory
+c0000-c7fff  video bios
+c8000-effff  bios shadow area
+f0000-fffff  system bios
+above fffff its all yours !
+
+
+min 
+find min of 2 unsigned values
+from John Eckerdahl assy gems, provided by Agner Fog
+input: eax and ebx values, return value min in eax
+sub ebx,eax
+sbb ecx,ecx
+and ecx,ebx
+add eax,ecx
+now do you understand this ??
+
+
+
+modulus
+is the remainder after division
+if the divisor is a power of 2 (2^n) then:
+modulus = numerator AND (divisor-1)
+this only works for dividing by 2,4,8,16,32...
+
+
+
+mov
+same size move
+move memory to register, immediate to reg/mem
+note: register size determines qty bytes moved !!
+i.e. if eax is dest then 4 bytes are moved into eax
+mov eax,[buf1]  ;contents of buf1 to register
+mov eax,buf1    ;address of buf1 to register
+mov ebx,eax     ;register to register
+mov [buf2],ebx  ;register to memory 
+mov ebp,buf     ;ebp holds address of memory buf
+mov [num+1],byte 10 ;move immediate to memory
+mov [buf+dx],al     ;16bit not allowed in pmode, need 32bit reg
+mov [buf-edx],al    ;(-reg) not allowed in pmode, must use (+)edx
+mov [buf+edx-1]     ;(+/-) immediate data ok
+mov eax,4660        ;decimal 4660 into eax
+mov eax,0x1234      ;same as previous
+mov byte [eax+ecx],0x34 ;eax holds address of some buf
+mov edx,[somebyte]  ;dont do this, upper bits of edx are random
+mov dl,[somebyte]   ;do this instead, byte memory to byte reg
+mov edx,quit        ;quit is a label, then you can jmp edx
+mov [di],dx  is really mov [ds:di],dx 
+segment "ds" is default unless you specify otherwise
+watch our for using (-1) in addressing, 
+may be interpreted as 0xff if only registers involved
+mov edi,0x500       ;put constant 0x500 into edi
+mov edi,[0x500]     ;put value at memory location 0x500 into edi
+mov [ds:0x500],eax  ;save contents of eax to memory 0x500
+mov esi,[esi]       ;legal
+be careful when moving memory to a register
+if you want to move a WORD, dont do this: mov ecx,[memory]
+instead do this: xor ecx,ecx then mov cx,[memory]
+
+
+
+movs()
+move memory to memory
+movsb  ;byte [esi]->[edi], esi++, edi++
+movsw,movsd
+rep ecx times
+to move a single byte to memory is a 2 step process:
+mov edi,[address]     ;address of destination
+mov byte [edi],' '    ;store byte 
+
+
+movsx
+same as movzx except sign extention 
+the hiword is filled with zero or one bits 
+
+
+movzx
+this is your mixed size move instruction
+e.g. for moving 8 or 16 bit r/m to a 32bit register
+the HIWORD is automatically zeroed
+movzx ebx,ah ;puts ah into bl
+movzx ecx,ax
+movzx eax,word [buf] ;move word at buf into eax
+movzx eax,byte [buf] ;move byte at buf into eax
+e.g. stor dd 0x12345678
+movzx eax,word [stor] ;eax=0x00005678
+
+
+
+
+mul
+unsigned integer multiply
+single operand may be r/m8, r/m16, r/m32 (not immediate)
+the operand is multiplied by whats in al/ax/eax only
+the result is stored in ax or dx:ax or edx:eax
+if result fits in 32bit, edx is zeroed out (so dont use it)
+you can speed up multiplication by using shl with add
+e.g. 10 = 8 + 2 so multiplying by 10 is the same as 
+multiply by 8 then by 2 then adding the result and 
+multiply by 8 is <<3  and multiply by 2 is <<1
+e.g. multiply by 800 = 512 + 256 + 32 so <<9 + <<8 + <<5
+see "powers of 2" below
+
+
+
+nasm (netwide assembler)
+nasm -f bin main.s    ;generate flat binary
+nasm -f elf main.s    ;linux elf binary
+nasm -e main.s > out  ;preprocess, shows macro expansions
+bin output does not support EXTERN or GLOBAL
+
+
+ndisasm
+disassemble flat binary file
+e.g. ndisasm -b 32 -o 0x1000 filename > out
+filename is the binary executable code not the .s source 
+-o is the org
+this is useful for getting the address of symbols
+see also ald disassemble feature, it is better
+
+
+
+negative numbers
+"two's compliment"
+flip all the bits (not) and add 1
+or do it in one step with "neg" which is times negative one 
+"the two's compliment of a value added to that value yields zero"
+representation-> 8bit   16bit   32bit
+-1               0xff   0xffff  0xffffffff
+-2               0xfe   0xfffe  0xfffffffe 
+-3               0xfd   0xfffd  0xfffffffd
+-4               0xfc   0xfffc  0xfffffffc
+-5               0xfb   0xfffb  0xfffffffb
+-15              0xf1   0xfff1  0xfffffff1
+-16              0xf0   0xfff0  0xfffffff0
+-17              0xef   0xffef  0xffffffef
+-25              0xe7   0xffe7  0xffffffe7
+mov cx,5
+neg cx   ;cx=fffb, sf=1
+add cx,1 ;cx=fffc
+add cx,4 ;cx=0, zf=1, sf=0
+or
+mov cx,5, neg cx, add cx,9  ;cx=4
+if eax=6 and ebx=0xffffffff then sub eax,ebx and eax=7
+if eax=6 and ebx=0xff then sub eax,ebx and eax=0xffffff07
+
+
+
+newline
+0x0a=10 is all you need for linux
+
+
+not 
+every 0 bit becomes 1 and every 1 bit becomes 0
+this is "ones compliment"
+single operand may be reg/mem 8,16,32
+not byte [toggle]  ;=0 or 0xff
+c programming uses the ~ tilde  (~077)
+
+
+operands
+r=register, r8=8 bit register, r32=32 bit reg
+m=memory
+i=immediate
+
+
+or
+use to set bits to 1
+or ax,100b  ;sets bit2 of ax to 1
+if either bit is 1 the result is 1 
+sets zf,sf
+or ah,ah  ;can be followed with jz or jnz
+
+
+org
+a subtraction operation on all absolute addresses in call/jmp
+does not affect call/jmp which use labels
+org 0x1000, jmp 0x8:0x1077 assembles to jmp 08:0x77 
+org 0x15  , call 0x60      assembles to call 0x4b
+
+
+out
+send data to ports
+out portnum, data
+portnum = imm8 (0-255) or dx
+data    = al, ax, eax (for sending bytes use al)
+e.g. out 0x20,al
+
+
+Pentium optimization 
+includes unrolling loops
+and avoiding conditional branches
+here is an example computation that avoids all jumps
+problem is to compute x : x=(a<b) ? const1 : const2
+let const3=const1-const2
+xor ebx,ebx
+cmp A,B
+setge bl        ;bl=0 or 1
+sub ebx,1       ;ebx=0 or 11...11
+and ebx,const3  ;if ebx=0 then ebx=0
+                ;if ebx=11...11 then ebx=const3
+add ebx,const2  ;if ebx=0 then ebx=const2
+                ;if ebx=const3 then ebx=const1
+
+
+
+powers of 2
+use shl to mul by these values
+0   1   2   3   4   5   6   7    8    9    10
+1   2   4   8   16  32  64  128  256  512  1024
+
+
+push/pop
+push 4bytes of reg/mem or imm onto stack
+pop eax ;puts top of stack into eax
+push eax ;puts eax onto top of stack
+push dword [_x]
+use pushad,popad for (8) 32bit registers
+use pushfd/popfd for eflags
+you can also push a byte or word imm but they are
+zero extended to dwords
+
+
+rdtsc
+read time stamp counter (Pentium ticks) to edx:eax
+units are ticks or clocks
+elapsed time,seconds = (end-start)/megahertz
+megahertz = 350000000 on my PentiumII
+rdtsc ;start
+mov [start_hi],edx ;save start hi 32bits
+mov [start_lo],eax ;save start lo 32bits
+rdtsc ;end 
+sub edx,[start_hi]  
+sub eax,[start_lo] 
+div dword [megahertz] ;elapsed time in eax
+			
+
+
+references
+Dr. Paul Carter "PC Assembly Language", Nov 2003
+"NASM-The Netwide Assembler" manual
+"Assembly Language Step-by-Step", Jeff Duntemann
+
+
+registers
+32bit: eax,ebx,ecx,edx, ebp,esp,  esi,edi
+gdtr,idtr,ldtr, cr0-cr3 counter, dr0-dr7 debug, tr task, ip
+counter: ecx 
+source: esi
+destination: edi
+stack pointer: esp
+16bit: ax bx cx dx si di bp sp
+8bit: ah bh ch dh  al bl cl dl
+cl is used for shr,shl
+real mode use 16 bit registers
+pmode use 32 bit registers
+real mode memory is specified as "segment:offset" 
+in pmode all segments have same value (offset into gdt)
+valid 16bit segment registers are <cs,ds,ss,es>
+valid 16bit offset registers are <bx,bp,sp,si,di>
+ds is default if you dont specify seg:
+ax,cx,dx may not be used as offset registers to address memory
+you can not write to segment registers directly
+
+
+
+rep
+repeat instruction ecx times
+repe: repeat while equal up to ecx times
+repne: repeat while not equal up to ecx times
+use with scas, movs, stos, cmps, lods
+note: ecx is not preserved by rep but is decremented
+repe, repne, repz, repnz check zf after each iteration
+rep stos is a fast way to initialize a large block of memory
+"repne scasw" is very useful for searching for a word in a block of memory 
+starting from the end of the array by setting edi to the address of the 
+last element in the array, ecx=qty elements in array and using std to scan backwards, 
+then when done if ecx is non-zero, ecx=index of element in array
+e.g. in the following word array: 3,56,23,10,19 use ecx=5 and set
+edi to the address of 19 and search for ax=56 when done ecx=1 (second element of array)
+
+
+
+return value
+you can return a value in a reg like eax
+you can use the df cld/std for booleans
+now you can immediately jump after exiting a procedure
+you can also affect the zero flag with cmp/xor...for boolean
+cmp eax,0   ;clears zf unless eax is 0
+xor eax,eax ;sets zf 
+
+
+rounding
+shr eax,4  ;divide by 16
+adc eax,0
+
+
+rotate
+ror/rol register, numofbits
+if eax=0x12345678 then after "rol eax,4", eax=0x23456781
+if eax=0x12345678 then after "rol eax,16", eax=0x56781234
+see also bswap
+
+
+
+sbb
+subtract with borrow
+to fill a register with CF use "sbb cx,cx" 
+is same as (cx-cx-CF)
+if cf=0 then cx=0
+if cf=1 then cx=0xffff 
+
+
+
+scasb
+scan string for byte
+edi = address of string
+al  = byte we are looking for
+ecx = max count
+compare al with byte in edi and set flags
+edi++ or edi-- depending on df
+repe/repne up to ecx times until first unequal/equal found
+see also scasw using ax, scasd using eax
+this function always seems to go 1 step too far
+note also if using cld, while edi is incremented, ecx is decremented
+Example 1:
+**********
+str3 db 'Hellow World',0
+cld
+mov al,SPACE
+mov edi,str3
+repne scasb  ;repeat while not SPACE
+;edi now points to the letter 'W' 
+;because it stops at the first letter after the SPACE
+Example 2:
+***********
+str3 db '   Hellow World',0
+mov edi,str3
+repe scasb  ;repeat while SPACE
+;edi now points to the letter 'e'
+
+
+
+
+section
+linux uses .text, .data, .bss
+each source file may contain these sections
+nasm will combine
+linux does not permit writting to memory defined within .text
+
+
+segment:offset
+this is real mode addressing
+max value for segment or offset is 0xffff
+the absolute address is derived by 
+left shift the segment address 4 bits
+and add to the offset. example: 0x2:0x0 = 0x20
+this gives you a max 20 bit address 0xfffff = 1meg of memory
+valid 16bit segment registers are <cs,ds,ss,es>
+valid 16bit offset registers are <bx,bp,sp,si,di>
+
+
+setcc
+use set to copy the value of a flag (1/0) into  m/reg8
+uses same condition codes as jcc
+"setz al" sets al=0 if zf clear and al=1 if zf set
+gcc uses "setle al" to return a boolean
+sets, setns for sign flag
+setc for carry flag
+set only takes 8bit reg/mem as operand
+
+
+
+sf
+js/jns
+sign flag is bit=7 of eflags
+set if result of operation forces negative operand (hi bit=1)
+the sign bit is bit7 of al or bit15 of ax or bit31 of eax...
+mov ax,5   cmp ax,6   this sets SF  
+mov ax,5   sub ax,6   this sets SF
+mov ax,5   sub ax,5   this clears SF  but sets ZF
+mov ax,0   dec ax     this sets SF
+mov ax,5   dec ax     this clears SF
+You may first clear the sf using "xor eax,eax" before testing
+the sf may have been set by some previous operation
+in a loop you can count down then js when value goes below 0
+
+
+
+shl/shr
+shift left/right
+qty BITS to shift must be < 32 and immediate or cl
+shr esi,8  ;bumps off the low 8 bits
+shr eax,cl ;source operand =numbits 
+shl eax,1  ;eax * 2
+shl eax,2  ;eax * 4 
+shl eax,3  ;eax * 8
+shl eax,4  ;eax * 16
+shl eax,5  ;eax * 32
+shl eax,6  ;eax * 64
+shl eax,7  ;eax * 128
+shl eax,8  ;eax * 256
+shl eax,9  ;eax * 512
+shr eax,1  ;eax / 2
+shr eax,2  ;eax / 4
+to multiply by 10 you could use lea
+see also 'ror'
+if ecx=qtybytes compute qty of 512 byte blocks with (shr ecx,9)
+
+
+sign flag
+becomes set when result of operation is a negative operand
+negative = hi order bit = sign bit = 1
+i.e. in eax, bit31 is the sign bit
+any operation that leaves the sign positive will clear sf
+use js/jns 
+
+
+stack
+see examples below
+
+
+stall
+read up on the Pentiums U-pipe and V-pipe
+avoid consecutive instructions which read/write
+to the same register, more/simpler instructions
+are preferred, see Michael Abrash Black Book
+
+
+std
+see df direction flag
+
+
+
+stos()
+store register to string
+stosb,stosw,stosd
+source = al,ax or eax
+destination = string address in edi  
+inc/dec edi based on df (cld=increment)
+rep ecx times
+usage: zero memory, setting video memory pixels
+watch out if edi initially points to start of memory
+when you are done it points to end of memory !
+error if edi=0
+
+
+
+str
+dont use this as a variable
+its a valid mnemonic (store task register)
+
+
+
+strcmp
+mov esi,address_of_source_string
+mov edi,address_of_dest_string
+mov ecx,qty_bytes_to_compare
+cld   ;inc
+repe cmpsb  ;compare string byte while equal
+je strings_are_same
+strings_not_same:
+
+
+
+string operations
+cld=>esi++, std=>esi-- 
+command suffix b/w/d: may act on (b)yte, (w)ord, (d)word
+rep prefix may be used to repeat ecx times
+REPEAT   COMMAND  EXPLAIN   NOTE
+rep      movs     move      [edi]=[esi], edi++ esi++
+repe/ne  cmps     compare   if [esi]==[edi] set zf=1, edi++ esi++
+repe/ne  scas     scan      cmp al,[edi]   edi++  
+loop     lods     load      al=[esi], esi++
+rep      stos     store     [esi]=al, esi++
+
+
+
+
+sub
+subtraction
+first oper is r/m, 2nd oper is r/m/i
+result is stored in first operand
+sub ebx,8  ; ebx-8
+;if the result is negative, the SF is set
+
+
+sys_read Linux
+get 1 char at a time, increment pointer, loop 
+mov eax,3   ;sys_read
+mov ebx,0   ;stdin
+mov ecx,buf ;pointer to memory
+mov edx, 1  ;1 byte to be stored (more may be entered)
+int 80h
+quits when enter key is pressed
+returns number of char typed in eax including linefeed
+if you enter 'tom' it will append 0x0a and return 4 in eax
+
+
+
+sys_write Linux
+mov eax,4   ;sys_write
+mov ebx,1   ;stdout
+mov ecx,buf ;pointer to memory
+mov edx,12  ;num bytes to write (Lvar=$-buf)
+int 80h
+results are unpredictable if bytes are non-printable
+returns qty bytes successfully printed in eax
+buf db 'Hello',10  ;include newline, set edx to 6 
+
+
+
+table
+a simple lookup table with 3 entries
+mov eax,[mytable+4]  ;copies 1000 to eax (0x000003ea)
+mytable  
+dd 1               ;[mytable]
+dd 1000            ;[mytable+4]
+db 'Hello..World'  ;[mytable+8]
+dw 0xff03          ;[mytable+20]
+see also xlat
+
+
+test
+zf is set if a "zero" bit is found
+only test for a single zero bit at a time
+test oper1,oper2
+oper1=r/m 8,16,32
+oper2=r/imm 8,16,32 (AND bitmask)
+performs a mental 'and' and sets flags, does not store result
+test al,1    ;zf is set if bit0=0 
+test al,10b  ;zf is set if bit1=0
+test al,100b ;zf is set if bit2=0
+test edi,1 ;are we on an odd address ?
+dont use the variable "test" in your programs, its reserved :)
+
+
+times
+buf: times 100 db 0  ;reserve a buffer of 100 zeros
+cant be applied to macros
+
+
+two's compliment
+flip all the bits and add 1
+see also neg
+e.g. 6=00000110, flip=11111001  + 1 = 11111010 = 0xfa = -6
+e.g. 1=00000001, flip=11111110  + 1 = 11111111 = 0xff = -1
+
+
+xchg
+exchange the operands
+op1 is a register, op2 is reg/mem, both same size
+xchg esi,eax
+
+
+
+xlat
+translate byte in lookup table
+handy for a table of bytes
+ebx=address of table
+al is initially the index into the table
+al=[ebx+al]
+
+
+
+xor
+set to 1 if differant, set to 0 if same
+this is binary addition
+1+0=1
+0+1=1
+0+0=0
+1+1=0 (really 2 which in binary is 0 carry 1)
+num xor num = 0
+num xor 0   = num
+num xor 1   = flipbits
+num1 xor num2 xor num1 = num2
+num1 xor num2 xor num2 = num1
+<xor ebx,ebx> sets ZF and clears SF 
+xor is useful to toggle an individual bit
+just xor the number with its mask
+e.g. number db 10110b
+     mask   db 00100b  (we want to flip bit2)
+	 xor [number],00100b  ;number=10010b
+	
+
+
+zf
+zero flag is bit6 of eflags
+set means zf=1
+clear means zf=0
+the following can set/unset this flag:
+cmp,or,xor,and,inc,dec,neg,adc,sbb,shl/r,add,sub
+zf can be used as a procedure return value (bool t/f)
+set:   xor eax,eax    zf=1, eax=0,   jz  on success
+clear: or eax,1       zf=0, eax!=0,  jnz on failure
+cmp al,0    ;clears zf if al!=0, sets zf if al=0 
+
+
+**********************************************
+boiler plate code for linux asm executable
+-g include debug symbols for use with ald or gdb
+
+go: main.o
+	ld -g -o go main.o
+main.o : main.s 
+	nasm -f elf main.s
+
+%include "linux.inc"
+bits 32
+section .text
+global _start ;ld needs starting point if not _main
+_start:
+	nop ;for ald when stepping thru instructions
+	;your code goes here
+quit:
+	mov eax,1 ;sys_exit
+	mov ebx,0 ;return 0
+	int 80h   ;call linux
+section .bss
+	buf resb 100
+section .data
+	temp dd 1
+
+
+;if you want to link with libc then 
+global _main
+_main:
+ret ;not sys_exit
+;gcc will generate startup & shutdown code
+;_main becomes just a subroutine
+now you push args on stack and call _putc ...
+
+
+
+
+**************
+    STACK 
+***************
+
+an upside down segment
+the stack grows (push) numerically towards smaller addresses.
+which means esp decrements with each push
+esp points to the last item (top) pushed on the stack
+esp should be set to an address divisible by 16
+EIP may point to any tlib function as well as the app
+
+PUSH = decrement ESP then " mov [ESP],arg"
+In 32bit mode you can push a dword or reg32 or segment reg
+
+Example of what stack looks like if an int/exception occurs:
+992      Arg3=EIP      ESP       third push
+996      Arg2=CS       ESP+4     2nd push  
+1000     Arg1=EFLAG    ESP+8     first push
+1004     start         ESP+12    
+
+
+Example pushing numbers 1,2,3,4 on the stack:
+992     4        ESP
+996     3        ESP+4
+1000    2        ESP+8
+1004    1        ESP+12
+
+	
+pushad pushes 32 bytes on the stack
+first is eax, last is edi
+eax,ecx,edx,ebx,esp,ebp,esi,edi 
+[esp]    edi  ;last on first off
+[esp+4]  esi 
+[esp+8]  ebp
+[esp+12] esp
+[esp+16] ebx
+[esp+20] edx
+[esp+24] ecx
+[esp+28] eax
+popad removed 32 bytes from stack
+
+cant move stack->memory
+can do stack->register->memory
+
+_stdcall convention:
+pass args to function on stack and let subroutine cleanup
+see stack.s functions for examples
+within your subroutine you typically do:
+push ebp
+mov ebp,esp
+;now DO NOT write to ebp in subroutine or your stack is TRASHED :(
+;subroutine code goes here
+pop ebp
+retn xx where xx=4 times qty args pushed
+
+Following this convention, if you push 1 arg on stack 
+[ebp+8] = arg pushed
+retn 4    will cleanup
+
+if you push 2 args on stack: 
+[esp+12] = 1st arg pushed on stack
+[esp+8]  = 2nd arg pushed on stack
+retn 8     will cleanup
+
+if you push 3 args on stack: 
+[esp+16] = 1st arg pushed on stack
+[esp+12] = 2nd arg pushed on stack
+[esp+8]  = 3rd arg pushed on stack
+retn 12    will cleanup
+
+

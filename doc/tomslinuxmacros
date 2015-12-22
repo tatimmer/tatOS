@@ -1,0 +1,173 @@
+;***************************************
+; tmacros.inc
+; toms 32bit i386 assembly macros
+; with some subroutines added in
+; www.ticon.net/~tatimmer
+; May 27, 2007
+; for Nasm on Linux using int80 i/o
+;***************************************
+
+
+%define STDIN 0
+%define STDOUT 1
+%define SYS_READ 3
+%define SYS_WRITE 4
+%define SYS_EXIT 1
+
+
+
+;******************
+;exit
+;*****************
+%macro exit 0
+	mov eax,SYS_EXIT
+	mov ebx,0 ;return 0
+	int 80h   ;call linux
+%endmacro
+
+
+
+
+
+;**************************************************
+;putc
+;put char
+;arg1=ascii character
+
+;to print a newline use:
+;	PUTC 0xa
+;**************************************************
+
+%macro PUTC 1
+	pushad
+	mov byte [mac_char], %1
+	mov eax,SYS_WRITE 
+	mov ebx,STDOUT 
+	mov ecx,mac_char
+	mov edx,1 
+	int 80h
+	popad
+%endmacro
+
+
+
+;**************************************************
+;puts
+;put string
+;arg1=address of string
+;arg2=num of char in string
+;return value for put & get is in eax 
+;num bytes sucessfully read/write
+;if string contains 0xa this is end of string
+;then eax is less than arg2
+;**************************************************
+
+%macro PUTS 2
+	pushad  
+	mov eax,SYS_WRITE 
+	mov ebx,STDOUT 
+	mov ecx,%1 ;pointer to memory
+	mov edx,%2 ;num bytes
+	int 80h
+	popad  
+%endmacro
+
+
+
+
+;*************************************************************
+;strlen	
+;esi=address of 0 terminated source string
+;returns length of string in edx (not including 0 terminator)
+;*************************************************************
+
+strlen:
+	mov edx,0
+	.count:
+	cmp byte [esi],0
+	jz .done
+	inc edx
+	inc esi
+	jmp .count
+	.done:
+	ret
+	
+
+;*******************************************
+;putebx
+;display contents of ebx as hex
+;the heart of this code comes from 
+;John Eckerdahls web site
+;*******************************************
+
+%macro PUTEBX 0
+	push eax
+	push ecx
+	mov ecx,8
+	rol ebx,4
+	
+%%.1: 
+	mov eax,ebx 
+	
+	;mask off all but low nibble
+	and eax,0x0000000f  
+	
+	;convert al to ascii
+	;code from John Eckerdahl
+	cmp al,10
+	sbb al,69h
+	das
+
+	PUTC al 
+
+	rol ebx,4
+	loop %%.1
+
+	pop ecx
+	pop eax
+%endmacro
+	
+
+
+;**************************************************
+;gets
+;gets keystrokes and store in buffer
+;arg1=address of memory buffer
+;arg2=size of memory buffer
+;return= number of keystrokes in eax not including enter key
+;by default linux left justifies
+;and appends 0x0A which we overwrite with 0
+;**************************************************
+
+%macro gets 2
+	memset %1,0,8,b ;zero out the buffer
+	
+	;now read
+	mov eax,SYS_READ 
+	mov ebx,STDIN 
+	mov ecx,%1 ;pointer to memory to stor
+	mov edx,%2 ;num bytes
+	int 80h
+
+	;replace 0x0a with 0
+	mov [%1+eax-1],byte 0 
+	dec eax
+%endmacro
+
+
+
+
+
+;**************************************
+; data used by macros in this file
+; use mac_ prefix to avoid conflicts 
+;**************************************
+section .bss
+mac_char       resb 1
+
+
+
+section .data
+mac_h    db 'h'  ;hex suffix
+mac_b    db 'b'  ;binary suffix
+

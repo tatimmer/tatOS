@@ -1,0 +1,30 @@
+IBM P/C CHS CYlinder Head Sector Addressing notes
+
+This info is useful for designing bootloaders which need the IBM p/c compatible
+bios to load sectors from disc. This bios uses cylinder-head-sector addressing.
+
+
+                    Sector        Head           Cylinder
+                    **********    *************  **********
+
+encoding qty bits   6             8              10
+
+address start       1             0              0
+
+address end         0x3f=63       0xfe=254 [1]   0x3ff=1023
+
+max qty             63            255            1024
+
+
+[1] BIOS compatible with early MSDOS will only allow head address
+up to 0xfe
+
+512 byte/sector * 63 sector/track * 255 heads * 1024 cylinders
+= 8 gig limit
+
+EIDE, ATA-2, ECHS schemes have extended the limit 
+see extended int 13h functions
+
+DOS & old Windows partitions must start/end on a cylinder boundry
+
+

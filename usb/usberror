@@ -1,0 +1,31 @@
+
+USBERROR codes:
+currently the dword at 0x548 is reserved for this
+any usb transaction that generates an error will write
+the error code to 0x548
+
+
+0=no error, success
+1=ReadCommandRegister failed
+2=ReadStatusRegister failed
+3=ReadPort0 failed
+4=runtd packet still active, failed to retire
+5=command transport numbytes transferred failed
+6=data packets still active
+7=status transport numbytes transferred failed
+8=invalid CSW
+
+The following are the Status codes (2nd dword of td)
+The host controller sets these bits on error
+see run.s
+ 9=packet still Active    (bit23)
+10=stalled, serious error (bit22)
+11=Data buffer error      (bit21)
+12=Babble detected        (bit20)
+13=NAK received           (bit19)
+14=CRC/TimeOut error      (bit18)
+15=Bitstuff error         (bit17)
+
+
+
+

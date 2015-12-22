@@ -1,0 +1,212 @@
+
+;***************************************************
+;Tree
+;draws a tree like object using a stack based approach
+;each child branch is connected to the parent branch
+;this algorithm is similar to floodfill
+;we pop off the stack 1 branch and draw it
+;we compute 3 new child branches
+;we push on the stack each child branch
+;that meets a minimum size
+
+;May 2013 assembles with ttasm for tatOS
+;rev Sept 2013 for protected mode interface
+;***************************************************
+
+org STARTOFEXE
+
+
+;*************
+;  DATA
+;*************
+
+
+;total qty branches on stack
+numbranches:
+dd 0
+x1:
+dd 0
+y1:
+dd 0
+x2:
+dd 0
+y2:
+dd 0
+angle:
+dd 0
+length:
+dd 0
+color:
+dd 20
+
+totalbranchesdrawn:
+dd 0
+
+str1:
+db 'Total Branch Count',0
+
+title:
+db 'TREE',0
+
+;*************
+;  CODE
+;*************
+
+
+..start
+
+	;black background
+	fillrect 0,0,800,600,BLA
+
+
+	;Yaxis at bottom scanline and +y pointing up
+	;so the tree developes from the bottom up as it should
+	;for an upside down tree just comment out this line
+	setyorient -1
+
+
+	;for starters
+	;push the parameters of the first branch on the stack
+	;parameters are: x1,y1,Length,angle
+	push 400
+	push 50
+	push 150
+	push 90
+
+	mov dword [numbranches],1 
+	mov dword [totalbranchesdrawn],1 
+
+
+GetBranch:
+
+
+	;test for done-ness or else we mess up the stack
+	cmp dword [numbranches],0 
+	jz Done
+
+
+	;pop off 1 branch 
+	pop [angle]
+	pop [length]
+	pop [y1]
+	pop [x1]
+	dec dword [numbranches] 
+	
+
+	;compute branch dx,dy
+	mov eax,59  ;polar2rect
+	mov ebx,[length]
+	mov ecx,[angle]
+	sysenter
+	;returns ebx=rcos()=dx, eax=rsin()=dy
+
+	;compute x2
+	add ebx,[x1]
+	mov [x2],ebx
+	;compute y2
+	add eax,[y1]
+	mov [y2],eax
+
+
+	;draw the branch
+	line 0xffffffff,[x1],[y1],[x2],[y2],[color]
+
+
+	;increment the branch color
+	inc dword [color] 
+	
+
+	;compute length of child branch
+	;each child branch is shorter than parent
+	;we stop pushing branches on the stack
+	;when they get too short
+	mov eax,[length]
+	mov ebx,2
+	mul ebx
+	mov ebx,3
+	xor edx,edx
+	div ebx
+	;edi=length * 2 / 3
+	cmp eax,5
+	jb GetBranch
+	mov edi,eax
+
+
+
+	;push parameters for 1st child branch on the stack
+	;*************************************************
+	push [x2] 
+	push [y2] 
+	push edi
+	;set angle of child branch relative to parent
+	;angle should be 0-90
+	;change the angle and experiment with the affect
+	;it makes a big differance on the final image
+	mov eax,[angle]
+	add eax,60
+	push eax
+	;increment the stack branch count 
+	inc dword [numbranches] 
+	inc dword [totalbranchesdrawn] 
+
+
+	;push parameters for 2nd child branch on the stack
+	;*************************************************
+	push [x2] 
+	push [y2] 
+	push edi
+	;make the angle of child2 differant than child1
+	;for a tree that is "blowing" in the wind
+	mov eax,[angle]
+	sub eax,30
+	push eax
+	;increment the stack branch count 
+	inc dword [numbranches] 
+	inc dword [totalbranchesdrawn] 
+
+
+	;we opt for a more "full" tree with lots of branches
+	;so we add a 3rd child branch
+	;for a more simple looking tree skip this child
+	;push parameters for 3rd child branch on the stack
+	;*************************************************
+	push [x2] 
+	push [y2] 
+	push edi
+	;make the angle of child3 differant than child2
+	mov eax,[angle]
+	sub eax,10
+	push eax
+	;increment the stack branch count 
+	inc dword [numbranches] 
+	inc dword [totalbranchesdrawn] 
+
+
+	jmp GetBranch
+
+
+Done:
+	;title for this program
+	setyorient 1
+	putshershey 50,100,title,YEL,1,3
+	setyorient -1
+
+
+	;report the total branches drawn
+	mov ebx,[totalbranchesdrawn]
+	putebx ebx,50,50,0xf1ef,0
+	puts FONT01,150,50,str1,0xf1ef
+	swapbuf
+	getc
+	exit
+
+
+            
+
+;*****************THE END ********************************
+
+
+
+
+ 
+       

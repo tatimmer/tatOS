@@ -1,0 +1,81 @@
+
+;********************************************************
+;HELLOWORLD		
+;demo of puts and fillrect functions
+;modified to demo swaprectprep and swaprect
+;you draw to upper left corner of backbuf
+;and then display a "window" any where on the screen (LFB)
+;assembles with ttasm for tatOS
+;rev Sept 2013 for protected mode interface
+;*********************************************************
+
+org STARTOFEXE
+
+
+
+;**************
+;   DATA
+;**************
+
+
+str1:
+db 'Hello World',0
+str2:
+db 'Press any key to quit',0
+
+color:
+dd 0
+
+;**************
+;   CODE
+;**************
+
+
+
+..start
+
+	;the first two args control where the window appears on the screen
+	mov eax,51  ;swaprectprep
+	mov ebx,100 ;xwindow
+	mov ecx,200 ;ywindow
+	mov edx,300 ;width
+	mov esi,100 ;height
+	sysenter
+
+	;use ebx for the color
+	mov ebx,BLU
+
+Draw:
+	fillrect 0,0,300,100,[color]
+	puts FONT01,20,20,str1,0xfdf0
+	puts FONT01,20,40,str2,0xfdf0
+	
+	mov eax,52  ;swaprect
+	sysenter
+
+
+	;we pause for a very short time 
+	;then increment the rectangle color and draw again
+	;this should drive the user crazy I think
+	mov eax,37  ;sleep
+	mov ebx,5   ;milliseconds
+	sysenter
+
+	;inc palette color
+	add dword [color],1
+
+	;press any key to quit
+	mov eax,12  ;checkc
+	sysenter
+	jz Draw 
+
+
+	exit
+
+
+
+;***********************TheEnd ***********************************************
+
+
+
+   

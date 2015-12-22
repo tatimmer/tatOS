@@ -1,0 +1,312 @@
+tatOS/doc/hardware
+July 2012
+
+
+A brief discussion on tatOS Supported Hardware.
+Further down are discussions about failure as well.
+
+
+
+
+;***********************
+       Success
+;***********************
+
+
+Desktop or Laptop PC circa Windows98-2008
+Computer has (2) ubs ports on back for UHCI controller
+or a single EHCI controller with up to 4 ports.
+
+Ive tested the following:
+	* Gateway P2 desktop circa 1998
+	* Emachines P3 desktop circa 2000 & 2005
+	* Dell P4 desktop 2006
+	* Toshiba laptop circa 1998
+	* CBS custom build P3 circa 1999
+	* HP Pavillion Laptop circa 2009
+	* Dell Latitute & Inspiron laptops
+	* Asus Eee 1001PX 10" Netbook, Intel Atom circa 2012
+
+
+* processor: 
+	A single 32bit (x86) w/MMX processor is preferred 
+	This includes Pentium II 350mhz, Pentium III 550 mhz
+	64bit and dual core work with mixed success 
+	This includes Intel Core2 Duo, AMD Turion 64 x2
+	tatOS uses 32 bit protect mode and will not use 64 bit registers or addressing
+	if dual core, tatOS uses the Bootstrap processor only
+
+	Here are some of the processors tatOS has been found to run on.
+	Run cpuid from the shell to get this information.
+	family  model   stepping   MHz    description
+	INTEL.........................................
+	06      05      02         347    Pentium II 350 mhz
+	06      06      05         534    Celeron
+	06      07      03         498    Pentium III 
+	06      07      03         547    Pentium III 
+	06      07      0a        1992    Core Duo 
+	06      0c      0a        1660    Atom
+	06      0d      06                Pentium M, Celeron M
+	0f      02      09                Pentium IV Xeon
+	AMD..........................................
+	0f      08      02                Dual Core 64bit
+	0f      03      02                Dual Core 64bit
+
+
+
+
+* USB mouse:
+	tatOS supports usb mouse as std
+	Logitech, Microsoft or Manhattan all work
+	I suggest to stick with the corded mouse
+	one Logitch wireless mouse hangs at GET_PROTOCOL
+	left button, right button, wheel also acts as 3rd button
+	a uhci controlled port is required
+	ehci must have uhci companion controller to hand off
+	the Manhattan mouse has an 01 byte in the report-see tatos.config
+
+
+* ps2 mouse: 
+	ps2 mouse is depreciated in favor of usb
+	ps/2 (6 pin round connector)
+	3 button with wheel (pushing wheel is 3rd button)
+	2 button without wheel is unsupported
+	A USB mouse with usb2ps2 adapter may or may not work.
+	Logitech mouse=yes, microsoft mouse=no
+
+
+* ps2 Keyboard: 
+	ps2 keyboard is the only type supported
+	ps/2 (6-pin round connector)
+	the driver supports std US Windows style with 104 keys
+	numeric pad, arrow keys, ins/del/hom/end/Pgup/Pgdn group
+	defaults to scancode set number=1 (XT)
+	scancode sets 2,3 unsupported
+	usb connector on end of chord unsupported
+	ps2init code works on HP laptops and on my Asus netbook
+
+
+* video adapter: 
+	SVGA, 800x600x8bpp, 256 color graphics
+	this is the only graphics mode supported
+
+
+* BIOS that is VESA VBE 2.0 or later
+
+
+* Floppy Drive:
+	3.5 inch diskette, 
+	1.44MB, 512 bytes per sector, 18 sectors per cylinder
+	80 cylinders/tracks, 2 heads
+	tatOS boots best from floppy 
+	if you dont have an internal floppy drive 
+	then go buy a cheep external floppy drive that plugs into a usb port
+	tatOS will also boot from usb pendrive if your bios supports floppy emulation
+
+
+* USB Controllers: 
+
+	Flash drive works on computers with a single ehci or uhci.
+	Mouse works on uhci only.
+	OHCI (IEEE 1394) is unsupported
+	xHCI is unsupported
+	Multiple EHCI controllers are unsupported
+	Intel or Via ehci are recommended 
+	I would avoid nVidea ehci because I cant find controller documentation
+	and because they use ohci companion controllers which are unsupported
+
+	The following usb controllers have been found to work on tatOS:
+
+	** Intel N10/ICH7 EHCI, DID=0x27cc, VID=0x8086
+	this is found on the Asus 1001PX netbook
+
+	** Intel 82371   UHCI, DID=0x7112, VID=0x8086
+	this is the common one found on older desktops
+
+	** Intel 82801   EHCI, DID=0x2937  VID=0x8086  ICH9 
+	found on my daughters HP Pavillion, has uhci companion controllers
+	ehci uses 64bit addressing
+
+	** Intel  82801DB/DBM (ICH4/ICH4-M) EHCI, DID=0x24cd, VID=0x8086
+	found on Dell Latitude D600
+
+	** Via VT6212    EHCI, DID=0x3104, VID=0x1106
+	This is a pci add-on card mfg by Manhattan-works great
+	has 1 ehci to control 4 ports with 2 uhci companion controllers
+
+	** nVidia MCP51, EHCI, DID=0x026e, VID=0x10de
+	found on e-Machines and HP Pavillion a154On Desktop
+	use one of four ehci ports on the back not ohci port on front, no uhci 
+	
+	** nVidia MCP67 EHCI, DID=0x055f  VID=0x10de
+	found on HP Pavilion dv6000 laptop
+	f9 key to change boot device
+
+	** nVidia CK804 EHCI, DID=0x005b, VID=0x10de
+	found on a 64bit dual core custom build AMD machine with Asus motherboard
+	four ehci ports on the back and two ohci ports on front
+
+	** Silicon Integrated Systems EHCI, DID=0x7002, VID=0x1039
+	found on Dell Inspiron 1000
+
+
+
+* USB Mass Storage Device Flash-Drive, Memory-Stick, Pen-Drive
+
+	Most any pen drive/memory stick/flash drive (USB 2.0 ok)
+	FAT16 filesystem is supported
+	Windows will complain because the drive is not partitioned
+	Here is a list of devices I have tested and all work:
+
+[1]
+SimpleTech  "BonzaiXpress"  256MB
+appearance=light blue aluminum with cap and external led
+P/N 90000-60002-012U
+VID=0x0ea0
+PID=0x2168
+EPIN = 01
+EPOUT= 02
+maxLBA=0x7b7ff
+blink: slow idle, fast read/write
+SCSI Inquiry: "Simple Flash Disk 2.0  2.00"
+comment:My first device, easy to enumerate, works well
+        FAT16 filesystem
+
+
+
+[2]
+Toshiba 2GB
+appearance=white plastic with blue cap and internal led
+VID=0x0930
+PID=0x6545
+EPIN=1
+EPOUT=2
+maxLBA=0x3c87ff
+blink: no idle, fast read/write
+SCSI Inquiry: "TOSHIBA TransMemory   PMAP"
+comment:This device works well, taught me the importance of
+        proper bmCBWFlags in the Read10 CBW, also taught me to
+		use RequestSense after TestUnitReady
+
+
+
+[3]
+Burton Snow Drive  1GB
+appearance:black, looks like a water ski/sled, external blue led
+VID=0x058f
+DID=0x6387
+EPIN=2
+EPOUT=1
+maxLBA=0x1f3fff
+blink: no idle, single blink read/write
+SCSI Inquiry: "Flash Drive AU-USB20 8.07"
+comment: works well but does not have metal casing surrounding the contacts
+         so drive now sags and can not maintain good electrical connection
+
+
+
+
+[4]
+Lexar 512MB
+appearance:silver case external blue led
+VID=0x05dc
+PID=0xa531
+EPIN=1
+EPOUT=2
+maxLBA=0xf7bff
+blink: no idle, single blink read/write
+SCSI Inquiry: "LEXAR JUMPDRIVE SECURE3000"
+comment: works well, fails modesense(3f) Data phase so 
+         I removed ModeSense from my std enumeration sequence 
+		 and all drives still work good
+
+
+
+[5a]
+SanDisk Cruzer 2GB
+appearance=black plastic with slider and internal light
+VID=0x0781
+PID=0x5406
+EPIN=1
+EPOUT=1
+maxLBA=0x003D0E8D
+blink: none on idle, none on read 
+SCSI Inquiry: "SanDisk U3 Cruzer Micro 3.27"
+comment:First device where epin=epout
+        I prefer a device that blinks
+
+[5b]
+SanDisk Cruzer 8GB
+appearance=black plastic with slider and internal light
+VID=0x0781
+PID=0x5406
+EPIN = 01
+EPOUT= 02
+maxLBA=0x00ef4bfe
+blink: none on idle, none on read 
+SCSI Inquiry: "SanDisk U3 Cruzer Micro 8.01"
+comment:formatted with FAT32, not bootable, works good
+
+
+
+[6]
+Dane-Elec.com  4GB 
+white/green plastic with slider
+VID=0x090c
+PID=0x1000
+EPIN=1
+EPOUT=2
+maxLBA=0x787fff
+SCSI Inquiry: "smiSMI USB DISK 1100"
+comment: works well
+
+
+
+[7]
+Lexar Jump Drive Twist Turn  4GB 
+red with black twist cover
+VID=0x5dc
+PID=0xa769
+EPIN=1
+EPOUT=2
+maxLBA=0x777fff
+SCSI Inquiry: "Lexar USB Flash Drive 0100"
+comment: inits ok, didnt try to format or read/write
+
+
+
+
+
+tatOS does not have a driver for these devices 
+************************************************
+hard drive, cdrom drive, floppy drive
+usb keyboards
+Additional cpu (only the "boot" processor is supported on multi-core)
+sound card or on-board sound
+internet
+APIC Advanced Programmable Interrupt Controller 
+
+
+
+
+
+;***********************
+       Failures
+;***********************
+
+
+
+[1] Dec09
+HP Pavillion laptop with Intel Core 2 Duo CPU T6500 @ 2.10ghz.
+this is a 64 bit dual core with (2) ehci's that uses 64bit addressing
+ehci-1 did:vid = 0x293a8086, Intel 82801I (ICH9 Family) USB2 EHCI Controller
+ehci-2 did:vid = 0x293c8086, Intel 82801I (ICH9 Family) USB2 EHCI Controller
+this device supports up to (12) PORTSC registers
+tatOS only supports a single ehci and up to 4 PORTSC registers
+on this computer all PORTSC returns 0x1000=no devices connected and port disabled
+
+
+[2] tried to boot my sons Mac laptop but it has EFI, no bios
+
+
+

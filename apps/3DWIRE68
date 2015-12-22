@@ -1,0 +1,1202 @@
+
+;*******************************************
+;3DWIRE
+
+;June 2013 tat for tatOS
+;rev Sept 2013 for protected mode interface
+
+;a first attempt at 3d wireframe programming
+;assemble as flat binary with ttasm for tatOS
+
+;this is orthographic projection not perspective
+;the cube appears as a square in the font view
+;we simply multiply the Transformation matrix
+;by each object vertex to get X,Y,Z,M 
+;and we plot X,Y as screen coordinates
+
+;the cube can be moved in x and y screen coordinates
+;or translated along the Z axis object coordinates
+;or rotated about x and y object coordinates
+;or scaled in size
+;hold the Ctrl key down to get the opposite affect
+
+;rotations are handled like this:
+;[Rotation]=[Rotation]*[Rotationinc]
+;where Rotationinc is a 4x4 matrix based on
+;a 5 deg rotation angleinc in either X or Y
+
+;displacements are handled differantly
+;here we keep tract of a global X,Y screen displacement
+;and copy them directly into the Transform matrix
+
+;displacement along the Z axis is handled by adding or
+;subtracting to the object Z coordinates
+
+;there is no line clipping so if you "drive" the cube off
+;the screen the tlib line() function will just not draw the line
+;if one of the endpoints falls off the screen
+
+;this program does not implement the barrel roll RotZ
+;that is left as an exercise for the reader
+
+;units: angles are displayed in radians
+;displacement is in pixels
+
+;for theory I suggest Foley and vanDam
+
+;this program requires the FPU for all math
+;no fixed point math here
+;the speed of movements is generally limited by the keyboard
+
+;we dont include any mirror/reflection here but 
+;to reflect about the Y axis try a matrix like this:
+;-1 0 0 0
+; 0 1 0 0
+; 0 0 1 0
+; 0 0 0 1
+ ;and to mirror about the X axis
+; 1  0 0 0
+; 0 -1 0 0
+; 0  0 1 0
+; 0  0 0 1
+;this is untested
+
+
+;offsets for a 4x4 matrix of qword floats
+;0  8   16  24
+;32 40  48  56
+;64 72  80  88
+;86 104 112 120
+;*******************************************
+
+org STARTOFEXE
+
+
+
+
+;**************
+;    DATA
+;**************
+
+
+;And here is our Transform matrix
+;we combine Displacement * Rotation * Scale to obtain Transform
+;then we apply Transform to all object vertices
+Transform:
+db0 200
+
+
+;just a constant we load to set trimetric view
+angle45:
+dq .7854
+
+
+;we rotate about the X or Y axis in increments of .0872 radians = 5 deg
+angleinc:
+dq .0872
+
+angle_X:
+dq 0.0
+
+angle_Y:
+dq 0.0
+
+
+Displacement_X:
+dq 300.0
+
+Displacement_Y:
+dq 300.0
+
+Displacement_Z:
+dq 330.0
+
+Displacementinc:
+dq 10.0
+
+DeltaZ:
+dq 0.0
+
+
+
+ScaleFactor:
+dq 1.0
+
+ScaleFactorinc:
+dq 0.1
+
+
+
+Displacement:
+dq 1.0, 0.0, 0.0, 300.0       ;dx
+dq 0.0, 1.0, 0.0, 300.0       ;dy
+dq 0.0, 0.0, 1.0, 330.0       ;dz
+dq 0.0, 0.0, 0.0, 1.0
+
+Rotation_X:  ;initially set to angle=0
+dq 1.0, 0.0, 0.0, 0.0
+dq 0.0, 1.0, 0.0, 0.0
+dq 0.0, 0.0, 1.0, 0.0
+dq 0.0, 0.0, 0.0, 1.0
+
+Rotation_Y:   ;initially set to angle=0
+dq 1.0, 0.0, 0.0, 0.0
+dq 0.0, 1.0, 0.0, 0.0
+dq 0.0, 0.0, 1.0, 0.0
+dq 0.0, 0.0, 0.0, 1.0
+
+
+;we multiply the X and Y rotation matrices to get this one
+Rotation:
+dq 1.0, 0.0, 0.0, 0.0
+dq 0.0, 1.0, 0.0, 0.0
+dq 0.0, 0.0, 1.0, 0.0
+dq 0.0, 0.0, 0.0, 1.0
+
+
+Rotation_backup:
+db0 200
+
+
+
+
+Scale:    ;scale by 1.1
+dq 1.1.0, 0.0, 0.0, 0.0
+dq 0.0, 1.1, 0.0, 0.0
+dq 0.0, 0.0, 1.1, 0.0
+dq 0.0, 0.0, 0.0, 1.0
+
+Scale_Store:   
+dq 1.1.0, 0.0, 0.0, 0.0
+dq 0.0, 1.1, 0.0, 0.0
+dq 0.0, 0.0, 1.1, 0.0
+dq 0.0, 0.0, 0.0, 1.0
+
+
+
+
+;*********************************************
+;        cube
+;*********************************************
+
+;here are the 8 points/vertices of our cube in 3d object coordinates
+;the origin is the center of the cube
+;in this program all the rotation and displacements 
+;are relative to the center of the cube
+;the front face is at z=50
+;the back face is at z=-50
+
+;front face
+cube:
+dq -50.0, 50.0, 50.0, 1.0
+dq  50.0, 50.0, 50.0, 1.0
+dq 50.0, -50.0, 50.0, 1.0
+dq -50.0, -50.0, 50.0, 1.0
+;back face
+dq -50.0, 50.0, -50.0, 1.0
+dq  50.0, 50.0, -50.0, 1.0
+dq 50.0, -50.0, -50.0, 1.0
+dq -50.0, -50.0, -50.0, 1.0
+
+
+;storage for the Transformed cube vertices, still 3d
+;after the displacement/rotation/scale matrices have been applied
+;8 qword vertices times 32 bytes per requires 256 bytes
+cube_Transform:
+db0 300
+
+
+;storage for 2d screen coordinates of the cube vertices
+;8 vertices times 8 bytes per = 64 bytes needed
+;we seperate out 32 each for front and back
+cube_Screen:
+cube_Screen_Front:
+db0 32
+cube_Screen_Back:
+db0 32
+
+
+
+
+
+;*********************************************
+;        letter "F"
+;*********************************************
+
+;here are the 5 object vertices of the letter "F" 
+;drawn on the front face of the cube for reference
+letterF:
+dq  0.0, 0.0, 50.0, 1.0
+dq 0.0, 30.0, 50.0, 1.0
+dq 20.0, 30.0, 50.0, 1.0
+dq 0.0, 20.0, 50.0, 1.0
+dq 20.0, 20.0, 50.0, 1.0
+
+
+;5 qword vertices times 32 bytes per requires 160 bytes
+letterF_Transform:
+db0 200
+
+
+
+;storage for letter F screen coordinates
+;5 vertices times 8 bytes per = 40 bytes
+letterF_Screen:
+db0 40
+
+
+
+;*********************************************
+;        axis
+;*********************************************
+
+;and finally we draw a 3rd object, our x,y,z axis
+;at the global origin
+axis:
+dq 0.0, 0.0, 0.0, 1.0
+dq 20.0, 0.0, 0.0, 1.0
+dq 0.0, 40.0, 0.0, 1.0
+dq 0.0, 0.0, 20.0, 1.0
+
+axis_Transform:
+db0 150
+
+axis_Screen:
+db0 40
+
+
+
+
+;strings
+
+menu1:
+db '[3dwire] F1=Rot_X F2=Rot_Y F3=Disp_X F4=Disp_Y F5=Scale',0
+menu2:
+db 'F6=Front F7=Trimetric F8=MoveAlongZ',0
+
+str1:
+db 'Rot_X',0
+str2:
+db 'Rot-Y',0
+str3:
+db 'Disp_X',0
+str4:
+db 'Disp_Y',0
+str5:
+db 'Scale',0
+str6:
+db 'DeltaZ',0
+str7:
+db 'Dumping 4x4 Transform matrix',0
+str8:
+db 'Dumping cube_Screen coordinates-Front Face',0
+str9:
+db 'cube_Screen (i)',0
+str12:
+db 'Generate Screen Coordinates',0
+
+
+
+counter:
+dd 0
+
+
+
+
+;*********************************************************
+;                          MAIN
+;*********************************************************
+
+..start
+
+	;initialize 
+
+
+	;we want the Yaxis at the bottom of the screen and +Y going up
+	;global origin is at lower left corner of screen
+	mov eax,28
+	mov ebx,-1
+	sysenter
+
+	cld
+	call TrimetricView
+	call paint
+
+
+.loop:
+
+
+	getc
+	jz .nokeypress
+	
+
+	cmp al,ESCAPE
+	jz .quit
+
+
+	;F1   angle_X
+	cmp al,F1
+	jnz .noF1
+	call HandleF1
+	jmp .done
+.noF1:
+
+	;F2   angle_Y
+	cmp al,F2
+	jnz .noF2
+	call HandleF2
+	jmp .done
+.noF2:
+	
+	;F3   Dispacement_X
+	cmp al,F3
+	jnz .noF3
+	call HandleF3
+	jmp .done
+.noF3:
+
+	;F4  Displacement_Y
+	cmp al,F4
+	jnz .noF4
+	call HandleF4
+	jmp .done
+.noF4:
+
+
+	;F5  ScaleFactor
+	cmp al,F5
+	jnz .noF5
+	call HandleF5
+	jmp .done
+.noF5:
+
+
+	;F6  Front View
+	cmp al,F6
+	jnz .noF6
+	call HandleF6
+	jmp .done
+.noF6:
+
+
+	;F7  Trimetric
+	cmp al,F7
+	jnz .noF7
+	call HandleF7
+	jmp .done
+.noF7:
+
+
+	;F8 Move Along Z
+	cmp al,F8
+	jnz .noF8
+	call HandleF8
+	jmp .done
+.noF8:
+.nokeypress:
+
+
+
+.done:
+	call paint
+	jmp .loop
+
+.quit:
+	;this is normal program exit, back to tedit
+	exit
+
+	
+
+
+
+
+
+
+;**************
+;    PAINT
+;**************
+
+
+
+paint:
+
+	backbufclear
+
+
+
+	;lines defining the front face of the cube
+	polyline 1,0xffffffff,cube_Screen_Front,4,RED
+
+
+	;lines defining the back face
+	polyline 1,0xffffffff,cube_Screen_Back,4,BLU
+
+
+
+	;lines connecting the front to the back
+	mov eax,30                ;line
+	mov ebx,0xffffffff        ;linetype
+	mov ecx,[cube_Screen]     ;1x
+	mov edx,[cube_Screen+4]   ;1y
+	mov esi,[cube_Screen+32]  ;5x
+	mov edi,[cube_Screen+36]  ;5y
+	mov ebp,BLA
+	sysenter
+
+	mov eax,30
+	mov ebx,0xffffffff
+	mov ecx,[cube_Screen+8]   ;2x
+	mov edx,[cube_Screen+12]  ;2y
+	mov esi,[cube_Screen+40]  ;6x
+	mov edi,[cube_Screen+44]  ;6y
+	mov ebp,BLA
+	sysenter
+
+	mov eax,30
+	mov ebx,0xffffffff
+	mov ecx,[cube_Screen+24]   ;4x
+	mov edx,[cube_Screen+28]   ;4y
+	mov esi,[cube_Screen+56]   ;8x
+	mov edi,[cube_Screen+60]   ;8y
+	mov ebp,BLA
+	sysenter
+
+	mov eax,30
+	mov ebx,0xffffffff
+	mov ecx,[cube_Screen+16]   ;3x
+	mov edx,[cube_Screen+20]   ;3y
+	mov esi,[cube_Screen+48]   ;7x
+	mov edi,[cube_Screen+52]   ;7y
+	mov ebp,BLA
+	sysenter
+
+
+
+	;display the letter "F" on the front face
+
+	mov eax,30                   ;line
+	mov ebx,0xffffffff           ;solid
+	mov ecx,[letterF_Screen]     ;1x
+	mov edx,[letterF_Screen+4]   ;1y
+	mov esi,[letterF_Screen+8]   ;2x
+	mov edi,[letterF_Screen+12]  ;2y
+	mov ebp,RED
+	sysenter
+
+	mov eax,30
+	mov ebx,0xffffffff
+	mov ecx,[letterF_Screen+8]   ;2x
+	mov edx,[letterF_Screen+12]  ;2y
+	mov esi,[letterF_Screen+16]  ;3x
+	mov edi,[letterF_Screen+20]  ;3y
+	mov ebp,RED
+	sysenter
+
+	mov eax,30
+	mov ebx,0xffffffff
+	mov ecx,[letterF_Screen+24]   ;4x
+	mov edx,[letterF_Screen+28]   ;4y
+	mov esi,[letterF_Screen+32]   ;5x
+	mov edi,[letterF_Screen+36]   ;5y]
+	mov ebp,RED
+	sysenter
+
+
+
+	;Xaxis
+	mov eax,30
+	mov ebx,0xffffffff
+	mov ecx,[axis_Screen]     ;0x
+	mov edx,[axis_Screen+4]   ;0y
+	mov esi,[axis_Screen+8]   ;1x
+	mov edi,[axis_Screen+12]  ;1y
+	mov ebp,MAG
+	sysenter
+
+
+	;Yaxis
+	mov eax,30
+	mov ebx,0xffffffff
+	mov ecx,[axis_Screen]     ;0x
+	mov edx,[axis_Screen+4]   ;0y
+	mov esi,[axis_Screen+16]  ;2x
+	mov edi,[axis_Screen+20]  ;2y
+	mov ebp,MAG
+	sysenter
+
+	;Zaxis
+	mov eax,30
+	mov ebx,0xffffffff
+	mov ecx,[axis_Screen]     ;0x
+	mov edx,[axis_Screen+4]   ;0y
+	mov esi,[axis_Screen+24]  ;3x
+	mov edi,[axis_Screen+28]  ;3y
+	mov ebp,MAG
+	sysenter
+
+
+
+	;display x,y,z at the end of each axis
+	putc FONT02,0x78,0xefff,[axis_Screen+8],[axis_Screen+12]
+	putc FONT02,0x79,0xefff,[axis_Screen+16],[axis_Screen+20]
+	putc FONT02,0x7a,0xefff,[axis_Screen+24],[axis_Screen+28]
+	
+
+	;display the value of angle_X
+	fld qword [angle_X] 
+	putst0 0,50,0xefff,3
+	ffree st0
+
+
+	;display the value of angle_Y
+	fld qword [angle_Y] 
+	putst0 100,50,0xefff,3
+	ffree st0
+
+
+	;display the value of Displacement_X
+	fld qword [Displacement_X] 
+	putst0 200,50,0xefff,1
+	ffree st0
+
+
+	;display the value of Displacement_Y
+	fld qword [Displacement_Y] 
+	putst0 300,50,0xefff,1
+	ffree st0
+
+
+	;display the value of ScaleFactor
+	fld qword [ScaleFactor] 
+	putst0 400,50,0xefff,1
+	ffree st0
+
+	;display the DeltaZ movement
+	fld qword [DeltaZ] 
+	putst0 500,50,0xefff,1
+	ffree st0
+
+
+
+	;display the Rot_X Rot_Y Disp_X ... tags
+	puts FONT01,  0,35,str1,0xefff
+	puts FONT01,100,35,str2,0xefff
+	puts FONT01,200,35,str3,0xefff
+	puts FONT01,300,35,str4,0xefff
+	puts FONT01,400,35,str5,0xefff
+	puts FONT01,500,35,str6,0xefff
+
+
+	;display the menu
+	puts FONT02,  0,10,menu1,0xefff
+	puts FONT02,450,10,menu2,0xefff
+
+
+ 
+.done:
+	swapbuf
+	ret
+
+
+  
+
+
+
+
+
+;**************************
+;    Handle Function Keys
+;**************************
+
+
+
+
+HandleF1: 
+;Rotation about the X axis
+
+	mov eax,33 ;GetKeyState
+	mov ebx,0  ;CTRL
+	sysenter
+	cmp eax,1  ;test for keydown
+	jz .X1
+
+	;+X rotate
+	fld qword [angleinc] 
+	jmp .X2
+
+.X1:
+	;-X rotate
+	fld qword [angleinc] 
+	fchs   ; st0=-st0
+.X2:
+
+	;update angle_X for display only
+	;its not needed for matrix math or drawing the cube
+	fld qword [angle_X] 
+	fadd st1
+	fstp qword [angle_X] 
+	
+	call SetRotationXmatrix
+
+	call BackupRotation
+
+	mov eax,34  ;mmult44
+	mov esi,Rotation_backup
+	mov edi,Rotation_X
+	mov ebx,Rotation   
+	sysenter
+
+	call GenerateScreenCoordinates
+	ret
+
+
+
+
+
+
+HandleF2:  
+;Rotation about the Y axis
+
+	mov eax,33 ;GetKeyState
+	mov ebx,0  ;CTRL
+	sysenter
+	cmp eax,1  ;test for keydown
+	jz .Y1
+
+	;+Y rotate
+	fld qword [angleinc] 
+	jmp .Y2
+
+.Y1:
+	;-Y rotate
+	fld qword [angleinc] 
+	fchs
+
+.Y2:
+	;update angle_Y for display only
+	fld qword [angle_Y] 
+	fadd st1
+	fstp qword [angle_Y] 
+
+	call SetRotationYmatrix
+
+	call BackupRotation
+
+	mov eax,34  ;mmult44
+	mov esi,Rotation_backup
+	mov edi,Rotation_Y
+	mov ebx,Rotation   
+	sysenter
+
+	call GenerateScreenCoordinates
+	ret
+
+
+
+
+
+HandleF3:  
+;inc/dec Displacement_X
+;this is horizontal movement on the screen
+;regardless of object orientation
+
+	mov eax,33 ;GetKeyState
+	mov ebx,0  ;CTRL
+	sysenter
+	cmp eax,1  ;test for keydown
+	jz .X1
+
+	;make Displacement-X bigger
+	fld  qword [Displacement_X] 
+	fadd qword [Displacementinc] 
+	fst  qword [Displacement_X] 
+	jmp .X2
+.X1:
+	;make Displacement_X smaller
+	fld  qword [Displacement_X] 
+	fsub qword [Displacementinc] 
+	fst  qword [Displacement_X] 
+.X2:
+	;update the Displacement matrix 
+	fstp qword [Displacement+24] 
+	call GenerateScreenCoordinates
+	ret
+
+
+
+
+HandleF4:  
+;inc/dec Displacement_Y
+;this is vertical movement on the screen 
+;regardless of object orientation
+
+	mov eax,33 ;GetKeyState
+	mov ebx,0  ;CTRL
+	sysenter
+	cmp eax,1  ;test for keydown
+	jz .Y1
+
+	;make Displacement_Y bigger
+	fld  qword [Displacement_Y] 
+	fadd qword [Displacementinc] 
+	fst  qword [Displacement_Y]
+	jmp .Y2
+.Y1:
+	;make Displacement_Y smaller
+	fld  qword [Displacement_Y] 
+	fsub qword [Displacementinc] 
+	fst  qword [Displacement_Y] 
+.Y2:
+	;update the Displacement matrix
+	fstp qword [Displacement+56] 
+	call GenerateScreenCoordinates
+	ret
+
+
+
+
+HandleF5:  
+;inc/dec ScaleFactor
+
+	mov eax,33 ;GetKeyState
+	mov ebx,0  ;CTRL
+	sysenter
+	cmp eax,1  ;test for keydown
+	jz .Z1
+
+	;make ScaleFactor bigger
+	fld  qword [ScaleFactor] 
+	fadd qword [ScaleFactorinc] 
+	fst  qword [ScaleFactor] 
+	jmp .Z2
+.Z1:
+	;make ScaleFactor smaller
+	fld  qword [ScaleFactor] 
+	fsub qword [ScaleFactorinc] 
+	fst  qword [ScaleFactor] 
+.Z2:
+	;update the Scale matrix
+	;offset 0/40/80 get the same ScaleFactor
+	;for uniform scaling
+	fst  qword [Scale] 
+	fst  qword [Scale+40] 
+	fstp qword [Scale+80] 
+	call GenerateScreenCoordinates
+	ret
+
+
+
+      
+
+HandleF6:   
+;front view angle_X=angle_Y=0
+
+	fldz
+	fst qword [angle_X] 
+	fst qword [angle_Y] 
+	call SetRotationXmatrix
+
+	fldz
+	call SetRotationYmatrix
+
+	mov eax,34  ;mmult44
+	mov esi,Rotation_X
+	mov edi,Rotation_Y
+	mov ebx,Rotation   
+	sysenter
+
+	call GenerateScreenCoordinates
+	ret
+
+
+
+
+
+HandleF7:
+TrimetricView:
+;Trimetric View, set angle_X=angle_Y=45deg
+
+	fld qword [angle45] 
+	fst qword [angle_X] 
+	fst qword [angle_Y] 
+	call SetRotationXmatrix
+
+	fld qword [angle45] 
+	call SetRotationYmatrix
+
+
+
+	mov eax,34  ;mmult44
+	mov esi,Rotation_X
+	mov edi,Rotation_Y
+	mov ebx,Rotation   
+	sysenter
+
+
+	call GenerateScreenCoordinates
+
+	ret
+
+
+
+
+
+HandleF8:
+;move cube along Z by adding/subtracting to Z Object coordinates
+;the direction of movement depends on the Rotation matrix
+
+	fld qword [Displacementinc]    ;st0=10
+	fld qword [DeltaZ]             ;st0=DeltaZ, st1=10
+
+	mov eax,33 ;GetKeyState
+	mov ebx,0  ;CTRL
+	sysenter
+	cmp eax,1  ;test for keydown
+	jz .SubtractZ
+
+	;add 10 to Z at offsets 16,48,80,112,144,176,208,240
+	fadd st1
+	fstp qword [DeltaZ] 
+	cld
+	mov ecx,8
+	mov esi,cube
+	add esi,16
+.incZ:
+	fld  qword [esi]   ;st0=cube(i), st1=10
+	fadd st1
+	fstp qword [esi] 
+	add esi,32
+	loop .incZ
+	jmp .done
+
+
+.SubtractZ:   ;sub 10 from all the Z values of the cube
+	fsub st1
+	fstp qword [DeltaZ] 
+	mov ecx,8
+	mov esi,cube
+	add esi,16
+.decZ:
+	fld  qword [esi] 
+	fsub st1
+	fstp qword [esi] 
+	add esi,32
+	loop .decZ
+
+.done:
+	ffree st0
+	call GenerateScreenCoordinates
+	ret
+
+
+
+
+
+
+
+
+
+;***************************************************************
+;GenerateScreenCoordinates
+;Transform object coordinates to screen coordinates
+;here we combine the rotation,displacement and scale matrices
+;into 1 transformation matrix and apply T to all vertice of
+;our cube object. For parallel projection we just ignore the Z
+;component and plot x,y
+;****************************************************************
+
+GenerateScreenCoordinates:
+
+	;dumpstr str12
+
+
+	;Transform = Scale * Rotation
+	mov eax,34  ;mmult44
+	mov esi,Scale
+	mov edi,Rotation
+	mov ebx,Transform   
+	sysenter
+
+
+	;now copy the displacements into the Transform matrix
+	;they go to offset 24/56/88
+	;Displacement_X and Displacement_Y act along the screen
+	;no matter the value of Rot_X and Rot_Y they always act
+	;along the horiz or vert axis of the screen
+	;if you do [Displacement]*[Transform] you get the same affect
+	;this is quicker
+	fld  qword [Displacement_X] 
+	fstp qword [Transform+24] 
+	fld  qword [Displacement_Y] 
+	fstp qword [Transform+56] 
+	fld  qword [Displacement_Z] 
+	fstp qword [Transform+88] 
+	
+
+
+	
+	;for debug only
+	;dumpstr str7
+	;mov esi,Transform
+	;call DumpMatrix44
+	
+
+
+	;Apply the Transform matrix to the cube vertices
+	mov ecx,8
+	mov esi,Transform
+	mov edi,cube
+	mov ebx,cube_Transform
+	call ObjectToTransform
+
+
+
+
+
+	;convert cube_Transform coordinates to dword screen coordinates
+	mov esi,cube_Transform
+	mov edi,cube_Screen
+	mov ecx,8
+	call TransformToScreen
+
+
+
+
+
+	;for debug only
+	;dump the cube_Screen coordinates to see what we got
+	;dumpstr str8
+	;mov ebx,[cube_Screen]  ;x1
+	;dumpebx ebx,str9
+	;mov ebx,[cube_Screen+4] ;y1
+	;dumpebx ebx,str9
+	;mov ebx,[cube_Screen+8] ;x2
+	;dumpebx ebx,str9
+	;mov ebx,[cube_Screen+12] ;y2
+	;dumpebx ebx,str9
+	;mov ebx,[cube_Screen+16] ;x3
+	;dumpebx ebx,str9
+	;mov ebx,[cube_Screen+20] ;y3
+	;dumpebx ebx,str9
+	;mov ebx,[cube_Screen+24] ;x4
+	;dumpebx ebx,str9
+	;mov ebx,[cube_Screen+28] ;y4
+	;dumpebx ebx,str9
+
+
+
+
+
+	;Apply the Transform matrix to the letter "F" vertices
+	mov ecx,5
+	mov esi,Transform
+	mov edi,letterF
+	mov ebx,letterF_Transform
+	call ObjectToTransform
+
+	;convert letterF_Transform coordinates to dword screen coordinates
+	mov esi,letterF_Transform
+	mov edi,letterF_Screen
+	mov ecx,5
+	call TransformToScreen
+
+
+
+	;Apply the Transform matrix to the axis vertices
+	mov ecx,4
+	mov esi,Transform
+	mov edi,axis
+	mov ebx,axis_Transform
+	call ObjectToTransform
+
+	;convert axis_Transform coordinates to dword screen coordinates
+	mov esi,axis_Transform
+	mov edi,axis_Screen
+	mov ecx,4
+	call TransformToScreen
+
+
+
+	;dump the FPU status word
+	;call [DUMPFPUSTATUS]
+
+	ret
+
+
+
+
+;*************************************************
+;SetRotationXmatrix
+;use this function to build a Rotation_X matrix
+;input: st0=angle_X in radians
+;return: st0 is freed when done
+;*************************************************
+
+SetRotationXmatrix:
+	fsincos                     ;st0=cos, st1=sin, st2=angle_X
+	fst  qword [Rotation_X+40] 
+	fstp qword [Rotation_X+80]  ;st0=sin, st1=angle_X
+	fst  qword [Rotation_X+72] 
+	fchs                        ;st0=-sin, st1=angle_X
+	fstp qword [Rotation_X+48]  ;st0=angle_X
+	ffree st0
+	ret
+
+
+;*******************************************
+;SetRotationYmatrix
+;input: st0=angle_Y in radians
+;return: st0 is freed when done
+;*******************************************
+
+SetRotationYmatrix:
+	fsincos                     ;st0=cos, st1=sin, st2=angle_Y
+	fst  qword [Rotation_Y] 
+	fstp qword [Rotation_Y+80]  ;st0=sin, st1=angle_Y
+	fst  qword [Rotation_Y+16] 
+	fchs                        ;st0=-sin, st1=angle_Y
+	fstp qword [Rotation_Y+64]  ;st0=angle_Y
+	ffree st0
+	ret
+
+
+
+	
+
+
+
+;DumpMatrix
+;input: esi=address of 4x4 matrix to dump
+;the values are dumped in the following order
+;row0 col0
+;row0 col1
+;row0 col2
+;row0 col3
+;row1 col1
+;etc
+DumpMatrix44:
+
+	mov dword [counter],0
+
+.1:
+	fld qword [esi] 
+	mov eax,36  ;dumpst0
+	sysenter
+	ffree st0
+
+	add esi,8
+	add dword [counter],1
+	cmp dword [counter],16
+	jb .1
+
+	ret
+
+
+
+
+
+;*************************************************************
+;ObjectToTransform
+;Apply the Transform matrix to 3d object coordinates
+;the Transform matrix is a 4x4 matrix which includes the 
+;combined (concatenated) affects of displacment/rotation/scale
+;all arrays must be qwords 32 bytes per vertex
+;the object vertices array must be homogeneous X,Y,Z,1
+;input:
+;esi=address of Transform matrix array 4x4
+;edi=address of object homogenous vertices array X,Y,Z,1
+;ebx=address where Transform vertices are written X,Y,Z,M
+;ecx=qty vertices
+;return:
+;the tranformed object vertices are written to qword array
+;starting at ebx
+
+;**************************************************************
+
+ObjectToTransform:
+
+	mov [counter],ecx
+
+.doxform:
+	mov eax,35  ;mmult41
+	sysenter
+
+	add edi,32
+	add ebx,32
+
+	sub dword [counter],1
+	jnz .doxform
+
+	ret
+
+
+
+
+;************************************************************
+;TransformToScreen
+;converts a qword array of X,Y,Z,M Transform coordinates
+;(object 3d coordinates which have been transformed by the
+;displacment/rotation/Scale matrices)
+;into a dword array of screen X,Y coordinates
+;this is for parallel/orthographic projection only
+;all we do is convert X,Y from qword to int and ignore Z,M 
+;the size of the qword array is 32 bytes per vertex
+;the size of the dword array is 8 bytes per vertex
+;input
+;esi=address of qword array X,Y,Z,M
+;edi=address of dword array X,Y
+;ecx=qty vertices in each array
+;return:
+;dword array screen coordinates are written to edi
+;*************************************************************
+
+TransformToScreen:
+
+.1:
+	;convert X
+	fld   qword [esi] 
+	fistp dword [edi] 
+
+	;inc to Y
+	add esi,8
+	add edi,4
+
+	;convert Y
+	fld   qword [esi] 
+	fistp dword [edi] 
+
+
+	;skip over Z and W to the next X
+	add esi,24
+	;and inc to X
+	add edi,4
+	loop .1
+
+	ret
+
+
+
+
+;**************************************************
+;BackupRotation
+;copy the Rotation matrix to Rotation_backup
+;input:none
+;return:none
+;**************************************************
+
+BackupRotation:
+
+	cld
+	mov ecx,128
+	mov esi,Rotation
+	mov edi,Rotation_backup
+	repmovsb
+
+	ret
+
+
+
+
+;************************THE END *********************************
+
+   

@@ -1,0 +1,129 @@
+May 2012
+This file is depreciated because tatos now has support for the FAT16 filesystem
+on your flash drive. But I still have this old flash drive with this stuff on it
+and who knows some day I might need it. Its like all that old stuff in your 
+basement that you think you need and never touch.
+
+*****************************************************************
+tatOS FILE DIRECTORY
+Tom Timmermann
+
+Describes whats stored on my SimpleTech Bonzai blue pen drive.
+(1) block = 512 bytes
+
+Jan 2010
+
+saved to my pendrive LBA=480,000
+****************************************************************
+
+
+
+************************************************************
+name:              LBAstart/qtyblocks    DateStarted
+************************************************************
+
+FreeSpace          0-4999
+
+ScreenDump         5000/940
+
+AsmTest            10,000/1              Dec 08 
+
+*******************************************************
+ShowBMP.s          10,100/3              Dec 08
+mom.bmp            10,110/1800
+*******************************************************
+
+HellowWorld.s      12,000/1              Dec 08 
+
+RandRect.s         12,010/3              Dec 08
+
+TextFader.s        12,020/2              Dec 08
+
+Starfield.s        12,040/9              Dec 08
+
+Mandel.s           12,060/6              Dec 08
+
+*******************************************************
+TicTacToe       
+X.bits             12,100/6
+O.bits             12,110/6
+rory.bits          12,120/55
+smily.bits         12,200/20
+main.s             12,250/35             Dec 09
+*******************************************************
+
+Littlebits.s       12,400/16             Dec 09
+
+*******************************************************
+Minesweeper:
+Each bitmap is 16x16
+one.bits           13,000/1
+two.bits           13,005/1
+three.bits         13,010/1
+four.bits          13,015/1
+five.bits          13,020/1
+flag.bits          13,025/1
+bomb.bits          13,030/1
+redbomb.bits       13,035/1
+raised.bits        13,040/1
+blank.bits         13,045/1
+main.s             13,100/30             Jan 09
+***********************************************************
+
+Graphic Primative Demo
+Demonstrates lines,circles,arcs...
+
+graphic.s          14,000/10             Mar 09 
+
+***********************************************************
+
+Fire.s             15,000/14             Apr 09
+
+***********************************************************
+
+Plasma.s           15,100/9              Apr 09
+
+***********************************************************
+
+Butterfly.s        15,500/12             Apr 09
+
+***********************************************************
+
+Fern.s             16,100/12             Apr 09
+
+***********************************************************
+
+ViewFlashDesc.s    17,000/10             Dec 09
+
+***********************************************************
+
+Factorial.s        17,100/4              May 09
+
+***********************************************************
+
+Tree.s             17,300/7              May 09
+
+***********************************************************
+
+
+
+
+
+
+
+
+Code Snippets      400000/26
+Winstarter Code    400100/3
+Ascii Table        420000/2
+Memory Map         420010/16
+tomsasmtips        420100/61
+
+
+ThisDirectory      480000/7
+
+
+********************TheEnd***********************************
+
+
+
+

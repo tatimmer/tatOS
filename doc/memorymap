@@ -1,0 +1,521 @@
+*************************
+tatOS Memory Map 
+Oct 2015 
+*************************
+
+This file describes the location of tatOS kernel memory usage. 
+
+For a discussion of how memory is divided between kernel and userland see tlib/paging.s
+All memory is divided into 4mb pages and assigned to the kernel
+except for 2 pages starting at 0x2000000 which belong to userland
+
+As of Sept 2011 tatos has an alloc function.
+But there are many global variables used by functions in tatOS.
+Some globals are defined here.
+Others are in various files of /tlib or /usb
+
+We start at address 0x500. 
+Addresses ending in 0,4,8,c are dword aligned
+Address ending in 000 are page aligned.
+
+These low memory addresses from 0x500-0x700 is reserved for 
+global bytes, words and dwords.
+
+0x500 dword   address of linear frame buffer LBF
+0x504 byte    ascii keypress
+0x505 byte    drive number we are booting from 
+0x506 byte    set to 1 if Ctrl  key down else set to 0 [CTRLKEYSTATE]
+0x507 byte    set to 1 if Shift key down else set to 0 [SHIFTKEYSTATE]
+0x508 byte    set to 1 if Alt   key down else set to 0 [ALTKEYSTATE]
+0x509 byte    holds the keyboard scan code setnum should be 0x41
+0x50a byte    set to 1 if SPACE key down else set to 0 [SPACEKEYSTATE]
+0x50b byte    
+0x50c dword   Software interrupt.s bitmask errors
+0x510 byte    Real Time Clock MONTH in BCD
+0x511 byte    Real Time Clock DAY   in BCD
+0x512 byte    Real Time Clock YEAR  in BCD
+0x513 byte    Real Time Clock CENTURY in BCD
+0x514 dword   Seed value for rand.s
+0x518 dword   1=CTRL+ALT+DEL has been pressed, 0=not
+0x51c dword   the value of the PITCOUNTER irq0 
+0x520 dword   
+0x524 dword   
+0x528 dword   Is flash drive ready ? 1=yes, 0=no
+0x52c dword   UHCI USBBA USB I/O Space Base Address Register
+0x530 word    UHCIBASEADD is bits15-5 of USBBA
+0x532 byte    BULKEPIN,  Flash drive IN endpoint number
+0x533 byte    BULKEPOUT, Flash Drive OUT endpoint number
+0x534 byte    MOUSEPIN,  usb mouse   IN endpoint number
+0x535 byte    HUBEPIN,   usb hub     IN endpoint number
+0x538 dword   BytesPerScanLine (BPSL)
+0x53c dword   BytesPerScanLine * 600/64 for dbl buffer (BPSL64)
+0x540 dword   BytesPerScanLine * 600/4  for dbl buffer (BPSL4) 
+0x544 dword   PRIVATEPIXELBUF value needed for getpixadd see pixel.s
+0x548 dword   USBERROR codes for Read10/Write10 (see usberror)
+0x54c byte    the ps/2 mouse DeviceID (should be 0x03)
+0x54d byte    Bitmask of startup errors 
+0x54e word    not used
+0x550 dword   not used
+0x554 dword   MOUSEX global position for drawing cursor
+0x558 dword   MOUSEY global position 
+0x55c word    Qty UHCI USB Controllers Found
+0x560 dword   BUS:DEV:FUN pci_config_address of USB-UHCI controller
+0x564 dword   BUS:DEV:FUN pci_config_address of ac97 on-board sound 
+0x568 dword   BUS:DEV:FUN pci_config_address of USB-EHCI controller 
+0x56c dword   YORIENT-y axis orientation, 1=topdown, -1=bottom up
+0x570 dword   Saved value of EAX  see reg2str.s
+0x574 dword   Saved value of EBX
+0x578 dword   Saved value of ECX
+0x57c dword   Saved value of EDX
+0x580 dword   Saved value of EBP
+0x584 dword   Saved value of ESP
+0x588 dword   Saved value of ESI
+0x58c dword   Saved value of EDI
+0x590 dword   Saved value of EFLAGS
+0x594 dword   value of CHECKTIMESTART used by checktime
+0x598 dword   value of CHECKTIMEELAPSED used by checktime
+0x59c dword   value of CHECKTIMEFUNCTION used by checktime
+0x5a0 dword   Saved value of [esp]
+0x5a4 dword   Saved value of [esp+4]
+0x5a8 dword   Saved value of [esp+8]
+0x5ac dword   Saved value of [esp+12]
+0x5b0 dword   Saved index of last ISR executed, see krn/interrupts.s
+0x5b4 dword   XOFFSET global x offset
+0x5b8 dword   YOFFSET global y offset
+0x5bc dword   save Kernel isr text color 0000ttbb for custom palettes
+0x5c0 dword   LFBSTART defined by swaprectprep
+0x5c4 dword   WINDOWIDTH defined by swaprectprep
+0x5c8 dword   WINDOWHEIGHT defined by swaprectprep
+0x5cc dword   WINDOWROWADVANCE defined by swaprectprep
+0x5d0 dword   EHCI Memory Base Address (USBBASE)=start of Capability Registers
+0x5d4 dword   EHCI Start of Operational Registers = USBBASE + sizeof(CapabilityRegisters)
+0x5d8 dword   BUS:DEV:FUN of 1st usb uhci Companion Controller to the ehci
+0x5dc dword   BUS:DEV:FUN of 2nd usb uhci Companion Controller to the ehci
+0x5e0 dword   qty uhci companion controllers found
+0x5e4 dword   MOUSE_DX
+0x5e8 dword   MOUSE_DY
+0x5ec dword   LBUTTONDOWN, 1=down, 0=up
+0x5f0 dword   MBUTTONDOWN
+0x5f4 dword   RBUTTONDOWN
+0x5f8 dword   Userland EIP value after sysenter
+
+
+
+
+
+
+
+fyi:  
+1meg = 0x100000 = 1,048,576 bytes
+       0x10000  = 65,536    bytes
+	   0x1000   = 4096      bytes  =  one page
+
+
+
+
+
+0x600  Start of boot2.s
+*************************
+This file is currently 14 sectors long as of Feb 2013.
+It contains bios int 13h/8 code to load the tatos.img file
+off floppy/cd/pendrive to memory starting at 0x600.
+Here we set graphics mode, enter pmode
+
+
+
+0x7c00  Bootsector
+********************
+Bios loads the first sector off our image floppy to here.
+Also boot2.s loads each sector of the image to 0x7c00 
+then we move it to its proper place in memory.
+
+
+
+0x4000 SPLITCSV substrings
+******************************
+We store here the substrings returned by splitcsv
+each substring may be up to 63 bytes long including the terminator
+The first substring (n=0) starts at 0x4000
+The remaining substrings start at 0x4000+0x40*n
+
+
+
+0x5000 USB Transaction Results Storage Data
+******************************************************
+We store here the results of usb Control transactions 
+this is all data returned by the device
+for the pen drive we assume
+1 configuration and 1 interface and multiple endpoints
+*******USB Pen/Flash Drive Enumeration starting at 0x5000********
+0x5000  18 byte DeviceDescriptor 
+0x5020  9 byte ConfigurationDescriptor
+The  9 byte InterfaceDescriptor     immediately follows
+The  7 byte 1st EndpointDescriptor  immediately follows
+The  7 byte 2nd EndpointDescriptor  immediately follows
+The  7 byte 3rd EndpointDescriptor  optional not all devices have 3
+0x5100 SCSI ReadCapacity returns 8  bytes
+0x5200 SCSI Inquiry      returns 36 bytes
+0x5300 SCSI ModeSense    returns  4 bytes
+0x5400 SCSI RequestSense returns 18 bytes
+********Low Speed USB Mouse Enumeration starting at 0x5500*******
+0x5500 18 byte Device Descriptor
+0x5520  9 byte Configuration Descriptor
+0x5529  9 byte Interface Descriptor
+0x5532  9 byte HID Descriptor 
+0x553b  7 byte 1st Endpoint Descriptor
+We are assuming that all Config/Interface/HID descriptors are 9 bytes
+The first byte of each descriptor is the length so we could read this and check
+0x5600 The ReportDescriptor
+*******USB HUB Enumeration results starting at 0x6000 *******
+0x6000  18 byte Device Descriptor 
+0x6020  9 byte Configuration Descriptor
+0x6029  9 byte Interface Descriptor 
+0x6032  7 byte Endpoint Descriptor
+0x6040  8 byte Hub Descriptor
+
+
+
+
+0x8000->9000 Page Directory 
+****************************
+We reserve space here for the page directory
+we support 4mb pages which need 1024 dword entries or 0x1000 bytes
+the first 8 pages are kernel, the next 2 pages are userland
+the remaining pages are kernel
+see tlib/paging.s
+
+
+
+
+0xF000=61k Sin[] Lookup Table
+********************************
+We store here the sin lookup table generated by 
+FillSinCosTable. See tatOS/tlib/polar.s
+360 dwords=1440 bytes
+
+
+0xF600=63k Cos[] Lookup Table
+********************************
+We store here the cos lookup table generated by 
+FillSinCosTable. See tatOS/tlib/polar.s
+360 dwords=1440 bytes
+
+
+0x10000=65k  tlib
+**********************
+tlib is loaded by boot2 to 0x10000
+the beginning of tlib is a table of addresses of exported functions
+tlib is currently padded to 265 sectors as of April 2015
+SIZEOFTLIB is defined in tatOS.inc 
+
+|
+|
+|
+|
+|  Stack Space
+|
+|
+|
+V
+
+0x88888  Stack pointer 
+*********************************
+esp is initialized in boot2.s
+so our available stack space is
+esp-(0x10000 + sizeof(tlib))
+
+
+
+
+0x90000  Task State Segment TSS
+**********************************
+new addition as of June 2013
+needed for sysexit/sysenter protected mode interface
+we only need a couple hundred bytes here
+see tatOSinit.s for details and gdtidttss.s
+
+
+
+0x100000=1meg  Tedit Link List
+********************************************
+We reserve 9megs for tedit double link list.  
+Each tedit link needs 12 bytes per char.  
+Max file size tedit can handle is 750,000 bytes
+
+
+
+0x900000=9meg XXD memory 
+*****************************
+This 3meg is reserved for XXD.
+
+
+
+0xb70000=12meg usb data buffer
+***********************************
+This is the bucket for usb data exchange between the flash drive and memory 
+during Command/Data/Status transport 
+2meg is reserved for private use of usb driver code only
+
+
+
+0xd60000=14meg usb transfer descriptors (TD's)
+***********************************************
+This is where we create a chain of td's for transmitting data
+to/from the device using read10/write10. 
+Since the full speed uhci transmits 64 byte packets and each 
+td requires 32 bytes we need 1/2 meg of td's to transmit a file 
+that is 1meg in size.
+
+
+0x1000000=16.7meg  USB UHCI Frame List  
+****************************************
+For USB/UHCI transactions we need a list of 1024 dword pointers (0x1000 bytes). 
+The host controller will jump to the next pointer in the list every 1ms to conduction 
+another usb transaction. The FLBASEADD register gets loaded with this value. 
+We fill every entry of this list with 0x1005000. The frame list usually holds pointers 
+to isochronous (audio) td's but we dont support this yet so instead our frame list 
+holds a QH pointer to an interrupt transfer for the usb mouse. This QH then points to 
+another QH used for usb bulk mass transfer with the pen drive. See "Universal Host 
+Controller Interface (UHCI) Design Guide" rev 1.1 March 1996 Figure 4 for details.
+
+
+0x1002000 EHCI Periodic Frame List
+************************************
+We generate a list of 1024 addresses of a QH for mouse interrupt transfers
+this is for ehci with integral root hub like our Acer laptop
+0x1000 bytes are needed for this, see initehci.s
+note the low 12 bits of this address must be 0
+
+
+
+0x1003500  mouse interrupt TD
+******************************
+we reserve 100 bytes here to generate a single TD for the usb mouse
+plugged into a port of ehci with root hub
+
+
+0x1004000  mouse report buffer for ehci
+*****************************************
+for mouse interrupt IN transaction's this is where the mouse report is written to
+only need 6 bytes for the manhattan mouse and 4 for microsoft
+but must be page aligned 
+
+
+0x1005000=16.8meg  USB Queue Head QH
+*****************************************
+The UHCI and EHCI usb controllers use queue heads in a list
+a queue head is just some data in memory used by the usb controller
+to conduct usb transactions. you attach a chain of TD's to a queue head.
+
+For UHCI:
+we reserve space for two queue heads here. 
+QH must be aligned on 16 byte boundary (10h, 20h, 30h...) 
+Each QH consists of two dwords. 
+The first dword holds pointer to next QH (horizontal move)
+The second dword holds pointer to TD transfer descriptor for usb transaction (vertical move)
+We reserve the first QH for interrupt/mouse transactions. 
+We reserve the second QH for bulk/pendrive transactions.
+All entries in the frame list point to the first QH.  
+We reserve 0x1005000 for the 1st QH for mouse interrupt transactions 
+We reserve 0x1005100 for the 2nd QH for mouse control, bulk control and bulk xfer
+
+For EHCI:
+each queue head is 68 bytes and must be aligned on 32 byte boundary
+QH is used in asynchronous circular link list for control/bulk xfer
+the ehci QH contains endpoint/speed/xferType specific data 
+We reserve QH 0x1005300 for hub control transfers
+We reserve QH 0x1005400 for flash control transfers
+We reserve QH 0x1005500 for mouse control transfer
+We reserve QH 0x1005600 for flash bulk-in
+We reserve QH 0x1005700 for flash bulk-out
+0x1005300-->0x1005400-->0x1005500-->0x1005600->0x1005700->0x1005300
+We reserve 0x1006000 for the QH for mouse interrupt transfers in the periodic list
+
+
+
+
+0x01100000=17.8meg   video back buffer BACKBUF
+***************************************************
+We put the video back buffer starting here and the number of bytes in the array is 
+equal to 600 * bytesperscanline. On some computers this is 800*600 = 480000 bytes 
+but on other computers which have invisible padding bytes at the end of each scanline, 
+the number will be bigger. "swapbuf" copies this buffer to the video linear frame buffer.
+
+
+
+0x1200000=18.8meg     backup of VBR+FAT1+FAT2+ROOTDIR
+********************************************************
+Here we store a backup copy of the VBR+FAT1+FAT2+ROOTDIR
+0x207 blocks or 0x40e00 bytes are needed
+we do this save at the very end of initflash on tatOS startup
+you may "restore" this back to the flash within usb central
+in case your flash drive filesystem becomes corrupted
+
+
+
+0x127a000  ttasm Public & Extern Symbol Table's
+**************************************************
+we reserve 0x4000 bytes for ttasms Public Symbols  (starting 0x127a000)
+we reserve 0x8000 bytes for ttasms Extern Symbols immediately after (starting 0x127e000)
+any symbol declared with the keyword "public" is stored in the Public table
+any symbol declared with the keyword "extern" is stored in the Extern table
+see /doc/ttasm-help or ttasm.s for details 
+
+
+
+0x1290000   free memory hole
+***************************************
+0x70000 bytes are available here
+
+
+
+0x1300000=19.9meg  CLIPBOARD
+***********************************
+We reserve 1 meg for the clipboard.
+The format of the data is whatever you want.
+tedit uses this for cut/copy/paste.
+The first dword is the qty of bytes stored then follows the data.
+Some tlib functions that need memory use this for a short term heap.
+
+
+
+0x1400000=20.9meg   ALLOC/FREE  Heap
+*****************************************
+This memory is reserved for the alloc function.
+5meg is reserved.
+
+
+
+0x1900000=26.2meg  STARTVBR - Start of Volume Boot Record = VBR+FAT1+FAT2+ROOTDIR
+***********************************************************************************
+Every time you invoke the filemanager, it loads the following off flash drive to here:
+VolumeBootRecord + FAT1 + FAT2 + rootdirectory.  
+0x207 blocks or 0x40e00 bytes are reqd.
+
+
+
+0x1960000=26.6meg  STARTSUBDIR - Start of Current Sub Directory Entries 
+******************************************************************
+If you change the current working directory from root to some sub
+directory in root then the contents/directory_entries of that sub
+directory will be loaded here.
+1 cluster or 0x40 blocks are placed here.
+
+
+
+0x198fb00=26.8meg Filemanager Selected Filename 
+***************************************************************
+When you select a file and hit "ENTER" the filemanager saves the 
+11 byte filename to 0x198fb00 
+
+
+0x198fc00=26.8meg  FATDIRSTRING
+***********************************
+We reserve 76 bytes here for building an ascii string representing a single
+DIRENTRY structure. The string is displayed by the filemanager. The string
+gives the filename, filesize, attributes, date, and first cluster.
+
+
+
+0x198fd00->198fd32  FATDIRENTRY
+*********************************
+We use 32 bytes here to create a new FAT16 DIRENTRY structure. This is needed
+for every file_save and for making new subdir.
+
+
+
+0x198fe00->198fe11  Current Working Directory Name
+*******************************************
+We store here the 11 byte ascii string representing the name of the CWD
+for our fat16 filesystem.
+
+
+
+0x198ff00->1990000  Comprompt Buffer
+**************************************
+We reserve 0x100 bytes for the comprompt buffer
+this is the zero terminated string entered by the user from keyboard
+this address is defined in tatOS.inc as COMPROMPTBUF for easy retrieval
+
+
+
+0x1990000->1a90000 TTASM asm source bucket
+******************************************
+Our ttasm assembler reads the assembler source from this bucket.
+tedit link list is dumped here. 1 meg is reserved.
+
+
+
+0x1a90000->1c90000  TTASM Symbol Table
+****************************************
+We reserve 2 meg for the ttasm symbol table.
+
+
+
+0x1c90000->1d90000  BACKBUFSAVE buffer
+****************************************
+We reserve 1meg to store a copy of the BACKBUF in some state.
+this is for apps that want to draw over the top
+but preserve the screen.
+
+
+
+0x2000000->2800000   Userland Code/Data  
+************************************************************
+We reserve 8 meg or (2) 4mb pages for userland code/data 
+Apps can be loaded off pen drive and executed here.
+App resources like bitmaps can be loaded off pen drive someplace after the code
+0x2000000->0x2000009 is reserved for the kernel
+dword 0x2000000 holds EIP userland return address after sysenter
+dword 0x2000004 holds ESP userland stack pointer
+0x2000010 is actual start of userland code jmp instruction
+ttasm will assemble code directly to 0x2000010 
+tatOS.inc defines STARTOFEXE as 0x2000010
+the userland stack pointer USERSTACKPTR is set at 0x2400000 (end of first user 4mb page)
+
+
+
+0x2800000->0x2950000  1.4 meg free
+
+
+
+0x2950000->29a0000   List Control Buffer
+**************************************************************
+We reserve 0x50000 for the list control string buffer
+each 0 terminated string to be displayed by the List Control
+must be copied to this buffer
+strings are spaced 0x100 bytes apart 
+this allows for 500 strings (would we ever need this many ?)
+0x2950000 + n*0x100  is the starting address of each string
+where n=0,1,2,3,4...
+see also 0x5e4, 0x5e8 and 0x5ec globals for the list control
+tatOS.inc defines LISTCTRLBUF as 0x2950000
+
+
+
+0x29a0000->0x29c00000  ttasm String Table
+*******************************************
+we reserve 0x20000 bytes for the ttasm string table
+this table is a collection of the strings and equivalent addresses 
+assembled in userland code. the contents of this table is dumped after every assembly
+see ttasm.s for the format of this table
+
+
+
+0x29c0000->0x2ca0000  3meg free for kernel use
+
+
+
+0x2ca0000=46.8meg  DUMP buffer
+***********************************
+We reserve 2 meg for the tlib/dump.s functions
+because ttasm generates more than 1meg of dump messages to assemble tcadd
+All "dump" functions output ascii bytes to this memory block.
+The usb drivers output to the dump.
+Your apps may write to the dump.
+The contents of the "dump" can be viewed from the shell or within tedit
+
+
+tatOS currently requires 49 meg of memory to run !
+
+

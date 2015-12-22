@@ -1,0 +1,25 @@
+Optimization
+May 2009
+
+Every assembly language programmer should learn as much as possible
+about this topic. 
+
+Download and study the Intel Pentium "Optimization" manuals. 
+There are pdf's freely available on the web.
+These manuals also give the instruction timings.
+
+See also Agner Fogs "Optimizing Subroutines in Assembly Language".
+
+Topics for further study:
+
+branch prediction and elimination
+partial register or read/write stalls
+data alignment, location
+avoiding and unrolling loops
+instruction pairing 
+counting clocks, latency & throughput, measuring performance
+problematic instructions
+out of order execution
+dependency chains
+code size vs speed 
+

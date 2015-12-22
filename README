@@ -1,0 +1,92 @@
+README - tatOS - May 2015
+
+Welcome to tatOS - "programming for the common man in assembler"
+
+tatOS is an x86 32 bit hobby operating system that gets worked on in my spare time. 
+It has provided many hours of programming enjoyment (perhaps too many !)
+
+The corner stone of tatOS is the "tedit" text editor and the "ttasm" assembler.
+There is a suite of functions for graphics, string handling, file system (/tlib) 
+There is a suite of functions to control the usb flash drive & usb mouse. (/usb)
+
+tatOS includes 3 differant usb controller drivers for flash drive & mouse:
+* usb 1.0 uhci 
+* usb 2.0 ehci with uhci companion controllers
+* usb 2.0 ehci with integrated root hub
+You will have to set appropriate values in tatOS.config and reassemble for your hdwre.
+
+Not supported:
+* ohci and usb 3.0 xhci usb controllers 
+* usb keyboard, wireless usb 
+* multi-tasking, multi-threading, multiple processors
+* APIC, ACPI, EFI, MMX, or SSE. 
+See /doc/hardware for a more complete list of supported hardware
+
+tatOS includes a protected mode interface using sysenter/sysexit (see tlib/tlibentry.s)
+tatOS includes an elementary identify mapped paging scheme       (see tlib/paging.s)
+
+tatOS is designed for desktop/laptop computers with a single 32bit Intel or 
+Amd processor. It will also run on 64 bit multi-processor machines using the 
+bootstrap processor only in 32 bit protected mode. 
+
+The only keyboard supported is the ps/2.
+
+The ps2 mouse driver is depreciated but included in the source for reference. 
+Most apps and utilities I develop for tatOS use the keyboard only because of time 
+constraints, but a few also require the usb mouse.
+
+Video is SVGA graphics mode 0x103 which is 800x600x8bpp, 256 color palletized mode. 
+This is the only mode supported.  A tatOS app can draw over the entire 800x600 pixel 
+screen with graphic primitives like line, circle, arc, text, rectangle, 
+or draw to a private pixel buffer. See functions in /tlib. 
+See tlib/video.s for swaping pixel buffers to the screen.
+
+tatOS can not read or write to your hard drive so dont worry.
+
+tatOS requires a BIOS to boot that supports booting from floppy or flash drive using 
+floppy emulation. Use a floppy disc on an old computer or unformatted flash drive with 
+a modern computer.  Copy the file "tatOS.img" to the first sector of the device.
+Use "dd" on Linux or "rawrite" on Windows.
+Linux Floppy Disc: dd if=tatOS.img of=/dev/fd0
+Linux Flash Drive: dd if=tatOS.img of=/dev/sda 
+I have also had some success booting modern computers with an external floppy drive 
+with usb attach. The filesystem on your flash drive will not be preserved but there 
+are utilities on Linux or Windows or tatOS to restore this.
+
+If you are able to successfully boot then you will be running a program called the 
+tatOS "shell" which gives a scrolling list of utilities you can run. At this point 
+you can remove your boot flash drive and install a tatOS FAT16 formatted flash drive 
+and go thru the sequence of usb controller init and usb flash drive init (see USB 
+Central from the shell). The shell includes a utility to format a flash drive with 
+a single partition FAT16 filesystem that is also useable by Linux and Windows. See 
+notes in /tatOS/tlib/fat.s about the tatOS FAT16 filesystem restrictions.
+
+Some graphic controls are available.  
+See controls.s, list.s, dropdown.s, gets.s in /tlib
+
+There are 3 fonts available which support the ascii character set.  
+* font01 is the standard bitmap font. 
+* font02 is a smaller bitmap font I use for menus 
+* fontHershey is a scaleable vector font.  
+See put.s for functions to display ascii characters and strings.
+
+A special memory block called the "dump" (tlib/dump.s) is used by the kernel and your 
+apps to write ascii strings about what is going on.
+ 
+To shut down tatOS just hold down your power button.
+
+You can break out of most infinite loops or interrupt service routines with 
+ctrl+alt+del which sends you back to the shell.
+
+See /doc for more details and help.
+See /tlib and /usb source code for all OS function capability.
+See /apps for sample applications that can be assembled by ttasm and run 
+under tatOS directly from the tedit text editor.
+
+tatOS is written in assembly with NASM and developed on a Debian Linux machine.
+Thanks for trying tatOS. 
+
+Tom Timmermann
+Janesville, Wisconsin USA
+
+

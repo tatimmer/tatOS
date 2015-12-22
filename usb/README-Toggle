@@ -1,0 +1,35 @@
+;tatOS/usb/README-Toggle
+
+March 2015
+
+data toggles for ehci
+
+DATA0=0, DATA1=1
+
+the data toggle can really mess up your usb transactions if not done correctly
+run() will give a time out error
+
+Here are some rules as I see them:
+
+1) each endpoint maintains its own toggle which alternates between 0 and 1 with each TD
+
+2) on port reset host and device set there toggles to 0
+
+3) control transfers (getting device, config, endpint descriptors ...)
+	* command transport: PID=OUT and toggle=0
+	* data transport   : PID=IN  and toggle=1
+	* status transport : PID=OUT and toggle=1
+   if there is no data transport (like SetAddress, SetConfiguration) then
+    * status transport : PID=IN  and toggle=1
+
+	we have a seperate queue head for control transfers that is setup 
+	so the controller takes the toggle from the qTD, see initehci.s
+
+4) for EHCI bulk transfers which begin with "Inquiry" et all, 
+   we still use toggle values set manually in software and the QH is setup to use
+   the toggle from the qTD. When we get to Read10 and Write10 we are using 
+   dword [bulktogglein] and dword [bulktoggleout] to manage the toggles
+
+
+
+

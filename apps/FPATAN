@@ -1,0 +1,210 @@
+
+;main09   Sept 8, 2015
+
+;FPATAN test
+;to see what this fpu function gives
+;all results are written to the dump
+
+
+org STARTOFEXE
+
+
+
+;*************
+;   DATA
+;*************
+
+
+num01745:
+dq .017455
+
+strNL:
+db 0xa,0
+
+str0:
+db 'All results written to the DUMP',0
+
+str1:
+db '1 deg......',0
+str2:
+db '90 deg......',0
+str3:
+db '180 deg......',0
+str4:
+db '181 deg......',0
+str5:
+db '270 deg......',0
+str6:
+db '359 deg......',0
+str7:
+db '360 deg......',0
+
+
+
+;*************
+;   CODE
+;*************
+
+
+..start
+
+	backbufclear
+
+
+	;the rounding mode = "nearest"
+	;******************************
+
+
+	;1 deg
+	dumpstr str1
+	fld qword [num01745]  ;st0=.017455
+	fld1                  ;st0=1, st1=.01745
+	fpatan                ;atan2(.01745/1)
+	mov eax,116 ;dumpst09
+	sysenter
+	mov eax,99  ;rad2deg
+	sysenter
+	mov eax,116 ;dumpst09
+	sysenter
+	ffree st0
+	dumpstr strNL
+	;result=.999996281
+
+
+	;90 deg
+	dumpstr str2
+	fld1                  ;st0=1
+	fldz                  ;st0=0, st1=1
+	fpatan                ;atan2(1/0)
+	mov eax,116 ;dumpst09
+	sysenter
+	mov eax,99  ;rad2deg
+	sysenter
+	mov eax,116 ;dumpst09
+	sysenter
+	ffree st0
+	dumpstr strNL
+	;result=89.999999995
+
+
+	;180 deg
+	dumpstr str3
+	fldz                  ;st0=0
+	fld1                  ;st0=1, st1=0
+	fchs                  ;st0=-1, st1=0
+	fpatan                ;atan2(0/-1)
+	mov eax,116 ;dumpst09
+	sysenter
+	mov eax,99  ;rad2deg
+	sysenter
+	mov eax,116 ;dumpst09
+	sysenter
+	mov eax,114 ;dumpFPUstatus/control
+	sysenter
+	ffree st0
+	dumpstr strNL
+	;result=179.999999990
+
+
+	;181 deg
+	dumpstr str4
+	fld qword [num01745]  ;st0=.017455
+	fchs                  ;st0=-.017455
+	fld1                  ;st0=1, ...
+	fchs                  ;st0=-1, ...
+	fpatan                ;atan2(-.017455/-1)
+	mov eax,116 ;dumpst09
+	sysenter
+	mov eax,99  ;rad2deg
+	sysenter
+	mov eax,116 ;dumpst09
+	sysenter
+	mov eax,114 ;dumpFPUstatus/control
+	sysenter
+	ffree st0
+	dumpstr strNL
+	;result=-179.000003709
+
+
+	;270 deg
+	dumpstr str5
+	fld1                  ;st0=1
+	fchs                  ;st0=-1
+	fldz                  ;st0=0, st1=-1
+	fpatan                ;atan2(-1/0)
+	mov eax,116 ;dumpst09
+	sysenter
+	mov eax,99  ;rad2deg
+	sysenter
+	mov eax,116 ;dumpst09
+	sysenter
+	mov eax,114 ;dumpFPUstatus/control
+	sysenter
+	ffree st0
+	dumpstr strNL
+	;result = -89.999999995
+
+
+	;359 deg
+	dumpstr str6
+	fld qword [num01745]  ;st0=.017455
+	fchs                  ;st0=-.017455
+	fld1                  ;st0=1
+	fpatan                ;atan2(-.017455/1)
+	mov eax,116 ;dumpst09
+	sysenter
+	mov eax,99  ;rad2deg
+	sysenter
+	mov eax,116 ;dumpst09
+	sysenter
+	mov eax,114 ;dumpFPUstatus/control
+	sysenter
+	ffree st0
+	dumpstr strNL
+	;result = -.999996281
+
+
+	;360 deg
+	dumpstr str7
+	fldz                  ;st0=0
+	fld1                  ;st0=1, st1=0
+	fpatan                ;atan2(0,1)
+	mov eax,116 ;dumpst09
+	sysenter
+	mov eax,99  ;rad2deg
+	sysenter
+	mov eax,116 ;dumpst09
+	sysenter
+	mov eax,114 ;dumpFPUstatus/control
+	sysenter
+	ffree st0
+	dumpstr strNL
+	;result = 0
+
+
+	;so if you want to return a resulting angle that is always
+	;positive from 0->360 degrees then we do this:
+	;if dy is negative, add 360 deg else leave it alone
+
+
+	
+
+
+	;now set the rounding mode to "UP"
+	;and see what we get
+	;ttasm does not yet support the "fldcw" insruction
+	;**********************************
+
+
+
+
+
+	;all results written to the dump
+	puts FONT01,100,100,str0,0xeffe
+
+	swapbuf
+	getc
+
+	exit
+
+   

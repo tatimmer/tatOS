@@ -1,0 +1,1324 @@
+
+;**********************************************
+;TICTACTOE
+
+;I wrote this to demonstrate how a tatOS app
+;can use the usbmouse and ps2 keyboard
+;also load and display unformatted bits arrays
+
+;rev: Feb 2013
+;rev Nov 2013 for tatOS protected mode interface
+
+;I know of 2 ways that X can win
+;certainly more time can be put into the logic
+
+;in order to display a message in the yellow box
+;use code like this:
+;mov dword [debugmessage],str16
+
+;assembles with ttasm as flat binary for tatOS
+
+;important starting points in the code:
+;PAINT
+;SETTHIRDO
+;SETSECONDO
+;Block2X
+;PlaceX
+;CHECK4XWIN
+;leftbuttondown
+;***********************************************
+
+
+org STARTOFEXE
+
+
+
+;*************
+;  DATA
+;*************
+
+
+str0:
+db 'TicTacToe',0
+
+str1:
+db 'You are X and the computer is O',10
+db 'Press any key to start a new game',10
+db 'Press r to reset the score',10
+db 'Press ESCAPE to quit',0
+
+str2:
+db 'TICTACTOE-Loading bitmaps',0
+
+str3:
+db 'block2x',0
+str4:
+db 'placex',0
+str5:
+db 'check4win',0
+str6:
+db 'set2nd0',0
+str7:
+db 'set3rdO',0
+
+str13:
+db 'left mouse button',0
+str15:
+db 'middle mouse button',0
+str16:
+db 'right mouse button',0
+str17:
+db 'Welcome to TicTacToe-Ready',0
+str19:
+db 'O makes an offensive move',0
+str20:
+db 'O is blocking',0
+str21:
+db 'O wins !',0
+str22:
+db 'Mee-ow.......',0
+str23:
+db 'X wins !',0
+str24:
+db 'Qty wins X',10
+db 'Qty wins O',10
+db 'Qty Cat',0
+str25:
+db 'checkmouse returns',0
+str26:
+db 'Loading X bits',0
+str27:
+db 'Loading O bits',0
+str28:
+db 'Loading Rory cat bits',0
+str29:
+db 'Loading Smily bits',0
+str30:
+db 'PLACEX not in cell',0
+str31:
+db 'PLACEX occupied',0
+str32:
+db 'PLACEX success',0
+
+
+
+
+
+
+
+;dwords
+debugmessage:
+dd str17
+Xcount:
+dd 0
+qtywinX:
+dd 0
+qtywinO:
+dd 0
+qtywinCat:
+dd 0
+mouseX:
+dd 0
+mouseY:
+dd 0
+
+
+;bytes
+victory:
+db 0
+kitty:
+db 0
+
+
+;arrays
+;there are 9 cells in the grid
+;top left cell is 0
+;bottom right cell is 8
+;1=occupied, 0=not
+Xoccupancy:
+dd 0,0,0,0,0,0,0,0,0  
+Ooccupancy:
+dd 0,0,0,0,0,0,0,0,0  
+
+;coordinates for drawing X's and O's in the grid
+;based on occupancy
+gridx:
+dd 320, 420, 520, 320, 420, 520, 320, 420, 520
+gridy:
+dd 120, 120, 120, 220, 220, 220, 320, 320, 320
+
+
+
+;*************
+;  CODE
+;*************
+
+
+start
+
+	mov dword [Xcount],0
+
+
+	;initial feedback message
+	mov dword [debugmessage],str17
+
+
+	call paint
+
+
+
+appmainloop:
+
+	mov eax,12  ;checkc
+	sysenter
+	jz .nokeypress
+
+
+
+	cmp al,ESCAPE
+	jz .quit
+
+	;test for 'r'
+	cmp al,0x72
+	jnz .notR
+	call resetscore
+.notR:
+
+
+	;any keypress like spacebar resets for newgame
+	call newgame
+
+
+
+.nokeypress:
+
+	mov eax,63  ;usbcheckmouse
+	sysenter
+	;return value in al 1=Lbut, 2=Rbut, 4=Mbut
+
+
+
+	;Lbut down
+	cmp al,1
+	jnz .notleft
+	call leftbuttondown
+	;do not set a debug message here
+	;because various subroutines called by leftbuttondown
+	;will set debug messages
+	jmp .done
+.notleft:
+	
+	;Mbut down
+	cmp al,4
+	jnz .notmiddle
+	mov dword [debugmessage],str15
+	jmp .done
+.notmiddle:
+
+	;Rbut down
+	cmp al,2
+	jnz .notright
+	mov dword [debugmessage],str16
+.notright:
+
+.done:
+	call paint
+	jmp appmainloop
+
+.quit:
+	exit  ;return to tatOS
+
+
+
+
+
+
+
+;****************************************************
+;                  PAINT
+;****************************************************
+
+paint:
+
+	mov eax,0  ;backbufclear
+	sysenter
+
+
+	;light gray grid 50 pixel spacing in x and y
+	mov eax,38  ;grid
+	mov ebx,50  ;line spacing
+	mov ecx,LGR ;color
+	sysenter
+
+
+	;program title
+	putshershey 100,70,str0,BLA,1,3
+
+	;Instructions
+	putsml FONT01,30,450,str1,0xf7ff
+
+
+	;display mouse x,y location 
+	mov eax,64  ;getmousexy
+	sysenter    ;eax=mouseX, ebx=mouseY
+	push ebx
+	mov ebx,eax
+	putebxdec ebx,100,180,0xf3ff,0
+	pop ebx
+	putebxdec ebx,150,180,0xf3ff,0
+
+
+	;display scriptT
+	mov eax,41  ;putscriptT
+	mov ebx,750
+	mov ecx,550
+	sysenter
+
+
+	;qty wins
+	putsml FONT01,100,280,str24,0xf4ff
+
+
+	mov ebx,[qtywinX]
+	putebxdec ebx,210,280,0xefff,0
+
+	mov ebx,[qtywinO]
+	putebxdec ebx,210,300,0xefff,0
+
+	mov ebx,[qtywinCat]
+	putebxdec ebx,210,320,0xefff,0
+
+
+
+	;feedback/debugmessage in yellow box at bottom
+	fillrect 100,550,400,20,YEL
+	puts FONT01,105,555,[debugmessage],0xf3fd
+
+
+	
+	;solid color background for the playing area
+	fillrect 300,100,300,300,0xcc
+
+
+
+
+	;***********************************************
+	;draw all the X's and O's on the tictactoe grid
+	;***********************************************
+
+	mov ecx,0  
+	;9 cells from 0-8 index
+
+
+drawGridLoop:
+
+	;in this loop ecx must be preserved
+
+	;Draw all the "X's"
+	cmp Xoccupancy[ecx],1
+	jnz paint.2a
+
+	;draw X bitmap
+	push ecx
+	mov eax,65     ;puttransbits
+	mov ebx,gridx[ecx]
+	mov ecx,gridy[ecx]
+	mov edx,56     ;width
+	mov esi,52     ;height
+	mov edi,XBITS  ;address of bits
+	sysenter
+	pop ecx
+
+	jmp paint.2b
+
+paint.2a:
+
+	;Draw all the "O's" 
+	cmp Ooccupancy[ecx],1
+	jnz paint.2b
+
+	;draw O bitmap
+	push ecx
+	mov eax,65     ;puttransbits
+	mov ebx,gridx[ecx] 
+	mov ecx,gridy[ecx] 
+	mov edx,52     ;width
+	mov esi,50     ;height
+	mov edi,OBITS  ;address of bits
+	sysenter
+	pop ecx
+
+paint.2b:
+
+	inc ecx
+	cmp ecx,9
+	jb drawGridLoop
+
+
+
+
+	;thick grid lines seperating the 9 squares
+	;we dont have a thick line function yet so draw 3 lines 1 pixel apart
+	line SOLIDLINE,300,200,600,200,RED
+	line SOLIDLINE,300,201,600,201,RED
+	line SOLIDLINE,300,199,600,199,RED
+
+	line SOLIDLINE,300,300,600,300,RED
+	line SOLIDLINE,300,301,600,301,RED
+	line SOLIDLINE,300,299,600,299,RED
+
+	line SOLIDLINE,400,100,400,400,RED
+	line SOLIDLINE,401,100,401,400,RED
+	line SOLIDLINE,399,100,399,400,RED
+
+	line SOLIDLINE,500,100,500,400,RED
+	line SOLIDLINE,501,100,501,400,RED
+	line SOLIDLINE,499,100,499,400,RED
+
+
+
+
+
+	;draw X bitmap to tract the mouse pointer
+	mov eax,64    ;getmousexy
+	sysenter      ;eax=mouseX, ebx=mouseY
+	mov ecx,ebx   ;y
+	sub ecx,26    ;subtract half bitmap height
+	mov ebx,eax   ;x
+	sub ebx,28    ;subtract half bitmap width
+	mov eax,65    ;puttransbits
+	mov edx,56    ;width
+	mov esi,52    ;height
+	mov edi,XBITS ;address of bits
+	sysenter
+
+.dontdrawX:
+
+
+
+	;smily for victory
+	cmp byte [victory],1
+	jnz .nosmily
+	mov eax,65    ;puttransbits
+	mov ebx,400   ;x
+	mov ecx,200   ;y
+	mov edx,100   ;width
+	mov esi,100   ;height
+	mov edi,SBITS ;address of bits
+	sysenter
+.nosmily:
+
+
+
+	;cat for tie
+	cmp byte [kitty],1 
+	jnz .nocat
+	mov eax,68    ;putbits
+	mov ebx,360   ;x
+	mov ecx,175   ;y
+	mov edx,180   ;width
+	mov esi,156   ;height
+	mov edi,RBITS ;address of bits
+	sysenter
+.nocat:
+
+
+
+	
+.endpaint:
+	
+	mov eax,62  ;arrowpointer
+	sysenter
+
+	swapbuf
+
+	ret  
+	;end paint
+
+
+
+
+
+
+;**********************************************************
+;                 SUBROUTINES
+;**********************************************************
+
+
+
+;************************************************************
+;SETTHIRDO
+;if there are (2) O's and no X's in the roll/col/diag
+;place a third O in that row to win
+;input
+;push cell1,cell2,cell3 (must represent row,col or diagonal)
+;************************************************************
+
+SETTHIRDO:
+
+	push ebp
+	mov ebp,esp
+
+	dumpstr str7
+
+	;check for X's in the row
+	mov ecx,[ebp+16]
+	mov eax,Xoccupancy[ecx]
+	mov ecx,[ebp+12]
+	add eax,Xoccupancy[ecx]
+	mov ecx,[ebp+8]
+	add eax,Xoccupancy[ecx]
+	;failure if al is anything but zero
+	jnz set3o.failure
+	
+	;ok-so there are no X's in the row
+	;check for O's in the row
+	mov ecx,[ebp+16]
+	mov eax,Ooccupancy[ecx]
+	mov ecx,[ebp+12]
+	add eax,Ooccupancy[ecx]
+	mov ecx,[ebp+8]
+	add eax,Ooccupancy[ecx]
+	cmp eax,2 
+	;failure if != 2
+	jnz set3o.failure
+
+	;ok-so we have no X's and two O's in the row
+	;now add a third O in an empty cell to win
+	mov ecx,[ebp+16]
+	cmp Ooccupancy[ecx],0
+	jnz set3o.1
+	mov Ooccupancy[ecx],1
+	jmp set3o.success
+set3o.1:
+	mov ecx,[ebp+12]
+	cmp Ooccupancy[ecx],0
+	jnz set3o.2
+	mov Ooccupancy[ecx],1
+	jmp set3o.success
+set3o.2:
+	;the 3rd cell better be empty
+	mov ecx,[ebp+8]
+	mov Ooccupancy[ecx],1
+	jmp set3o.success
+
+set3o.failure:
+	stc 
+	;set carry flag (jc) on failure 
+	jmp set3o.done
+
+set3o.success:
+	clc 
+	;clear carry flag (jnc) success
+	mov dword [debugmessage],str21 
+	inc dword [qtywinO]
+
+
+set3o.done:
+	pop ebp
+	retn 12
+
+
+
+
+
+
+
+
+;***********************************************************
+;SETSECONDO
+;if there is 1 O and no X's in the roll/col/diag
+;place a second O in that row
+;input
+;push cell1,cell2,cell3 (must represent row,col or diagonal)
+;***********************************************************
+
+SETSECONDO:
+
+	push ebp
+	mov ebp,esp
+
+
+	dumpstr str6
+
+	;check for X's in the row
+	mov ecx,[ebp+16]
+	mov eax,Xoccupancy[ecx]
+	mov ecx,[ebp+12]
+	add eax,Xoccupancy[ecx]
+	mov ecx,[ebp+8]
+	add eax,Xoccupancy[ecx]
+	;failure if al is anything but zero
+	jnz set2o.failure
+	
+	;ok-so there are no X's in the row
+	;check for O's in the row
+	mov ecx,[ebp+16]
+	mov eax,Ooccupancy[ecx]
+	mov ecx,[ebp+12]
+	add eax,Ooccupancy[ecx]
+	mov ecx,[ebp+8]
+	add eax,Ooccupancy[ecx]
+	cmp eax,1 
+	;failure if not One O in the row
+	jnz set2o.failure
+
+	;ok-so we have no X's and one O in the row
+	;now add a second O in an empty cell
+	mov ecx,[ebp+16]
+	cmp Ooccupancy[ecx],0
+	jnz set2o.1
+	mov Ooccupancy[ecx],1
+	jmp set2o.success
+set2o.1:
+	mov ecx,[ebp+12]
+	cmp Ooccupancy[ecx],0
+	jnz set2o.2
+	mov Ooccupancy[ecx],1
+	jmp set2o.success
+set2o.2:
+	;the 3rd cell better be empty
+	mov ecx,[ebp+8]
+	mov Ooccupancy[ecx],1
+	jmp set2o.success
+
+set2o.failure:
+	stc 
+	;set carry flag (jc) on failure 
+	jmp set2o.done
+
+set2o.success:
+	clc 
+	;clear carry flag
+	mov dword [debugmessage],str19
+
+set2o.done:
+	pop ebp
+	retn 12
+
+
+
+;************************************************************
+;Block2X
+;looks in a particular row/col/diag for (2) X's and zero O's
+;places an O to block
+;input
+;push cell1,cell2,cell3 (must represent row,col or diagonal)
+;return 
+;set cf if failure 
+;failure=didnt find 2x's or found 2x's but found O in same
+;************************************************************
+
+Block2X:
+	
+	push ebp
+	mov ebp,esp
+
+	dumpstr str3
+
+	;check for X's in the row/col/diag
+	mov ecx,[ebp+16]
+	mov eax,Xoccupancy[ecx]
+	mov ecx,[ebp+12]
+	add eax,Xoccupancy[ecx]
+	mov ecx,[ebp+8]
+	add eax,Xoccupancy[ecx]
+	cmp eax,2
+	jnz block2x.failure
+	
+	;ok-so we found (2)  X's in the row/col/diag
+	;check for O's in same
+	mov ecx,[ebp+16]
+	mov eax,Ooccupancy[ecx]
+	mov ecx,[ebp+12]
+	add eax,Ooccupancy[ecx]
+	mov ecx,[ebp+8]
+	add eax,Ooccupancy[ecx]
+	cmp eax,0 
+	jnz block2x.failure
+
+	;ok-so we have 2 X's and zero O's in the row
+	;now add an O in an empty cell to block
+
+	;is cell1 empty ?
+	mov ecx,[ebp+16]
+	cmp Xoccupancy[ecx],0
+	jnz block2x.1
+	mov Ooccupancy[ecx],1
+	jmp block2x.success
+
+block2x.1:
+	;is cell2 empty ?
+	mov ecx,[ebp+12]
+	cmp Xoccupancy[ecx],0
+	jnz block2x.2
+	mov Ooccupancy[ecx],1
+	jmp block2x.success
+
+block2x.2:
+	;the 3rd cell better be empty !!!
+	mov ecx,[ebp+8]
+	mov Ooccupancy[ecx],1
+	jmp block2x.success
+
+block2x.failure:
+	stc 
+	;set carry flag (jc) on failure 
+	jmp block2x.done
+
+block2x.success:
+	clc 
+	;clear carry flag
+	mov dword [debugmessage],str20
+
+block2x.done:
+	pop ebp
+	retn 12 
+
+
+
+
+
+;*************************************************
+;PlaceX
+;sets Xoccupancy on Lclick if not occupied
+;input
+;push x1,y1,x2,y2 of rect then cell number (0-8)
+;*************************************************
+
+PlaceX:
+
+	push ebp
+	mov ebp,esp
+
+	dumpstr str4
+
+	mov eax,64  ;getmousexy
+	sysenter    ;eax=mouseX, ebx=mouseY
+	mov [mouseX],eax
+	mov [mouseY],ebx
+
+	;test if mouse is within rect
+	push ebp
+	mov eax,86       ;ptinrect
+	mov ebx,[ebp+24] ;x1
+	mov ecx,[ebp+20] ;y1
+	mov edx,[ebp+16] ;x2
+	mov esi,[ebp+12] ;y2
+	mov edi,[mouseX]
+	mov ebp,[mouseY]
+	sysenter
+	pop ebp
+	jnz placex.notincell
+
+	;get cell number 
+	mov ecx,[ebp+8]
+
+	;is cell occupied by X ?
+	cmp Xoccupancy[ecx],1 
+	jz placex.occupied
+
+	;is cell occupied by O ?
+	cmp Ooccupancy[ecx],1 
+	jz placex.occupied
+
+	;set occupancy by X
+	mov Xoccupancy[ecx],1 
+	jmp placex.success
+
+
+placex.notincell:
+	mov dword [debugmessage],str30
+	stc
+	jmp placex.done
+
+placex.occupied:
+	mov dword [debugmessage],str31
+	stc
+	jmp placex.done
+
+placex.success:
+	mov dword [debugmessage],str32
+	clc
+	
+placex.done:
+
+	pop ebp
+	retn 20
+
+
+
+
+;************************************************************
+;CHECK4XWIN
+;looking for 3 X's in a row/col/diag
+;input
+;push cell1,cell2,cell3 (must represent row,col or diagonal)
+;************************************************************
+
+CHECK4XWIN:
+
+	push ebp
+	mov ebp,esp
+
+	dumpstr str5
+
+	mov ecx,[ebp+16]
+	mov eax,Xoccupancy[ecx]
+	mov ecx,[ebp+12]
+	add eax,Xoccupancy[ecx]
+	mov ecx,[ebp+8]
+	add eax,Xoccupancy[ecx]
+	cmp eax,3 
+	jz win.success
+
+win.failure:
+	stc  
+	jmp win.done
+
+win.success:
+	clc  
+	inc dword [qtywinX]
+
+win.done:
+	pop ebp
+	retn 12
+
+
+
+
+
+;************************************************
+;leftbuttondown
+;this is our left mouse handler
+;much of the work is done in here
+;************************************************
+
+leftbuttondown:
+
+	;testing for where user wants to place X
+
+	
+	;cell 0
+	push 300
+	push 100
+	push 400
+	push 200
+	push 0
+	call PlaceX
+	jnc lbut.placeO 
+
+	;cell 1
+	push 400
+	push 100
+	push 500
+	push 200
+	push 1
+	call PlaceX
+	jnc lbut.placeO
+
+	;cell 2
+	push 500
+	push 100
+	push 600
+	push 200
+	push 2
+	call PlaceX
+	jnc lbut.placeO
+
+	;cell 3
+	push 300
+	push 200
+	push 400
+	push 300
+	push 3
+	call PlaceX
+	jnc lbut.placeO
+
+	;cell 4
+	push 400
+	push 200
+	push 500
+	push 300
+	push 4
+	call PlaceX
+	jnc lbut.placeO
+
+	;cell 5
+	push 500
+	push 200
+	push 600
+	push 300
+	push 5
+	call PlaceX
+	jnc lbut.placeO
+
+	;call 6
+	push 300
+	push 300
+	push 400
+	push 400
+	push 6
+	call PlaceX
+	jnc lbut.placeO
+
+	;call 7
+	push 400
+	push 300
+	push 500
+	push 400
+	push 7
+	call PlaceX
+	jnc lbut.placeO
+
+	;cell 8
+	push 500
+	push 300
+	push 600
+	push 400
+	push 8
+	call PlaceX
+	jc lbut.endmouseclick
+	
+
+lbut.placeO:
+
+	;increment qty of X's drawn
+	inc dword [Xcount]
+
+
+
+
+
+	;jump depending on qty of X's on the board
+	cmp dword [Xcount],1
+	jz lbut.OneX
+	cmp dword [Xcount],2
+	jz lbut.TwoX
+	cmp dword [Xcount],3
+	jz lbut.ThreeX
+	;I give up
+	jmp lbut.defaultX
+
+
+
+	;*************************
+	;  Place O based on (1) X
+	;*************************
+
+lbut.OneX:
+	;is the center cell open ?
+	mov ecx,4
+	cmp Xoccupancy[ecx],1 
+	jz lbut.center_not_open
+
+	;place first O in center cell
+	mov ecx,4
+	mov Ooccupancy[ecx],1
+	jmp lbut.endmouseclick
+
+	;place first O in upper left corner since first X is in center
+lbut.center_not_open:
+	mov ecx,0
+	mov Ooccupancy[ecx],1
+	jmp lbut.endmouseclick
+
+	
+
+
+	;****************************
+	;  Place O based on (2) X's
+	;****************************
+
+lbut.TwoX:
+
+	;first we try to block any (2) X's in a row
+	push 0
+	push 1
+	push 2
+	call Block2X
+	jnc lbut.endmouseclick
+
+	push 3
+	push 4
+	push 5
+	call Block2X
+	jnc lbut.endmouseclick
+
+	push 6
+	push 7
+	push 8
+	call Block2X
+	jnc lbut.endmouseclick
+
+	;block X in columns
+	push 0
+	push 3
+	push 6
+	call Block2X
+	jnc lbut.endmouseclick
+
+	push 1
+	push 4
+	push 7
+	call Block2X
+	jnc lbut.endmouseclick
+
+	push 2
+	push 5
+	push 8
+	call Block2X
+	jnc lbut.endmouseclick
+
+
+	;block X in diagonals
+	push 0
+	push 4
+	push 8
+	call Block2X
+	jnc lbut.endmouseclick
+
+	push 2
+	push 4
+	push 6
+	call Block2X
+	jnc lbut.endmouseclick
+
+	
+	;Handle the special case of (2) X's in opposite corners
+	;left diagonal
+	mov ecx,0
+	mov eax,Xoccupancy[ecx]
+	mov ecx,8
+	add eax,Xoccupancy[ecx]
+	cmp eax,2
+	jz lbut.blockdiagonalX
+
+	;right diagonal
+	mov ecx,2
+	mov eax,Xoccupancy[ecx]
+	mov ecx,6
+	add eax,Xoccupancy[ecx]
+	cmp eax,2
+	jnz lbut.O_offensive
+	
+lbut.blockdiagonalX:
+
+	;solution to blocking x in opposite diagonals
+	;cell 1 must be open
+	;because there are only 2 X's and they are in 
+	;the diagonal corners
+	mov ecx,1
+	mov Ooccupancy[ecx],1
+	mov dword [debugmessage],str20
+	jmp lbut.endmouseclick
+
+
+lbut.O_offensive:
+
+	;if we got here there are 2 X's not in a row or diagonal
+	;and one O on the board
+	;so make an offensive move with O
+	push 0
+	push 3
+	push 6
+	call SETSECONDO
+	jnc lbut.endmouseclick
+
+	push 1
+	push 4
+	push 7
+	call SETSECONDO
+	jnc lbut.endmouseclick
+
+	push 2
+	push 5
+	push 8
+	call SETSECONDO
+	jnc lbut.endmouseclick
+
+	push 0
+	push 1
+	push 2
+	call SETSECONDO
+	jnc lbut.endmouseclick
+
+	push 3
+	push 4
+	push 5
+	call SETSECONDO
+	jnc lbut.endmouseclick
+
+	push 6
+	push 7
+	push 8
+	call SETSECONDO
+	jnc lbut.endmouseclick
+
+	push 0
+	push 4
+	push 8
+	call SETSECONDO
+	jnc lbut.endmouseclick
+
+	push 2
+	push 4
+	push 6
+	call SETSECONDO
+	jmp lbut.endmouseclick
+
+
+
+
+	;***********************************
+	;  Place O based on (3) or more X's
+	;***********************************
+
+lbut.ThreeX:
+lbut.defaultX:
+
+
+	;look for an X victory
+	;there are I think only 2 ways X can win
+	;and only because we have limited logic placing 
+	;the first 2 O's
+	push 0
+	push 1
+	push 2
+	call CHECK4XWIN
+	jnc lbut.Xwins
+
+	push 3
+	push 4
+	push 5
+	call CHECK4XWIN
+	jnc lbut.Xwins
+
+	push 6
+	push 7
+	push 8
+	call CHECK4XWIN
+	jnc lbut.Xwins
+
+	push 0
+	push 3
+	push 6
+	call CHECK4XWIN
+	jnc lbut.Xwins
+
+	push 1
+	push 4
+	push 7
+	call CHECK4XWIN
+	jnc lbut.Xwins
+
+	push 2
+	push 5
+	push 8
+	call CHECK4XWIN
+	jnc lbut.Xwins
+
+	push 0
+	push 4
+	push 8
+	call CHECK4XWIN
+	jnc lbut.Xwins
+
+	push 2
+	push 4
+	push 6
+	call CHECK4XWIN
+	jnc lbut.Xwins
+
+
+	;look for an O victory
+	;which can only happen if X made a mistake
+	push 0
+	push 3
+	push 6
+	call SETTHIRDO
+	jnc  lbut.Owins
+
+	push 1
+	push 4
+	push 7
+	call SETTHIRDO
+	jnc  lbut.Owins
+
+	push 2
+	push 5
+	push 8
+	call SETTHIRDO
+	jnc  lbut.Owins
+
+	push 0
+	push 1
+	push 2
+	call SETTHIRDO
+	jnc  lbut.Owins
+
+	push 3
+	push 4
+	push 5
+	call SETTHIRDO
+	jnc  lbut.Owins
+
+	push 6
+	push 7
+	push 8
+	call SETTHIRDO
+	jnc  lbut.Owins
+
+	push 0
+	push 4
+	push 8
+	call SETTHIRDO
+	jnc  lbut.Owins
+
+	push 2
+	push 4
+	push 6
+	call SETTHIRDO
+	jnc  lbut.Owins
+
+
+	;ok so O could not win
+	;at least look to block X so it doesnt win
+	push 0
+	push 1
+	push 2
+	call Block2X
+	jnc  lbut.endmouseclick
+
+	push 3
+	push 4
+	push 5
+	call Block2X
+	jnc  lbut.endmouseclick
+
+	push 6
+	push 7
+	push 8
+	call Block2X
+	jnc  lbut.endmouseclick
+
+	push 0
+	push 3
+	push 6
+	call Block2X
+	jnc  lbut.endmouseclick
+
+	push 1
+	push 4
+	push 7
+	call Block2X
+	jnc  lbut.endmouseclick
+
+	push 2
+	push 5
+	push 8
+	call Block2X
+	jnc  lbut.endmouseclick
+
+	push 0
+	push 4
+	push 8
+	call Block2X
+	jnc  lbut.endmouseclick
+
+	push 2
+	push 4
+	push 6
+	call Block2X
+	jnc  lbut.endmouseclick
+
+
+	
+	;call it a cat
+	mov byte [kitty],1
+	mov dword [debugmessage],str22
+	inc dword [qtywinCat]
+	jmp lbut.endmouseclick
+	
+
+
+lbut.Xwins:
+	dumpstr str23
+	mov dword [debugmessage],str23
+	
+lbut.Owins:
+	mov byte [victory],1
+		
+lbut.endmouseclick:
+	ret
+	;end left mouse handler
+
+
+
+resetscore:
+	;if user presses 'r' reset the score 
+	mov dword [qtywinX],0
+	mov dword [qtywinO],0
+	mov dword [qtywinCat],0
+	ret
+
+
+newgame:
+
+	mov dword [Xcount],0
+
+	;MEMSETD
+	cld
+	mov edi,Xoccupancy
+	mov ecx,9
+	mov eax,0
+	repstosd
+
+	;MEMSETD
+	mov edi,Ooccupancy
+	mov ecx,9
+	mov eax,0
+	repstosd
+
+	mov dword [debugmessage],str17
+	mov byte [victory],0
+	mov byte [kitty],0
+
+	ret
+	
+
+
+
+;***************************************
+;resources assembled into the executable
+;these are unformatted bits arrays
+;no header information
+;top down left to right
+;use the standard palette
+;it takes about 3 seconds on my old PIII to load these
+;so you have to wait a bit with every assemble
+;note also with incbin the filename must be exactly 11 chars 
+
+align 32
+
+;this is a 56x52 bits array letter "X"
+XBITS:
+incbin XXXXXXXXBTS
+
+;this is a 52x50 bits array letter "O"
+OBITS:
+incbin OOOOOOOOBTS
+
+;this is a 180x156 bits array of our cat rory
+RBITS:
+incbin RORYXXXXBTS
+
+;this is a 100x100 bits array of a yellow smily face
+SBITS:
+incbin SMILYXXXBTS
+
+;*********************TheEnd*************
+
+
+ 
+         

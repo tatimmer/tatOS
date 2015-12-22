@@ -1,0 +1,20 @@
+tatOS/apps/README
+
+Most tatOS apps last re-assembled with ttasm on May 2015
+
+This directory contains assembly language code and tips from my own flash drive.
+You can copy these files to a tatOS formatted flash drive and then boot tatOS 
+and read this source code into tedit text editor and within tedit you can 
+assemble these apps using ttasm and then run these programs directly from 
+the editor. 
+
+Some of these apps like 3dwire, minesweeper & tcad I developed from scratch on 
+tatOS.  Others are authored as noted (mandelbrot, butterfly) and tweeked by 
+me so they run under tlib and tatOS with 800x600, 256 color graphics. 
+
+Thanks for trying tatOS.
+TomT
+
+
+
+

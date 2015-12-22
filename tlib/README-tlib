@@ -1,0 +1,51 @@
+README-tlib
+
+tlib is a handful of functions accessible by the tatOS kernel and user apps in support of direct hardware access bootable image programming using assembly. There are graphical functions that draw to the screen like puts, line, circle, and fillrect; utility functions that just compute things like abs and strlen, and actual controls that respond to user input like viewtxt, comprompt, gets, menu, & pickoption.
+
+All files in tlib and all function entry points are listed in tlib.s
+If you add a new file to the /tlib directory then you must %include that file in tlib.s
+#defines for memory addresses and magic numbers are located in tatos.inc
+tatos.inc is used by /usb and /boot
+
+Args in Regs:
+Most tlib functions take arguments in registers, but a few take args on the stack using our own version of "stdcall". Someday we may introduce some rentrant/recursive functions which use the stack for args but not yet. Usually registers are preserved with push/pop except if a value is returned in a register, usually in eax.
+
+Graphics Mode:
+On boot the bios will initialize your graphics adapter/monitor to 800x600x8bpp color mode. This a 256 color palletized mode. All graphic functions are designed around this mode and no other mode is supported. See the end of boot2.s where we generate and set a palette and the background color.
+
+Colors:
+Since with 8bpp graphics all colors are just an index into the DAC palette so we use byte values from 0-0x3f(0-63) since DAC colors are 6 bit values.  For the "standard" palette we have some defined names for colors in tatos.inc.  I generally save edx for passing colors, dl then dh and if you need a third color shift it to the hiword of edx. 
+
+Double Buffer:
+tlib is setup for double buffer and all tlib graphic functions draw to the back buffer. See tatos.inc where this is defined in memory. To get anything to show up on the screen you must call [SWAPBUF] at the end of your paint routine.  This copies the back buffer to the vesa linear frame buffer.  Apps are responsible for drawing their own mouse cursor. This is done right before SWAPBUF. You may "call [CROSSCURSOR] or make up your own cursor function using [PUTTRANSBITS].
+
+Applications:
+Some tlib functions like viewtxt and gets may be considered applications because they have their own main loop and their own paint routine.  A well behaved application with its own paint routine will observe the following:
+
+	* there must be a main loop with non-blocking calls to 
+	  checkc() or checkmouse() or checktime().  Apon detecting 
+	  the ESCAPE key the routine returns to the calling function. 
+	  At the end of the main loop call the local paint routine. 
+	
+	* a well behaved paint routine will observe the following:
+	
+		- begin paint with call [BACKBUFCLEAR]
+		  if using the entire screen.
+		
+		-if you wish to preserve the background and draw overtop
+		 before entering paint call [BACKBUFSAVE]
+		 begin paint with call [BACKBUFPUT]
+		 
+		-end the paint routine with call [SWAPBUF]
+		 this copies the backbuffer to the linear frame buffer
+		 nothing shows up until you call [SWAPBUF]
+
+
+See files in tatOS/apps for examples of how to use tlib functions.
+Happy coding !
+
+
+Tom Timmermann
+May 2013
+
+

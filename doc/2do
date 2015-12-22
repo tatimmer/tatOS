@@ -1,0 +1,82 @@
+tatOS 2do - Dec 2015
+
+A list of things I want to add to tatOS. Not in any order, as the spirit moves me.
+
+
+USB DRIVER::
+	- rewrite usb driver code to handle failed TD's on flash drive init
+		* without having to reinit controller
+		* quicker
+		* without having to reboot sometimes
+	- why does the mouse occasionally freeze ? (usbcheckmouse fail to queue up ???)
+	- driver for usb keyboard
+	- driver for usb 3.0 xHCI (someday when we get hdwre)
+
+
+FAT filesystem & Filemanager:
+	- support for partitions 
+	- the '.' and '..' entries should have ENTER key capability
+	- support for subdirectories within subdirectories
+
+
+APPS:
+	- tcadd: split into multiple source files, 
+	   add circle, arc, text, dimension, dxf/step
+	- asteroids, puzzle, solitaire, tatsnow, pong
+	- draw gear tooth involute profile, 2d glxgears in rotation
+	- 3d flat shading demo
+	- Littlebits: 
+		*ability to edit large BTS images whos grid will not fit on the screen
+		*set current color from the image grid
+		*move a collection of pixels in the grid
+	- a paint program :line/circle/arc...
+
+
+TLIB:
+	- function filltriangle or fillpolygon
+	- function thickline
+	- function to mesh a polygon area with triangles
+	- function to draw a graph of data points with legend, labels...
+	- function to scale up bitmaps 
+	- function to draw a table with text or bitmap in the cells
+	- function arc3p (finish what you started)
+	- expand calc for fpu capability
+	- medium cut algorithm for determining optimum color palette from 24bit DIB image
+	- display "power of two" as a font character using byte sequence 0xc2 0xb2 like vim
+	- add a scaleable and filled font like TimesNewRoman
+	- simple html viewer
+	- get rid of all indirect tlib.s function calls except what /boot needs
+	- rewrite xxd to display up to 250 blocks 
+	- rewrite xxd to display the exact file size (no trailing zeros on last line)
+	- support for UTF-8 
+	- support for higher graphics resolution: 16 bpp or 24bpp or 32bpp
+	- add find/search to viewtxt to quickly jump to addresses in the assembled code
+	- all the graphic controls need to save YORIENT, set YORIENT=1 then restore on exit
+	- palette manager ability to display rgb component of any color box
+	- palette manager ability to set stock background color 38,34,27
+
+
+TEDIT:
+	- multiple document interface
+	- replace text
+	- correct a problem in CaretNextLink for lines > 80char
+	- ability to read off pen drive as ascii hex bytes, edit and save back
+	- ability to move the carot vertically at current position not at the end of line
+
+
+TTASM: 
+	- fix dq error
+	- assemble multiple source files into object files then into 1 big exe
+	- assemble itself, then assemble tatOS (self hosting)
+	- expand memory addressing [reg1 + reg2] 
+	- eliminate the need to set all memory addresses to 0 on the 1st pass
+	- equ should print error message if dword numerical value is missing
+	- need "and dword [memory],1
+	- need BT or TEST for bit testing
+
+
+BOOT:
+	- implement UEFI boot (dont have any hardware for this yet)
+	- make the code to load tatOS more flexible as tlib grows
+
+

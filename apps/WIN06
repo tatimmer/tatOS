@@ -1,0 +1,228 @@
+
+;win06  Nov 03, 2015
+
+
+;a basic program with ps2 keyboard and usb mouse functionality
+;move the mouse, click mouse buttons
+;press any key on your ps2 keyboard
+
+;this program displays:
+;  * Left/Middle/Right mouse click message
+;  * x,y mouse coordinate
+;  * ascii value of each keypress on the keyboard
+
+;note on the wheel message "toward" means toward the screen
+;and away means away from the screen
+
+;to quit the program press ESCAPE
+
+
+org STARTOFEXE
+
+
+
+;**************
+;    DATA
+;**************
+	
+
+
+str1:
+db 'Good-day Mate !',0
+str2:
+db 'Left Button Down',0
+str3:
+db 'Middle Button Down',0
+str4:
+db 'Right Button Down',0
+str5:
+db 'Wheel Away',0
+str6:
+db 'Wheel Toward',0
+str10:
+db 'STARTWIN',0
+str11:
+db 'Last Key Pressed = 0x',0
+
+PaintMessage:
+dd str1
+
+KeyboardBuffer:
+db 0
+
+
+
+
+
+;**************
+;    CODE
+;**************
+
+..start
+
+
+	;init values
+
+	dumpstr str10
+
+	mov dword [PaintMessage],str1
+	mov byte [KeyboardBuffer],0
+
+
+
+AppMainLoop:
+
+
+	;**********
+	; PAINT
+	;**********
+
+	backbufclear
+
+
+	;display a  message response to mouse clicks
+	puts FONT01,100,100,[PaintMessage],0xefff
+
+
+	;get mouse position
+	mov eax,64  ;GetMouseXY
+	sysenter    ;returns eax=mouseX, ebx=mouseY
+
+	;display the mouse position x,y
+	push ebx
+	mov ebx,eax
+	putebx ebx,100,150,0xefff,0
+	pop ebx
+	putebx ebx,200,150,0xefff,0
+
+
+
+	;display the keypress prompt string
+	puts FONT01,100,200,str11,0xefff
+	;display the ascii key pressed
+	mov bl,[KeyboardBuffer]
+	mov eax,14     ;putebx
+	mov ecx,310    ;x
+	mov edx,200    ;y
+	mov esi,0xefff ;colors
+	mov edi,2      ;size=bl
+	sysenter
+
+
+
+	mov eax,62  ;arrowpointer
+	sysenter
+
+	swapbuf
+	;endpaint
+
+
+
+
+
+	;****************
+	; PS2 Keyboard
+	;****************
+
+	mov eax,12  ;checkc
+	sysenter
+	;return value in al
+	jz endKeypress
+	
+	cmp al,ESCAPE
+	jz doQuit
+
+	;save checkc return value for display
+	;this is in most cases the ascii char
+	;tatOS has some special defines for special keys
+	mov byte [KeyboardBuffer],al
+	jmp endKeypress
+
+
+endKeypress:
+
+
+
+
+	;****************
+	; USB Mouse
+	;****************
+
+	;this function checks the mouse report buffer for activity
+	;sets MOUSEX and MOUSEY 
+	;returns mouse button/wheel activity in al
+	;"queues" up a new usb mouse request
+	;so you must include this call with every app that uses usb mouse
+
+	mov eax,63  ;usbcheckmouse
+	sysenter
+
+	cmp al,0
+	jz NoMouseActivity
+	cmp al,1 
+	jz HandleLeftMouse
+	cmp al,2
+	jz HandleRightMouse
+	cmp al,4
+	jz HandleMiddleMouse
+	cmp al,5
+	jz HandleWheelToward
+	cmp al,6
+	jz HandleWheelAway
+NoMouseActivity:
+
+	jmp AppMainLoop
+
+
+
+
+
+
+
+
+;********************
+;    Mouse Handlers
+;********************
+        
+HandleLeftMouse:
+	mov dword [PaintMessage],str2 
+	jmp AppMainLoop
+
+HandleMiddleMouse:
+	mov dword [PaintMessage],str3 
+	jmp AppMainLoop
+
+HandleRightMouse:
+	mov dword [PaintMessage],str4 
+	jmp AppMainLoop
+
+HandleWheelAway:
+	mov dword [PaintMessage],str5 
+	jmp AppMainLoop
+
+HandleWheelToward:
+	mov dword [PaintMessage],str6 
+	jmp AppMainLoop
+	
+
+
+;**************************
+;    Keyboard Handlers
+;**************************
+
+
+
+
+doQuit:
+	exit  ;return to tedit
+
+
+
+;****************TheEnd***************************************
+
+
+
+
+
+           
+  

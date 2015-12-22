@@ -1,0 +1,418 @@
+
+;***************************************************
+;FERN
+;this is a fern fractal
+;the general alogrithm is by Ron Thomas from his Ebook
+;the coefficients and weighting are per 
+;a document on the web entitled "Fratal Ferns"
+;www.home.aone.net.au/~byzantium/ferns/fractal.html
+
+;basic equations:
+;X(n) = A(k)*x(n-1) + B(k)*y(n-1) + E(k)
+;Y(n) = C(k)*x(n-1) + D(k)*y(n-1) + F(k)
+;where k=0,1,2,3
+
+;this is a pixel drawing object
+;green fern on black background
+;the [counter] value may be increased to give more
+;detail but it takes more time before anything
+;shows up on the screen
+;it takes about 20 seconds on my PIII old desktop
+;for the fern to show up
+;on my netbook intel atom 1665 MHZ it takes 15 seconds
+
+
+;I have eliminated the E(k) term because
+;this type of fern doesnt need it though some do
+;I wish the upper leaves had more detail
+;perhaps my RAND function needs work
+
+;coded by tat in 2009 for tatOS
+;latest rev Aug 2013
+;**************************************************
+
+org STARTOFEXE
+
+
+
+;******************
+;   DATA
+;******************
+
+temp:
+dd 0
+
+
+;play around with these constants and see what you get
+;they are truely a magic set and somebody must have spent
+;a long time figuring out the best combination
+;A=0, 0.85, 0.20, -0.15
+arrayA:
+dq 0.0
+dq 0.85
+dq 0.20
+dq -0.15
+
+;you can make the fern bend left by negating each value here
+;but it also has other negative affects
+;B=0, 0.04, -0.26, 0.28
+arrayB:
+dq 0.0
+dq 0.04
+dq -.26
+dq 0.28
+
+;C=0, -0.04, 0.23, 0.26
+arrayC:
+dq 0.0
+dq -.04
+dq 0.23
+dq 0.26
+
+;D=0.16, 0.85, 0.22, 0.24
+arrayD:
+dq 0.16
+dq 0.85
+dq 0.22
+dq 0.24
+
+;F=0, 1.6, 1.6, 0.44
+arrayF:
+dq 0.0
+dq 1.6
+dq 1.6
+dq 0.44
+
+
+x:
+dq 0.0
+y:
+dq 0.0
+
+
+
+xscale:
+dd 50
+yscale:
+dd 50
+
+xoffset:
+dd 300
+yoffset:
+dd 550
+
+
+counter:
+dd 0
+
+
+str1:
+db 'Please wait about 20 seconds, fern being built',0
+
+;******************
+;   CODE
+;******************
+
+..start
+
+
+	;init for multiple execution
+	;a count of     100000 is very fast to build
+	;a count of    5000000 takes almost 5 seconds to build
+	;a count of   50000000 takes almost 20 seconds to build
+	;the greater the count the more pixels/detail is shown
+	;timings are based on my PIII 500mhz
+	mov dword [counter],50000000
+	
+	;zero X
+	fldz
+	fstp qword [x]
+
+	;zero Y
+	fldz
+	fstp qword [y]
+
+
+
+
+	puts FONT01,0,0,str1,0xfeef
+	swapbuf
+
+	;black background
+	fillrect 0,0,800,600,BLA
+
+mainloop:
+
+	;Build the Fern Fractal
+	rand 0
+	;returns random dword in eax
+
+
+	;now reduce our rand to something < 100
+	xor edx,edx
+	mov ebx,100
+	div ebx
+	;rand < 100 in edx
+
+
+	;original weighting: 1,85,93 looks ok
+	;1,17,25 looks better
+	;1,7,12 not good
+	;1,2,3 strips off half the leaves
+	cmp edx,1
+	jbe assign0
+	cmp edx,17
+	jbe assign1
+	cmp edx,25
+	jbe assign2
+
+	;assign3
+	mov ebx,24
+	jmp loadelement
+
+assign0:
+	;k=0,1,2,3 produce offsets of 0,8,16,24 into each qword array
+	mov ebx,0
+	jmp loadelement
+
+assign1:
+	mov ebx,8
+	jmp loadelement
+
+assign2:
+	mov ebx,16
+
+
+
+
+
+	;***********************
+	;now start working on X
+	;***********************
+
+
+loadelement:
+
+	;load element of a[]
+	mov eax,arrayA
+	;add the offset into the qword array
+	add eax,ebx
+
+	fld qword [eax]
+	;st0=a
+
+
+	fld qword [x]
+	;st0=x, st1=a
+
+
+	fmulp st1
+	;st0=x*a
+
+
+	;load element of b[]
+	mov eax,arrayB
+	add eax,ebx
+	fld qword [eax]
+	;st0=b, st1=x*a
+
+
+	fld qword [y]
+	;st0=y, st1=b, st2=x*a
+	
+
+	fmulp st1
+	;st0=y*b, st1=x*a
+	
+
+	fadd st1
+	;st0=x*a + y*b, st1=x*a
+
+
+	ffree st1
+	;st0=x*a + y*b   this is our  X
+
+
+
+
+	;***********************
+	;now start working on Y
+	;***********************
+
+	;load element of c[]
+	mov eax,arrayC
+	add eax,ebx
+	fld qword [eax]
+	;st0=c, st1=x*a + y*b
+
+	
+	fld qword [x]
+	;st0=x, st1=c, st2=x*a + y*b
+
+
+	fmulp st1
+	;st0=x*c, st2=x*a + y*b
+	
+
+	;load element of d[]
+	mov eax,arrayD
+	add eax,ebx
+	fld qword [eax]
+	;st0=d, st1=x*c, st2=x*a + y*b
+
+
+	fld qword [y]
+	;st0=y, st1=d, st2=x*c, st3=x*a + y*b
+
+
+	fmulp st1
+	;st0=y*d, st1=x*c, st2=x*a + y*b
+	
+
+	fadd st1
+	;st0=x*c + y*d, st1=x*c, st2=x*a + y*b
+
+
+	;load element of f[]
+	mov eax,arrayF
+	add eax,ebx
+	fld qword [eax]
+	;st0=f, st1=x*c + y*d, st2=x*c, st3=x*a + y*b
+
+
+	fadd st1
+	;st0=x*c + y*d + f, st1=x*c + y*d, st2=x*c, st3=x*a + y*b
+
+
+
+	;************************************
+	;now save x and y for next interation
+	;************************************
+
+
+	;save y
+	fstp qword [y]
+	;st0=x*c + y*d, st1=x*c, st2=x*a + y*b
+
+
+	;swap st0 and st2
+	fxch st2
+	;st0=x*a + y*b, st1=x*c, st2=x*c + y*d
+
+
+	;copy st0->st1
+	fst st1
+	;st0=x*a + y*b, st1=x*a + y*b, st2=x*c + y*d
+
+ 	
+	;save x
+	fstp qword [x]
+	;st0=x*a + y*b, st1=x*c + y*d
+
+
+	;*************************************************
+	;apply offset/scale transformation for plotting X
+	;*************************************************
+
+
+	fimul dword [xscale]
+	;st0=xscale(x*a + y*b), st1=x*c + y*d
+
+
+	fistp dword [temp]
+	;st0=x*c + y*d
+	;temp=xscale(x*a + y*b)
+
+
+	ffree st0
+	;all fpu regs free
+	
+
+	mov ebx,[xoffset]
+	add ebx,[temp]
+	;ebx=xscale(x*a + y*b) + xoffset = Xcoordinate
+	;now we have X for plotting in ebx
+
+
+	;*************************************************
+	;apply offset/scale transformation for plotting Y
+	;*************************************************
+
+
+	fld qword [y]
+	;st0=y
+
+	fimul dword [yscale]
+	;st0=y*yscale
+
+	fistp dword [temp]
+	;temp=y*yscale
+
+	mov ecx,[yoffset]
+	sub ecx,[temp]
+	;eax=yoffset - y*scale
+
+
+
+	;If pixel is within the screen limits plot it
+
+	cmp ebx,0   ;ebx=X
+	seta dl
+	cmp ebx,800
+	setb dh
+	add dl,dh
+
+	cmp ecx,0   ;ecx=Y
+	seta dh
+	add dl,dh
+	cmp ecx,600
+	setb dh
+	add dl,dh
+
+	cmp dl,4
+	jnz dontplot
+
+	mov edx,GRE ;color
+
+	mov eax,16  ;setpixel
+	sysenter
+
+
+dontplot:
+
+
+	;to show the fern being built uncomment this code
+	;warning-this will take a long time
+	;mov eax,[counter]
+	;stdcall 500,550,0xfdef,0,[PUTEAX]
+	;xor edx,edx
+	;show a frame every 5000 iterations
+	;mov ebx,5000
+	;div ebx
+	;cmp edx,0
+	;jnz decrement
+	;swapbuf
+	;checkc
+	;jnz quit
+
+
+decrement:
+	dec dword [counter]
+	jnz mainloop
+	;Go round again
+
+
+	;to just see the final product uncomment this code
+	swapbuf
+	getc
+
+
+quit:
+	exit
+
+
+;*********************THE END *******************************
+
+
+
+    

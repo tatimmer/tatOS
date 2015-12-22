@@ -1,0 +1,120 @@
+#!/bin/sh
+
+# As an OS developer on Linux, I find it necessary to turn off hot plugging 
+# and automounting of devices. Instead I use this script to mount when needed
+
+# script: mrm
+# Mount removable media
+# author: Tom Timmermann
+# rev Jan 2010 
+# requires the Debian package "pmount"
+# without pmount you have to be root to mount pen drive or cdrom filesystem
+# in order to run "mrm" from any directory
+# execute the following from the commandline:
+#    export FPATH=~/scripts
+# comment out entries in /etc/fstab to avoid conflict
+
+
+echo
+echo What do you want to do ?
+echo 1 = mount flash drive like floppy....sda
+echo 2 = un-mount flash drive like floppy
+echo 3 = mount floppy
+echo 4 = un-mount floppy
+echo 5 = mount data cd
+echo 6 = un-mount data cd
+echo 7 = mount flash drive like hard drive....sda1
+echo 8 = un-mount flash drive like hard drive
+read option
+
+echo Dont forget to UNmount when you are done !!!
+
+
+# mount pen drive 
+# if pendrive is partitioned like a hard drive then:
+# * use /dev/sda1 
+# * a partition table appears at offset 0x1be in the first sector
+# * the partition table defines offset to MBR 
+# if pendrive is partitioned like a floppy then:
+# * use /dev/sda
+# * bootsector will not contain a partition table
+# * MBR starts immediately in first sector
+# dd and xxd may be used to copy sectors off the pendrive and examine
+# or just use trial and error along with dmesg
+
+if [ $option = "1" ]
+then
+	echo mounting /dev/sda to /media/pendrive
+	pmount --read-write --exec --sync --type vfat  /dev/sda   pendrive
+	#nautilus /media/pendrive
+fi
+
+
+# un-mount pendrive
+if [ $option = "2" ]
+then
+	pumount  /dev/sda
+	echo showing mounted file systems:
+	mount
+fi
+
+
+
+
+
+# mount floppy
+# the floppy is formatted with the vfat filesystem and no partition information
+if [ $option = "3" ]
+then
+	echo mounting /dev/fd0 to /media/floppy
+	pmount --read-write --exec --sync --type vfat  /dev/fd0   floppy
+	#nautilus /media/floppy
+fi
+
+
+# un-mount floppy
+if [ $option = "4" ]
+then
+	pumount  /dev/fd0
+	echo showing mounted file systems:
+	mount
+fi
+
+
+# mount data cd
+if [ $option = "5" ]
+then
+	echo mounting /dev/hdc to /media/cdrom
+	pmount --read-only  --exec  --type  iso9660  /dev/hdc  cdrom
+	#nautilus /media/cdrom
+fi
+
+
+# un-mount data cd
+if [ $option = "6" ]
+then
+	pumount  /dev/hdc
+	echo showing mounted file systems:
+	mount
+fi
+
+
+# mount pen drive with partition table formatted like a hard drive
+if [ $option = "7" ]
+then
+	echo mounting /dev/sda to /media/pendrive
+	pmount --read-write --exec --sync --type vfat  /dev/sda1   pendrive
+	#nautilus /media/pendrive
+fi
+
+
+# un-mount pendrive
+if [ $option = "8" ]
+then
+	pumount  /dev/sda1
+	echo showing mounted file systems:
+	mount
+fi
+
+
+

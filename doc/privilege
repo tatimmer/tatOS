@@ -1,0 +1,12 @@
+The CPL or current priviledge level is determined by bits 0,1 of the
+segment selector currently in CS
+To tell the processor we are running at a differant privilege level
+we just load a new segment selector from the gdt 
+and or bits1:0 to either 0 for kernel or 3 for user
+mov ebx,cs will put the current code segment into ebx
+for tatOS 0x08 is kernel code selector with DPL=0 
+0x1b will be user code with DPL=3
+
+The IOPL or i/o privilege level is usually always 0 in tatOS.
+this can be verified by examining bits 12,13 of eflags
+IOPL of 3 does not give access to the in/out port instructions.

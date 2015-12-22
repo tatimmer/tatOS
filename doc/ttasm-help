@@ -1,0 +1,408 @@
+ttasm-help    Nov 2015
+
+
+ttasm is Tom Timmermann's Assembler
+a 2-pass assembler to generate flat binary executable code
+for the tatOS operating system
+32bit x86 Intel/AMD processors
+(64bit processors running in 32bit mode)
+
+
+be careful with this assembler as it can silently generate
+unexpected code because some instructions are hard coded to take no 
+arguments or a limited number thereof. Study the source...
+
+
+80char
+ttasm fetches code by lines
+make sure your asm source does not exceed 80 char per line
+if you have tedit assembled with line numbers in the left margin make it 75 char/line
+otherwise ttasm may report some unexpected assembly errors
+especially if the last line exceeds 80 char
+
+
+local-global
+***************************************
+all local and global symbols are stored in the ttasm symbol table
+the are added on the 1st pass and used on the 2nd pass to resolve forward jmps etc...
+the ttasm symbol table is erased before every new assembly
+all public and extern symbols have their own seperate symbol table (see notes below)
+a local symbol is any string preceeded by dot
+a global symbol is any string not proceeded by dot
+(function entry points are typically global)
+a local symbol is actually a concatenanted string of "global.local"
+where the global portion comes from the previous global symbol
+all symbols that are to be added to ttasms symbol table (global or local)
+must be on a line by itself and end with colon:
+examples of global symbols:   apple:   orange:    hello:
+examples of local symbols:   .done:   .error1:
+a local symbol has scope/visiblity from the previous global symbol to the next
+a global symbol has scope/visiblity in the current asm file
+
+
+Public & Extern Symbols
+**************************
+a public symbol is declared with the word "public" before the symbol
+a extern symbol is declared with the word "extern" before the symbol
+public symbols are stored in the Public Symbol Table 0x127a000
+extern symbols are stored in the Extern Symbol Table 0x127e000
+public and extern symbols provide a way to make code & data visible 
+to other source files
+public and extern symbols do not use a colon at the end of the string
+examples of public and extern symbols are:
+     public apple
+     extern apple
+public symbols have a known address/value at assembly time
+extern symbols have an unknown address/value at assembly time
+ttasm will assemble all extern symbols with a dword value of 0 at assembly time
+and add an entry to the extern symbol table with the value of the assypoint/location
+counter where the symbol value is to be patched later by the linker
+extern symbols will be resolved by the linker using values in the public symbol table
+the extern symbol table stores patched addresses as a link list
+each extern symbol may have multiple references in the source 
+and each reference takes one link
+for the format of the Public Symbol Table see /tlib/tablepub.s
+for the format of the Extern Symbol Table see /tlib/tableext.s
+
+
+
+
+
+
+colon
+********
+a word about the : colon and quoted db strings
+ttasm uses the : colon to identify a symbol to be added to the symtable
+TheseAreSymbols:  apple:   Tom:   people:  File:   Whatever:
+they can represent code labels or defined constants
+the symbol must appear on a line all by itself followed by : colon
+so you can not put a colon in a db string
+db 'FileOpen: this is an illegal db string',0  (ttasm will generate a parse error)
+db '[FileOpen] this is a legal db string',0
+this is a limitation that should be fixed in future versions
+
+
+
+byte/word/dword/qword
+************************
+this version of ttasm uses byte,word,dword,qword qualifiers like nasm
+e.g. dword [memory]
+getopstr will set _wbit depending on the size qualifier found
+instructions involving memory and immed must specify a size qualifier
+otherwise an invalid _wbit error is generated
+
+
+org, _assypoint
+******************
+org defines the starting address for each file of the users application
+it redefines the _assypoint or location counter
+you must define org once and only once per file before any code or data
+your main source file must use 'org STARTOFEXE' by default
+ttasm will output to the dump the sizeofexe based on org and _assypoint final
+thus you can assemble multiple source files to differant spots in memory
+provided they are all within the users page
+
+
+..start
+**********
+your main source file must contain one assy directive '..start'
+  ..start   defines the start of executable code in the main source file
+do not use ..start in any secondary source file
+
+
+exit
+******
+your main source file must contain one assy directive 'exit'
+this is the normal way for a userland app to quit and return to tedit
+do not exit with a 'ret' statement or your app will segfault
+
+
+String Table
+***************
+we add a ttasm string table that is written to dump after every assemble
+all the code label strings are saved to a string table starting 0x29a0000
+along with their address in memory
+the format of the string table is as follows:
+dword Symbol Address
+byte  string length (num bytes)
+then follows the string (not 0 terminated)
+repeat for as many symbols as necessary
+
+
+
+Exe Header & File Format
+**************************
+ttasm is an "Assemble & Go" assembler
+the asm source code should be organized as follows:
+first there should be an org directive 
+see discussion about 'org' and _assypoint above
+if the project has multiple source files, 2ndary files will use a differant org value
+chosen so as not to over write existing executable code
+multi-project files should include at this point the following:
+   * 'erasepe' directive to erase the public and extern symbol tables (main.s only)
+   * 'source' directive  to identify the source file being assembled
+   * extern symbols should be declared next
+then follows the global data: db, dw, dd, dq, etc...
+then should follow a '..start' directive (main.s only)
+then follows the code
+from this asm source, ttasm will generate an executable with the following format:
+16 bytes starting at 0x2000000 are reserved for a header
+0x2000000 stores the user EIP return address after a call to sysenter
+0x2000004 stores the user ESP stack pointer
+0x2000008 stores the address of start of users executable code
+0x200000c not used
+0x2000010 start of user global data 
+          after global data comes the executable code
+0x2400000 inital value of ESP when user code is executed
+see tlibentry.s and tedit.s when F10 is pressed to run the users code
+
+
+Nasm
+******
+ttasm strives to be nasm compatible as tatOS is written using nasm.
+ttasm has enough capability that I now use it to generate code that
+will become part of tlib but some changes are then required to get it
+to assemble cleanly with nasm:
+  * ttasm automatically codes all jumps as dword, nasm needs "near" inserted
+  * tatOS kernel may use the "STDCALL" macro to call tlib functions directly
+    but userland must use the protected mode interface setup in tlibentry.s
+  * syntax differances: ttasm repmovsb, nasm rep movsb
+
+
+
+
+
+Introduction
+*************
+ttasm is the assembler included in the tatOS distribution.  
+ttasm will read a 0 terminated block of ascii bytes 
+representing assembly code and output x86 32bit flat binary 
+executable code directly to tatOS STARTOFEXE.
+
+ttasm is a light weight assembler that supports a small 
+subset of the Intel instructions that my limited brain can grasp.  
+See the ttasm code for details. See also nasm, fasm or masm.
+For unsupported instructions see your intel manual and 
+hard code the bytes using DB.
+
+
+
+Limitations
+************
+ttasm will assemble a single source file only
+tlink can bind multiple source files together using extern & public symbols
+limited number of instructions supported 
+many instructions have limited destination and source choices
+no 16 bit code, all code is 32 bit
+no support for segment regesters 
+no support for FAR pointers, FAR calls or FAR jumps
+no support for the various short form opcodes using eax
+no support for prefixes other than rep see below
+see "SYMBOL TABLE" below where we hard code all the 
+defined constants, function calls  etc that ttasm understands
+
+
+
+Flat Binary
+************
+ttasm generates 32bit flat binary code for an environment in which:
+
+	*code and data share the same address space
+	*all segments point to entire address space (4gig)
+	*all code has kernel privaledge
+	*all code is non-relocatable with "org STARTOFEXE"
+
+ttasm only assembles single source files to flat binary executables 
+with code and data intermixed.  ttasm does not recoginize "section .text" 
+and "section .data".  ttasm can not generate any kind of formatted 
+executables like elf or win32. The start of executable code is defined in 
+tatos.inc as STARTOFEXE. You can use nasm to generate this same type of code 
+if you use "org STARTOFEXE" and "bits 32" and then "nasm -f bin mysource.asm". 
+I tend to organize my tatos assembly programs with DATA first then code, and 
+the very first line in the source file is a jmp statement to jump over the 
+DATA to the start of CODE.  See the apps/ for examples.
+
+ttasm generates code for 32bit operation so byte and dword mov
+is native. For word access the 0x66 prefix is used.
+
+
+
+
+Memory Addressing
+*******************
+in general ttasm supports only 3 forms of memory addressing
+[1] memD = direct immed value like [0x1888888] 
+           or defined constant like [LFB] 
+[2] memI = indirect thru 32bit register like [ebx], [ecx]...
+           or thru the stack [ebp+8], [ebp+12]...
+[3] array = apple[reg] where reg is any 32bit register
+ttasm is not able to parse base/scale/index/disp expressions
+you must use add/shift to compute any address
+
+
+
+Parser
+**********
+ttasm reads and assembles code 1 line at a time.
+the first word/instruction in the line controls whats done 
+with the rest of the line. This is a 2 pass assembler.
+All jmps are coded as dword displacement by default using jmp
+the address of code_lables: are all known after pass 1
+so the for/rev jmps are coded on pass 2.
+Each line in the source file including comments
+must be less than 80 char and end with NEWLINE 0xa.
+You should avoid appending tabs or spaces to the line.
+For example "dq 245.67<SPACE><NL>" will be interpreted as 0.0
+because of the SPACE. Someday I will rewrite the parser to be 
+more robust.
+
+
+
+Syntax 
+*******
+similar to NASM with a few changes
+only 1 built-in macro: "stdcall"
+
+
+
+
+Code Labels
+***********
+A code label represents a byte offset from the beginning of 
+executable code.  Code labels are used to define a subroutine 
+entry point or a position to jump to  or start of valid data 
+buried within the flat binary code.  A valid code label is any 
+sequence of ascii chars or numbers that when hashed will not 
+conflict with whats already in the hash table.  The code label 
+must end with a colon followed immediately by newline.  There 
+must be no space or tab or any other chars after the colon 
+otherwise a parse error is generated.  The code label must be 
+on a line all by itself. The code label may begin with a period. 
+Unlike nasm, ttasm does not recognize this as a local label, 
+all labels are global by nature.
+
+Code labels are added to the symbol table only when:
+	1)label must be on a line all by itself
+	2)label must be terminated by colon,NEWLINE
+	
+
+
+Comments
+*********
+A comment line begins with a semi colon and the entire line is then 
+ignored. Comments may be on a line by themselves or they may appear
+after a line of asm code. 
+
+
+
+Macros
+*******
+ttasm has no preprocessor and does not support any user defined 
+macros. There is one predefined macro "stdcall", see below.  
+
+
+
+arrays[]
+*********
+ttasm has a special syntax for addressing arrays of dwords. You 
+can write something like this: "mov MyArray[reg],ebx".  Here "MyArray"
+is a code label defining the start of a dword array and reg is any of the
+following 32 bit registers holding the array index: 
+eax,ebx,ecx,edx,esi,edi.  
+The equivalent syntax in nasm if ecx is the register index would be 
+"mov [MyArray+ecx*4],ebx".  This only works for dword arrays, not words or bytes.  
+Also this only works for certain instructions like mov/add/sub/cmp. 
+Check the ttasm code for supported instructions.
+
+
+
+
+Word Registers
+***************
+In 32bit mode the 8bit registers al,ah,bl,bh... and 32bit registers
+eax,ebx,ecx... are native. The 16bit word registers requires an
+0x66 opcode prefix. ttasm supportes a limited number of instructions
+with word register access. In general use the byte or dword
+registers.
+
+
+
+Data
+*****
+you have db, dw, dd, dq and db0 to inject data 
+into your executable. There is no resb,resd,?,...
+db0 will inject 0 bytes and is useful for 
+reserving space for arrays. For example to reserve 
+400 bytes for an array labeled "MyArray" you do this:
+MyArray:
+db0 400
+
+
+
+Alignment
+**********
+You can align code or data to any boundry value desired. Nops
+are inserted. e.g. "align 16" will insert nops so the next 
+opcodes start on an address divisible by 16.
+
+
+
+
+ret/retn
+**********
+For a simple return from procedure which does not need stack cleanup
+use "ret" and when needing to cleanup some stack args use "retn xx" 
+where xx equals 4 times the number of args to cleanup. ttasm will 
+silently ignore args to ret, you must use retn with args.
+
+
+
+Local Variables
+****************
+If your procedure needs some local variables you can use the stack.
+After the usual "push ebp" and "mov ebp,esp" you then do
+"sub esp,4*numlocals". Your locals can then be accessed by
+[ebp-4], [ebp-8] and so forth. At the end of your proc before you
+pop ebp and retn you should clean up your locals with 
+"add esp,4*numlocals". 
+see /doc/auto-local for more info
+
+
+
+
+
+Cant Assemble Itself
+**********************
+ttasm can not assemble itself nor can it assemble tatOS. ttasm would have to be 
+alot more advanced plus we would need a pmode floppy driver.  This entire project 
+is designed to be lightweight and fun and to promote assembly language programming 
+as well as get people interested in using linux. tatOS is intended to be assembled 
+on Linux with nasm. 
+
+
+
+FPU
+*****
+There is support for the basic floating point unit instructions. Double precision 
+Qword read/write and dword integer are the only supported memory access.  The fpu 
+unit is initialized in boot2.  Your app must ffree the used registers before your 
+program returns as tatos will not do this for you. See pow.s for an example of how 
+to pass memory addresses and how to preserve fpu registers.
+
+
+
+Dump
+******
+ttasm writes ascii messages to the "DUMP" (tlib/dump.s) about what its doing. 
+This is a special block of reserved memory used by ttasm (and any other tatOS app) 
+for dumping comments, register or memory values, or feedback message strings. 
+You can view the contents of the dump from within tedit by pressing the 
+appropriate function key.   
+Since ttasm is a 2 pass assembler you should be looking at the last half of the 
+DUMP for the resolved symbols. To see the dump messages from the 1st pass assemble
+edit tatOS.config 'VERBOSEDUMP' and re-assemble tatOS.
+
+
+Tom Timmermann
+
+

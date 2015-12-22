@@ -1,0 +1,1944 @@
+;tatos/tlib/font01.inc
+
+;********************************************************
+;font01
+;this is our main ascii font
+;tedit and ttasm and viewtxt use this font
+
+;based on a 9x15 bold bitmap X-font
+;I have eliminated a column of zeros
+;to fit each char in 8 pixels wide
+;each char bitmap is 15 pixels high
+;most of the strokes are 2 pixels thick for easier reading
+
+;the origin of each character bitmap is the upper left
+;the bits are 0=background, 1=textcolor
+
+;see function "putc" in tlib.s which uses this font
+;"puts" uses the font by displaying 2 pixels spaces 
+;between each char allowing 80 char across on an 800 pixel screen
+;so from the start of one char to the next is 10 pixels
+
+;the function "isascii" checks for the range 0x20-0x7e
+;anything outside this range is a nondisplayable dotbox
+;*****************************************************************
+
+
+
+;*****************************************************
+;this is the lookup table for font01
+;its an array of addresses to the beginning
+;of each character bitmap
+;the hex number above each address 
+;is the ascii character number
+;"putc" uses "font01table" to display each char bitmap
+;******************************************************
+
+
+font01table:
+;    0x20     0x21       0x22        0x23     0x24
+dd Space01, Exclaim01, DblQuote01, Pound01, Dollar01,
+
+;    0x25     0x26    0x27      0x28        0x29
+dd Percnt01, Amper01, Squote01, Lparan01, Rparan01,
+
+;   0x2a      0x2b   0x2c    0x2d    0x2e       0x2f
+dd Aster01, Plus01, Comma01, Dash01, Period01, Fslash01
+
+;   0x30    0x31   0x32   0x33     0x34    0x35    0x36
+dd Zero01, One01, Two01, Three01, Four01, Five01, Six01
+
+;  0x37       0x38    0x39   0x3a     0x3b    0x3c
+dd Seven01, Eight01, Nine01, Colon01, Semi01, Larrow01
+
+;   0x3d    0x3e      0x3f      0x40  
+dd Equal01, Rarrow01, Quest01, At01,
+
+;  0x41  0x42  0x43  0x44  0x45  0x46  0x47  0x48  0x49
+dd A01,  B01,  C01,  D01,  E01,  F01,  G01,  H01,  I01
+
+;  0x4a  0x4b  0x4c  0x4d  0x4e  0x4f  0x50  0x51  0x52
+dd J01,  K01,  L01,  M01,  N01,  O01,  P01,  Q01,  R01
+
+;  0x53  0x54  0x55  0x56  0x57  0x58  0x59  0x5a
+dd S01,  T01,  U01,  V01,  W01,  X01,  Y01,  Z01
+          
+;  0x5b      0x5c      0x5d      0x5e     0x5f      0x60
+dd Lbrkt01, Bslash01, Rbrkt01, Caret01, Uscore01, Btick01
+
+;  0x61  0x62  0x63  0x64  0x65  0x66  0x67  0x68  0x69
+dd a01,  b01,  c01,  d01,  e01,  f01,  g01,  h01,  i01
+
+;0x6a    0x6b  0x6c  0x6d  0x6e  0x6f  0x70  0x71  0x72
+dd j01,  k01,  l01,  m01,  n01,  o01,  p01,  q01,  r01
+
+;0x73   0x74  0x75  0x76  0x77  0x78  0x79  0x7a
+dd s01, t01,  u01,  v01,  w01,  x01,  y01,  z01
+
+;0x7b         0x7c     0x7d       0x7e
+dd Lbrace01,  Pipe01,  Rbrace01,  Tilde01
+
+;not ascii
+dd box01
+
+
+;********************************************************
+
+
+;0x20
+Space01:
+db 0   
+db 0   
+db 0   
+db 0   
+db 0   
+db 0   
+db 0   
+db 0   
+db 0   
+db 0   
+db 0   
+db 0   
+db 0   
+db 0   
+db 0   
+
+
+;0x21
+Exclaim01:
+db 0
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00000000b
+db 00110000b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x22
+DblQuote01:
+db 0
+db 01101100b
+db 01101100b
+db 01101100b
+db 0  
+db 0  
+db 0  
+db 0  
+db 0  
+db 0  
+db 0  
+db 0  
+db 0  
+db 0  
+db 0  
+
+
+;0x23
+Pound01:
+db 0
+db 00000000b 
+db 01101100b
+db 01101100b
+db 11111110b
+db 01101100b
+db 01101100b
+db 11111110b
+db 01101100b
+db 01101100b
+db 0
+db 0
+db 0
+db 0
+
+ 
+;0x24
+Dollar01:
+db 0
+db 00010000b
+db 01111100b
+db 11010110b
+db 11010000b
+db 11110000b
+db 01111100b
+db 00011110b
+db 00010110b
+db 11010110b
+db 01111100b
+db 0
+db 0
+db 0
+db 0
+
+
+; 0x25
+Percnt01:
+db 0
+db 01000000b   
+db 11100110b
+db 11100110b
+db 01001100b
+db 00011000b
+db 00011000b
+db 00110010b
+db 01100111b
+db 01100111b
+db 11000010b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x26
+Amper01:
+db 0
+db 00000000b   
+db 00111000b
+db 01101100b
+db 01111000b
+db 00110000b
+db 01111001b
+db 11001111b
+db 11000110b
+db 11001110b
+db 01111011b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x27
+Squote01:
+db 0
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+
+
+;0x28
+Lparan01:
+db 0
+db 00001100b
+db 00011000b
+db 00110000b
+db 00110000b
+db 01100000b
+db 01100000b
+db 01100000b
+db 01100000b
+db 00110000b
+db 00110000b
+db 00011000b
+db 00001100b
+db 0
+db 0
+
+
+;0x29
+Rparan01:
+db 0
+db 11000000b
+db 01100000b
+db 00110000b
+db 00110000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00110000b
+db 00110000b
+db 01100000b
+db 11000000b
+db 0
+db 0
+
+
+;0x2a
+Aster01:
+db 0
+db 0
+db 0
+db 0
+db 0
+db 01101100b
+db 00111000b
+db 11111110b
+db 00111000b
+db 01101100b
+db 0
+db 0
+db 0
+db 0
+db 0
+
+
+;0x2b
+Plus01:
+db 0
+db 0
+db 0
+db 0
+db 00011000b
+db 00011000b
+db 00011000b
+db 11111111b
+db 00011000b
+db 00011000b
+db 00011000b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x2c
+Comma01:
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 00111000b
+db 00111000b
+db 00011000b
+db 00011000b
+db 00110000b
+db 0
+
+
+;0x2d
+Dash01:
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 11111111b
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+
+
+;0x2e
+Period01:
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 00011000b
+db 00111100b
+db 00011000b
+db 0
+db 0
+db 0
+
+
+;0x2f
+Fslash01:
+db 0
+db 0
+db 00000011b
+db 00000110b
+db 00000110b
+db 00001100b
+db 00011000b
+db 00011000b
+db 00110000b
+db 01100000b
+db 01100000b
+db 11000000b
+db 0
+db 0
+db 0
+
+
+;0x30
+Zero01:
+db 0
+db 000111100b
+db 001111110b
+db 001000010b
+db 011000011b
+db 011000011b
+db 011000011b
+db 011000011b
+db 001000010b
+db 001111110b
+db 000111100b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x31
+One01:
+db 0
+db 00011000b
+db 00111000b
+db 01111000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 01111110b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x32
+Two01:
+db 0
+db 00111100b
+db 01100110b
+db 11000011b
+db 00000011b
+db 00000110b
+db 00001100b
+db 00011000b
+db 00110000b
+db 01100000b
+db 11111111b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x33
+Three01:
+db 0
+db 01111100b
+db 11000110b
+db 00000011b
+db 00000110b
+db 00011100b
+db 00000110b
+db 00000011b
+db 00000011b
+db 11000110b
+db 01111100b
+db 0
+db 0
+db 0
+db 0
+
+
+
+
+;0x34
+Four01:
+db 0
+db 00000110b
+db 00001110b
+db 00011110b
+db 00110110b
+db 01100110b
+db 11000110b
+db 11111111b
+db 00000110b
+db 00000110b
+db 00000110b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x35
+Five01:
+db 0
+db 11111110b
+db 11000000b
+db 11000000b
+db 11011100b
+db 11100110b
+db 00000011b
+db 00000011b
+db 11000011b
+db 01100110b
+db 00111100b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x36
+Six01:
+db 0
+db 00111100b
+db 01100110b
+db 11000010b
+db 11000000b
+db 11011100b
+db 11100110b
+db 11000011b
+db 11000011b
+db 01100110b
+db 00111100b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x37
+Seven01:
+db 0
+db 11111111b
+db 00000011b
+db 00000011b
+db 00000110b
+db 00001100b
+db 00001100b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x38
+Eight01:
+db 0
+db 00111100b
+db 01100110b
+db 11000011b
+db 01100110b
+db 00111100b
+db 01100110b
+db 11000011b
+db 11000011b
+db 01100110b
+db 00111100b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x39
+Nine01:
+db 0
+db 00111100b
+db 01100110b
+db 11000011b
+db 11000011b
+db 01100111b
+db 00111011b
+db 00000011b
+db 01000011b
+db 01100110b
+db 00111100b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x3a
+Colon01:
+db 0
+db 0
+db 0
+db 00011000b
+db 00111100b
+db 00011000b
+db 00000000b
+db 00000000b
+db 00011000b
+db 00111100b
+db 00011000b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x3b
+Semi01:
+db 0
+db 0
+db 0
+db 00110000b
+db 01111000b
+db 00110000b
+db 00000000b
+db 00000000b
+db 00111000b
+db 00111000b
+db 00011000b
+db 00011000b
+db 00110000b
+db 0
+db 0
+
+
+;0x3c
+Larrow01:
+db 0
+db 0
+db 00000110b
+db 00001100b
+db 00011000b
+db 00110000b
+db 01100000b
+db 01100000b
+db 00110000b
+db 00011000b
+db 00001100b
+db 00000110b
+db 0
+db 0
+db 0
+
+
+;0x3d
+Equal01:
+db 0
+db 0
+db 0
+db 0
+db 0
+db 11111111b
+db 00000000b
+db 00000000b
+db 11111111b
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+
+
+;0x3e
+Rarrow01:
+db 0
+db 0
+db 01100000b
+db 00110000b
+db 00011000b
+db 00001100b
+db 00000110b
+db 00000110b
+db 00001100b
+db 00011000b
+db 00110000b
+db 01100000b
+db 0
+db 0
+db 0
+
+
+;0x3f
+Quest01:
+db 0
+db 01111100b
+db 11000110b
+db 11000110b
+db 00000110b
+db 00001100b
+db 00011000b
+db 00110000b
+db 00000000b
+db 00110000b
+db 00110000b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x40
+At01:
+db 0
+db 0
+db 00111100b
+db 01100110b
+db 11000011b
+db 11001111b
+db 11011011b
+db 11011011b
+db 11001110b
+db 11000000b
+db 01100010b
+db 00111110b
+db 0
+db 0
+db 0
+
+
+;0x41
+A01:
+db 0
+db 00011000b
+db 00111100b
+db 01100110b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11111111b
+db 11000011b
+db 11000011b
+db 11000011b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x42
+B01:
+db 0
+db 11111100b
+db 11000110b
+db 11000011b
+db 11000110b
+db 11111100b
+db 11000110b
+db 11000011b
+db 11000011b
+db 11000110b
+db 11111100b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x43
+C01:
+db 0
+db 00111110b
+db 01100011b
+db 11000001b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000001b
+db 01100011b
+db 00111110b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x44
+D01:
+db 0
+db 11111100b
+db 11000110b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000110b
+db 11111100b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x45
+E01:
+db 0
+db 11111110b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11111100b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11111110b
+db 0
+db 0
+db 0
+db 0
+ 
+
+;0x46
+F01:
+db 0
+db 11111111b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11111100b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000000b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x47
+G01:
+db 0
+db 00111110b
+db 01100011b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000111b
+db 11000011b
+db 11000011b
+db 01100011b
+db 00111110b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x48
+H01:
+db 0
+db 11000110b
+db 11000110b
+db 11000110b
+db 11000110b
+db 11111110b
+db 11000110b
+db 11000110b
+db 11000110b
+db 11000110b
+db 11000110b
+db 0
+db 0
+db 0
+db 0
+
+
+
+
+
+;0x49
+I01:
+db 0
+db 11111100b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 11111100b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x4a
+J01:
+db 0
+db 00111100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 10001100b
+db 11011000b
+db 01110000b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x4b
+K01:
+db 0
+db 11000011b
+db 11000110b
+db 11001100b
+db 11011000b
+db 11110000b
+db 11110000b
+db 11011000b
+db 11001100b
+db 11000110b
+db 11000011b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x4c
+L01:
+db 0
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11111110b
+db 0
+db 0
+db 0
+db 0
+                  
+ 
+
+;0x4d
+M01:
+db 0
+db 11000011b
+db 11100111b
+db 11111111b
+db 11011011b
+db 11011011b
+db 11011011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x4e
+N01:
+db 0
+db 11000011b
+db 11100011b
+db 11110011b
+db 11110011b
+db 11011011b
+db 11011011b
+db 11001111b
+db 11000111b
+db 11000111b
+db 11000011b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x4f
+O01:
+db 0
+db 00111100b
+db 01100110b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 01100110b
+db 00111100b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x50
+P01:
+db 0
+db 11111110b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11111110b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000000b
+db 11000000b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x51
+Q01:
+db 0
+db 00111100b
+db 01100110b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11011011b
+db 11001111b
+db 01100110b
+db 00111101b
+db 0
+db 0
+db 0
+db 0
+
+
+
+
+;0x52
+R01:
+db 0
+db 11111110b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11111110b
+db 11111100b
+db 11001100b
+db 11000110b
+db 11000011b
+db 11000011b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x53
+S01:
+db 0
+db 01111110b
+db 11000011b
+db 11000000b
+db 11000000b
+db 01111110b
+db 00000011b
+db 00000011b
+db 00000011b
+db 11000011b
+db 01111110b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x54
+T01:
+db 0
+db 11111111b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x55
+U01:
+db 0
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 01100110b
+db 00111100b
+db 0
+db 0
+db 0
+db 0
+
+
+
+
+;0x56
+V01:
+db 0
+db 11000011b
+db 11000011b
+db 11000011b
+db 01100110b
+db 01100110b
+db 01100110b
+db 00111100b
+db 00111100b
+db 00011000b
+db 00011000b
+db 0
+db 0
+db 0
+db 0
+
+
+
+
+;0x57
+W01:
+db 0
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11011011b
+db 11011011b
+db 11011011b
+db 11111111b
+db 11100111b
+db 11000011b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x58
+X01:
+db 0
+db 11000011b
+db 11000011b
+db 01100110b
+db 00111100b
+db 00011000b
+db 00011000b
+db 00111100b
+db 01100110b
+db 11000011b
+db 11000011b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x59
+Y01:
+db 0
+db 11000011b
+db 11000011b
+db 01100110b
+db 00111100b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x5a
+Z01:
+db 0
+db 11111110b
+db 00000110b
+db 00000110b
+db 00001100b
+db 00011000b
+db 00110000b
+db 01100000b
+db 11000000b
+db 11000000b
+db 11111110b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x5b
+Lbrkt01:
+db 01111100b
+db 01100000b
+db 01100000b
+db 01100000b
+db 01100000b
+db 01100000b
+db 01100000b
+db 01100000b
+db 01100000b
+db 01100000b
+db 01100000b
+db 01111100b
+db 0
+db 0
+db 0
+
+
+;0x5c
+Bslash01:
+db 0
+db 11000000b
+db 01100000b
+db 01100000b
+db 00110000b
+db 00011000b
+db 00011000b
+db 00001100b
+db 00000110b
+db 00000110b
+db 00000011b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x5d
+Rbrkt01:
+db 01111100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 01111100b
+db 0
+db 0
+db 0
+
+
+;0x5e
+Caret01:
+db 0
+db 0
+db 00011000b
+db 00111100b
+db 01100110b
+db 01000010b
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x5f
+Uscore01:
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 11111111b
+db 11111111b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x60
+Btick01:
+db 0
+db 0
+db 00110000b
+db 00011000b
+db 00001100b
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+
+
+;0x61
+a01:
+db 0
+db 0
+db 0
+db 0
+db 00111110b
+db 01100011b
+db 00000011b
+db 01111111b
+db 11000011b
+db 11000111b
+db 01111011b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x62
+b01:
+db 0
+db 11000000b
+db 11000000b
+db 11000000b
+db 11011100b
+db 11100110b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11100110b
+db 11011100b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x63
+c01:
+db 0
+db 0
+db 0
+db 0
+db 00111110b
+db 01100011b
+db 11000000b
+db 11000000b
+db 11000000b
+db 01100011b
+db 00111110b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x64
+d01:
+db 0
+db 00000011b
+db 00000011b
+db 00000011b
+db 00111011b
+db 01100111b
+db 11000011b
+db 11000011b
+db 11000011b
+db 01100111b
+db 00111011b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x65
+e01:
+db 0
+db 0
+db 0
+db 0
+db 00111100b
+db 01100110b
+db 11000011b
+db 11111111b
+db 11000000b
+db 01100011b
+db 00111110b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x66
+f01:
+db 0
+db 00011110b
+db 00110011b
+db 00110011b
+db 00110000b
+db 00110000b
+db 11111000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x67
+g01:
+db 0
+db 0
+db 0
+db 0
+db 01111101b
+db 11000111b
+db 11000110b
+db 11000110b
+db 01111100b
+db 11000000b
+db 01111110b
+db 11000011b
+db 11000011b
+db 01111110b
+db 0
+
+
+;0x68
+h01:
+db 0
+db 11000000b
+db 11000000b
+db 11000000b
+db 11011100b
+db 11100110b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x69
+i01:
+db 0
+db 00011000b
+db 00011000b
+db 0
+db 00111000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 01111110b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x6a
+j01:
+db 0
+db 00000110b
+db 00000110b
+db 0
+db 00001111b
+db 00000011b
+db 00000011b
+db 00000011b
+db 00000011b
+db 00000011b
+db 01000011b
+db 01000011b
+db 01000011b
+db 00111110b
+db 0
+
+
+;0x6b
+k01:
+db 0
+db 01100000b
+db 01100000b
+db 01100000b
+db 01100110b
+db 01101100b
+db 01111000b
+db 01111000b
+db 01101100b
+db 01100110b
+db 01100011b
+db 0
+db 0
+db 0
+db 0
+
+
+
+
+;0x6c
+l01:
+db 0
+db 00111000b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 01111110b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x6d
+m01:
+db 0
+db 0
+db 0
+db 0
+db 10110110b
+db 11011011b
+db 11011011b
+db 11011011b
+db 11011011b
+db 11011011b
+db 11011011b
+db 0
+db 0
+db 0
+db 0
+
+ 
+;0x6e
+n01:
+db 0
+db 0
+db 0
+db 0
+db 11011100b
+db 11100110b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x6f
+o01:
+db 0
+db 0
+db 0
+db 0
+db 00111100b
+db 01100110b
+db 11000011b
+db 11000011b
+db 11000011b
+db 01100110b
+db 00111100b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x70
+p01:
+db 0
+db 0
+db 0
+db 0
+db 11011100b
+db 11100110b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11100110b
+db 11011100b
+db 11000000b
+db 11000000b
+db 11000000b
+db 0
+
+
+
+;0x71
+q01:
+db 0
+db 0
+db 0
+db 0
+db 00111011b
+db 01100111b
+db 11000011b
+db 11000011b
+db 11000011b
+db 01100111b
+db 00111011b
+db 00000011b
+db 00000011b
+db 00000011b
+db 0
+
+
+;0x72
+r01:
+db 0
+db 0
+db 0
+db 0
+db 11011110b
+db 01110011b
+db 01100000b
+db 01100000b
+db 01100000b
+db 01100000b
+db 01100000b
+db 0
+db 0
+db 0
+db 0
+ 
+
+;0x73
+s01:
+db 0
+db 0
+db 0
+db 0
+db 01111110b
+db 11000011b
+db 11000000b
+db 01111110b
+db 00000011b
+db 11000011b
+db 01111110b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x74
+t01:
+db 0
+db 0
+db 00110000b
+db 00110000b
+db 11111100b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110011b
+db 00011110b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x75
+u01:
+db 0
+db 0
+db 0
+db 0
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 01100111b
+db 00111011b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x76
+v01:
+db 0
+db 0
+db 0
+db 0
+db 11000011b
+db 11000011b
+db 01100110b
+db 01100110b
+db 00111100b
+db 00111100b
+db 00011000b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x77
+w01:
+db 0
+db 0
+db 0
+db 0
+db 11000011b
+db 11000011b
+db 11011011b
+db 11011011b
+db 11011011b
+db 11111111b
+db 01100110b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x78
+x01:
+db 0
+db 0
+db 0
+db 0
+db 11000011b
+db 01100110b
+db 00111100b
+db 00011000b
+db 00111100b
+db 01100110b
+db 11000011b
+db 0
+db 0
+db 0
+db 0
+
+
+
+;0x79
+y01:
+db 0
+db 0
+db 0
+db 0
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 11000011b
+db 01100111b
+db 00111011b
+db 00000011b
+db 11000110b
+db 01111100b
+db 0
+
+
+;0x7a
+z01:
+db 0
+db 0
+db 0
+db 0
+db 01111110b
+db 00000110b
+db 00001100b
+db 00011000b
+db 00110000b
+db 01100000b
+db 01111110b
+db 0
+db 0
+db 0
+db 0
+
+
+;0x7b
+Lbrace01:
+db 0
+db 00011100b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 01100000b
+db 01100000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00110000b
+db 00011100b
+db 0
+db 0
+
+
+;0x7c
+Pipe01:
+db 0
+db 0
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 00011000b
+db 0
+db 0
+db 0
+
+
+
+;0x7d
+Rbrace01:
+db 0
+db 00111000b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00000110b
+db 00000110b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00001100b
+db 00111000b
+db 0
+db 0
+
+
+;0x7e
+Tilde01:
+db 0
+db 0
+db 0
+db 0
+db 01110011b
+db 11011011b
+db 11001110b
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+db 0
+
+
+
+
+box01:
+db 0
+db 0
+db 11011011b
+db 11011011b
+db 0
+db 11000011b
+db 11000011b
+db 0
+db 11000011b
+db 11000011b
+db 0
+db 11011011b
+db 11011011b
+db 0
+db 0
+
+

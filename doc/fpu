@@ -1,0 +1,26 @@
+FPU
+
+I have found fpu (floating point programming) to be most challenging. 
+I wish they had designed these registers to operate like the general purpose
+registers, but alas such is not the case.
+
+tatOS functions that use the fpu will in general read input values as 64 bit qwords 
+(double precision floating point) from memory and write qword results back to memory, 
+leaving all the fpu registers free, although some functions will return a value in st0. 
+
+It is most important with fpu programming to maintain a "balanced" fpu stack so every "load" is somewhere followed by a "fpupop" or "ffree" otherwise bad things will happen. 
+
+To get an ascii string representation of whats in the first fpu register, look at st02str.s, dumpst0 and putst0.
+
+There are (8) 80 bit floating point registers numbered 0-7 (st0->st7)
+
+You will find many references on the web and older books on assembly programming that
+rely entirely on fixed point math which scales an integer up usually by a power of 2
+then later uses a right shift to scale the result back down, all in the name of speed.
+I find the fpu to be plenty fast for my needs.
+
+See the ttasm souce code and tlib for what tatOS supports in fpu operations.  
+math.s, some apps like butterfly, fern & tcad, plus tlib functions like: 
+offset, rotate, chamfer, fillet... all use the fpu.  
+
+

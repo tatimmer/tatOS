@@ -1,0 +1,32 @@
+README  tatOS usb
+
+This usb driver code was developed from scratch and has evolved over the years.
+It is not perfect. No usb analyser has been used to check it.
+The flash drive init sequence usually passes but sometimes fails.
+Then I just reinit the controller and go thru the flash sequence again.
+It will almost always pass the 2nd time.
+If it fails a second time, reinit the controller and flash again.
+Its rare that I need to do this 3 times.
+
+On rare occassions the flash drive will pass the init sequence but then
+the first time I attempt a write10 it will fail.
+Then I just go back to usb central and reinit the controller and flash again. 
+
+I have made it a habbit of reading a file and then immediately doing a save
+to make sure write10 is working properly, before doing any serious asm coding.
+On rare occasions I have to reboot to get the device to work properly.
+
+Every once in awhile I will experience a failed write10 that trashes the fat
+or parts of the root directory.  Im not sure why.  So BACKUP !  
+
+The usb driver code does not use interrupts, but uses polling. See run.s
+We wait for the usb controller to mark the tranfer descriptor as inactive
+before continuing code execution.
+
+
+Thats all folks.
+Enjoy your usb transactions.
+
+TomT
+
+

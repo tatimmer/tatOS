@@ -1,0 +1,44 @@
+;asmDOS
+;basic starter code for a DOS com file
+;a simple flat binary that can be run in DOSBOX
+;useful for looking at old asm DOS code
+
+;make sure org=100h
+;e.g.  nasm -f bin main.s -o main.com
+
+;run this program in DOSBOX within Virtual PC
+;mount c c:\
+;c:
+
+
+;this program just paints the upper 20% of the screen with pink pixels
+
+
+bits 16
+org 0x100
+
+	;set video modeX: 320x200, 256 color
+	;the video linear frame buffer starts at A000:0000
+	mov ax,0x13
+	int 10h
+
+	mov ax,0xa000  ;video segment for mode 13h
+	mov es,ax
+	mov di,0       ;start of video offset
+	mov al,12      ;color
+	cld
+	mov cx,15000
+	rep stosb      ;set pixels
+
+
+	;wait for keypress to review graphics
+	mov ah,0
+	int 16h
+
+	;return to text mode, 80x25, 16 color
+	mov ax,3
+	int 10h
+
+	ret
+
+

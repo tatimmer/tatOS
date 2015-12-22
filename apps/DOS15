@@ -1,0 +1,53 @@
+
+
+;DOSTEST
+;your basic starter code for a tatOS app
+;no fancy code for mouse/paint or keyboard
+;just calc some things and paint or dump
+;used mostly to debug some small portion of code
+
+org STARTOFEXE
+
+
+
+;*************
+;   DATA
+;*************
+
+str1:
+db 'Hello World',0
+str2:
+db 'value of ebx',0
+
+
+;*************
+;   CODE
+;*************
+
+
+..start
+
+	backbufclear
+
+	fillrect 0,100,50,50,RED
+
+	puts FONT01,100,100,str1,0xeffe
+
+	mov ebx,0xaabbccdd
+	putebx ebx,100,150,0xefff,0
+
+	setpixel 10,10,RED
+
+	dumpstr str1
+
+	mov ebx,3
+	dumpebx ebx,str2
+
+	swapbuf
+	getc
+
+	exit
+
+
+
+       

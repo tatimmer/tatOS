@@ -1,0 +1,270 @@
+;tatOS/usb/TD.info
+
+
+
+**********************************
+UHCI Transfer Descriptor - Info
+**********************************
+
+Whats a transfer descriptor (TD) ? 
+
+Well you will never read about TD's in the usb docs. 
+For this you need to consult Intels chipset data sheet or your usb controller hardware.
+
+The USB UHCI Universal host controller transfers data from device to memory or vicaversa similar to the DMA controller. The USB controller reads a special data structure called a TD and executes accordingly.
+
+The TD contains the usb packet info plus other items such as pointer to the next
+TD and pointer to data buffer.  TD's are organized as a single link list or chain.
+
+For a "full" speed device that will only transfer 64 bytes or less, you 
+need one TD for Command transport, one for Data transport, and one for Status transport.
+
+If you want to transfer more than 64 bytes with a full speed device and uhci controller
+using read10/write10 then you need a chain (single link list) of TD's, 
+each TD pointing to the next TD and transferring 64 bytes 
+with one small TD at the end.
+
+Each TD is 32 bytes. The actual hex bytes making up the transfer descriptor 
+look like this for a Device Descriptor Request Command Transport:
+
+UHCI TD:
+0x00000001 1stdword (LinkPointer to next td, 1=terminate)
+0x04800000 2nddword (04=low speed, 80=active)
+0x00e0002d 3rddword (e0=endpoint/address/toggle/length, 2d=SETUPpid)
+0x0001acb0 4thdword (BufferPointer-where data is to be stored or read from)
+0x00000000          not used
+0x00000000          not used
+0x00000000          not used
+0x00000000          not used
+
+The 1st dword of the TD contains the LinkPointer/address of the next TD. It also 
+has bit2 set to indicate "depth" first traversal (dont start a new queue head).
+
+The 2nd dword is initialized by the driver to set bit23 indicating active and set
+bit26 if low speed device. The uhci controller will after a successful transaction 
+clear the active bit and set the n-1 qty bytes transferred bits[10:0]. On error the
+active bit is still set, and additional error bits are set (see below).
+
+The 3rd dword of the TD contains the interesting usb info.
+bit[31:21] = n-1 max packet length (7 for low speed or 63 for full speed)
+bit[19]    = data toggle 1 or 0
+bit[18:15] = endpoint (need to get this from Endpoint descriptor) 
+bit[14:8]  = usb bus address (we assign 2=flashdrive, 3=mouse)
+bit[7:0]   = PID packet ID 69h=IN, E1h=out, 2dh=SETUP
+
+If you have a chain of TD's and look at them (hex dump) after the controller is done with them the controller modifies the 2nd dword control/status of each TD as indicated below but it also modifies the 1st dword of the 1st TD as terminate so the chain is no longer executed.
+
+For more info on TD's refer to your hdwre "chipset datasheet". For example
+the Intel "82371AB PCI-TO-ISA XCELERATOR (PIIX4)" decribes a multifunction chip
+which includes a UHCI controller along with DMA, 8259 interrupt controller, 
+RealTimeCLock and other functions.
+
+See the file prepareTD.s which has code for building TD's in memory.
+
+
+TD control/status
+;******************
+The result of every usb TD is updated by the controller as the 2nd dword of the TD and tatOS dumps this so you can see what happened. On a full speed device a successful TD will return the n-1 qty of bytes transferred. If a low speed device bit26 is set to indicate low speed.  If something bad happens additional bits will be set.
+
+bit29 short packet detect
+bit26 low speed device
+bit23 active
+bit22 stalled
+bit21 data buffer error
+bit20 babble
+bit19 NAK
+bit18 crc timeout
+bit17 bitstuff
+bit16 reserved
+bit[10:0] n-1 qty bytes transferred (0xff=zero transfer)
+
+examples:
+0x008807ff = NAK/active
+0x005007ff = babble/stalled
+0x044007ff = lowspeed/stall (toggle problem previous TD)
+0x0085003f = crctimeout/active
+0x04400007 = stalled/lowspeed
+0x048807ff = NAK/active/lowspeed (typical mouse NAK)
+0x045007ff = babble/stalled/lowspeed
+0x04800000 = active/lowspeed
+
+7ff is a zero byte transfer
+
+
+
+usb debug tips
+*****************
+1) if the first TD of a chain stalls, look at the last TD of the previous transaction
+
+
+
+
+
+
+*******************************************************************************
+						EHCI TD's
+*******************************************************************************
+
+The EHCI TD is very similar to the UHCI but the bitfields are differant.
+Also note that while the UHCI TD contains endpoint and address info
+the EHCI endpoint and address are moved to the queue head. 
+
+Note also that the 3rd dword of the EHCI TD contains the data toggle which is also
+in the queue head. When setting up your QH you have the choice of using the 
+toggle from QH or TD. For control transfers we manage the toggle from the TD
+but for bulk transfers we manage the toggle from the QH. See README-Toggle 
+
+As of Jan 2013 we are now transferring 0x5000 bytes per TD or (40) 512 byte packets.
+
+
+TD dword1  Next Transfer Element Pointer
+*****************************************
+The 1st dword of the EHCI TD is again a pointer to the next TD.
+bit31:5 pointer, page aligned
+bit4:1  reserved, value has no affect
+bit0    T terminate, 1=pointer is invalid, 0=points to valid TD
+        this bit indicates to the controller there are no more entries in the queue
+
+
+TD dword2  Alternate Next TD Pointer
+**************************************
+Host controller will always use this pointer when current TD is retired due to short packet
+bitfields are same as TD dword1
+
+
+TD dword3 Packet Header
+***************************
+The 3rd dword of the EHCI TD is the interesting usb stuff, also gives status.
+The result of every usb TD is updated by the controller in the 3rd dword of the TD. 
+bit31    data toggle
+bit30:16 total bytes to transfer (this value is decremented by the HC)
+bit15    interrupt on complete
+bit14:12 Current Page
+bit11:10 error counter (decremented by HC, unchanged if no error)
+bit9:8   PID code (0=OUT, 1=IN, 2=SETUP)
+bit7     active 
+bit6     halted 
+bit5     data buffer error
+bit4     babble detected
+bit3     transaction error
+bit2     missed microframe
+bit1     split transaction state
+bit0     Ping state or ERR
+
+note it is important that the error counter be set to 0 to force unlimited retries
+this is necessary for 100% successful write10 transactions. Otherwise if you set the
+error counter to 3 then the controller will quit after 3 failed attempts.
+
+
+TD dword4  Buffer Pointer
+**************************
+bit31:12  buffer pointer, page aligned
+bit11:0   current offset
+
+
+The 5th, 6th, 7th and 8th dwords are additional buffer pointers we also use.
+See prepareTDchain() for details.  
+To increase transfer rate and reliability use all pointers.
+
+
+Here are some samples of successful TD control/status (3rd dword):
+The TD is successful if the low byte is 00 
+This indicates the TD is not active and there are no halt/babble... errors
+Note also the Total bytes to Transfer is in bits[30:16] 
+and the controller decrements this as data is moved so it should be 0 finally
+0x80000200  DeviceDescCommand, 8=toggle, 2=SETUP token
+0x00000100  DeviceDescData   , 1=IN token
+0x00000000  DeviceDescStatus
+If you prepare your TD by setting the CERR to 11b and you get no errors then your
+TD will return successful like this: 0x80000e00, 0x00000d00, 0x00000c00
+
+
+examples:
+0x80000d00 = IN,errorcount=3,toggle   (this is a successful read)
+0x00000d00 = IN,errorcount=3
+0x80001d00 = IN,errorcount=3,CurrentPage=1,toggle
+0x00000c01 = HiSpeed-OUT-DoPing, errorcount=3
+0x80001c00 = OUT,errorcount=3,toggle
+0x82000d40 = halted,IN,errorcount=3,0x200bytestotransfer,toggle
+0x02000d80 = active,IN,errorcount=3,0x200bytestotransfer
+
+
+
+And here is what your TD should look like before the controller gets ahold of it:
+(The controller will modify the 3rd dword to report status)
+
+
+;Device Descriptor Request TD - Command Transport:
+;****************************************************
+0x00000001  ;next TD = terminate
+0x00000001  ;alt next TD = terminate
+0x00080280  ;active, PID_SETUP, 0cerr, 8bytexfer, DATA0
+DevDesReq   ;buffer pointer
+0x00000000  ;buffer pointer not used
+0x00000000  ;buffer pointer not used
+0x00000000  ;buffer pointer not used
+0x00000000  ;buffer pointer not used
+
+mov dword [0x1005000+16],0xd60000  ;attach TD to QH (5th dword) to begin 
+;now wait 50ms or so and check the 3rd dword of TD for active bit to clear or error
+
+
+;Device Descriptor Request TD - Data Transport:
+;****************************************************
+0x00000001  ;next TD = terminate
+0x00000001  ;alt next TD = terminate
+0x80120180  ;active, PID_IN, 0cerr, 18bytexfer, DATA1
+0x5000      ;buffer pointer where devdesc will be stored
+0x00000000  ;buffer pointer not used
+0x00000000  ;buffer pointer not used
+0x00000000  ;buffer pointer not used
+0x00000000  ;buffer pointer not used
+
+
+;Device Descriptor Request TD - Status Transport:
+;****************************************************
+0x00000001  ;next TD = terminate
+0x00000001  ;alt next TD = terminate
+0x80000080  ;active, PID_OUT, 0cerr, 0bytexfer, DATA1
+0x00000000  ;buffer pointer for 0 byte xfer
+0x00000000  ;buffer pointer not used
+0x00000000  ;buffer pointer not used
+0x00000000  ;buffer pointer not used
+0x00000000  ;buffer pointer not used
+
+
+
+And here is our ehci QH for flash control xfer
+Our QH is a structure starting at 0x1005000
+We put this address into the ASYNCLISTADDR register of the ehci
+The device endpoint and address are set to 0
+You can use this QH for bulk xfer by changing the endpoint and address
+
+	;QH 1st dword-Horiz Link Pointer
+	mov dword [0x1005000],0x1005002  ;points to itself, 2=QH identifier
+
+	;QH 2nd dword-Endpoint Characteristics
+	;5=NAK reload counter
+	;200=max packet, typically us 0x40 for control xfer, 0x200 for mass xfer
+	;e0=head of reclaim list, dt from TD, hi speed endpoint
+	;00=epnum and deviceadd are 0 for control endpoint
+	mov dword [0x1005004],0x5200e000 
+
+	;QH 3rd dword - Endpoint Capabilities
+	;40=1 transaction per microframe (Mult)
+	mov dword [0x1005008],0x40000000
+	
+	;overlay 
+	;the ehci overwrites this area but you must init Next qTD to 1 to do nothing
+	;or write a valid pointer to the 5th dword to begin the usb transaction
+	mov dword [0x100500c],0  ;4th dword Current qTD Pointer 
+	mov dword [0x1005010],1  ;5th dword Next qTD Pointer    (1=terminate)
+	mov dword [0x1005014],0
+	mov dword [0x1005018],0
+	mov dword [0x100501c],0
+	mov dword [0x1005020],0
+	mov dword [0x1005024],0
+	mov dword [0x1005028],0
+	mov dword [0x100502c],0
+
+

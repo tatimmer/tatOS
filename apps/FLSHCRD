@@ -1,0 +1,719 @@
+
+;******************************************************
+; flashcard
+; add, subtract, muliply, divide
+; numbers from 1-998
+
+; a good demo program for the following functions:
+; putscroll, comprompt, ebx2dec, str2eax, printf, clock
+
+; This program has a long history
+; I first wrote this for my daughter Naomi in Jan 1999
+; as a command line program using Windows "cmd" shell
+; then rewritten in asm in 2007 for Linux
+; Now June 2012 in asm for tatOS, assembles with ttasm
+; rev Sept 2013 for tatOS protected mode interface
+;*******************************************************
+
+org STARTOFEXE
+
+
+
+;*************
+;    DATA
+;*************
+
+;memory to store comprompt string
+equ STOR1,0x2005000
+
+
+;bytes
+oper:
+db 0
+
+
+;dwords
+Lname:
+dd 0
+num:
+dd 0
+num1:
+dd 0
+num2:
+dd 0
+user_ans:    ;in c-program this is 'ans'
+dd 0
+correct_ans:  ;in c-program this is 'result'
+dd 0
+time2:
+dd 0
+time1:
+dd 0
+i:
+dd 0
+qty_mistakes:
+dd 0
+megahertz:  ;my processor speed Pentium II
+dd 350000000  
+elapsedTime:
+dd 0
+
+
+;arrays
+name:
+db0 30
+scratch10:
+db0 10
+s_user_ans:
+db0 10
+buf:
+db0 100
+buf2:
+db0 100
+strnum:
+db0 8
+_random:
+db0 40
+random:
+dd 9,5,1,8,6,2,10,4,3,7
+shuf:
+dd 3,7,5,1,9,0,8,4,2,6
+
+
+;arrays for the PRINTF function
+
+argtype:
+dd 2,3,2,3
+
+arglistADD:
+dd num,plus,num2,equal
+arglistSUB:
+dd num1,minus,num2,equal
+arglistMUL:
+dd num,mult,num2,equal
+arglistDIV:
+dd num2,divi,num,equal
+
+timeargtype:
+dd 3,2,3
+timeARGS:
+dd s11,elapsedTime,s12
+
+mistakeargtype:
+dd 3,2
+mistakeARGS:
+dd s14,qty_mistakes
+
+numargtype:
+dd 3,2
+numARGS:
+dd s19,num
+
+AnswerArgType:
+dd 2,3
+AnswerArgHi:
+dd user_ans,s10
+AnswerArgLo:
+dd user_ans,s9
+
+
+
+;strings
+s1:
+db  '*****************************************',0
+s2:
+db  'Welcome to the FLASHCARD program',0
+s3:
+db  'Sharpen your skills to add,sub,mul & div',0
+s4:
+db  'To quit press the <q> key',0
+s5:
+db  'Please enter your name (10 char max)',0
+s6:
+db  'Please select a MATH function or quit->',0
+s7:
+db '[Enter] a=add s=subtract m=multiply d=divide f=shuffle q=quit',0
+s8:
+db 'Enter a number from 1-998->',0
+s9:
+db '-too low',0
+s10:
+db '-too hi',0
+s11:
+db 'Total time for that round was ',0
+s12:
+db ' seconds',0
+s13:
+db 'Starting clock',0
+s14:
+db 'Qty wrong = ',0
+s15:
+db ' ....Good Job !',0
+s16:
+db 'shuffle->',0
+s17:
+db 'That was an invalid entry',0
+s18:
+db 'Enter your answer',0
+s19:
+db 'Working with number ',0
+s20:
+db 'doing addition',0
+s21:
+db 'doing subtraction',0
+s22:
+db 'doing multiplication',0
+s23:
+db 'doing division',0
+
+thnk:
+db 'Thanks for using FLASHCARD-have a good day ',0
+PAK:
+db 'Press any key to exit',0
+plus:  ;' + ' 
+db 0x20,0x2b,0x20,0
+minus: ;' - '
+db 0x20,0x2d,0x20,0
+mult:  ;' * '
+db 0x20,0x2a,0x20,0
+divi:  ;' / '
+db 0x20,0x2f,0x20,0
+equal: ;' = '
+db 0x20,0x3d,0x20,0
+
+
+
+;*************
+;    CODE
+;*************
+
+
+
+..start
+
+	backbufclear
+
+	;init
+	mov dword [qty_mistakes],0
+
+
+	;intro messages
+	mov eax,53 ;putscroll
+	mov ebx,s1
+	sysenter
+
+	mov eax,53 ;putscroll
+	mov ebx,s2
+	sysenter
+
+	mov eax,53 ;putscroll
+	mov ebx,s3
+	sysenter
+
+	mov eax,53 ;putscroll
+	mov ebx,s4
+	sysenter
+
+	mov eax,53 ;putscroll
+	mov ebx,s1
+	sysenter
+
+
+	;get the users name
+	mov eax,54         ;comprompt
+	mov ebx,s5         ;prompt
+	mov ecx,STOR1      ;destination buf
+	sysenter
+
+
+	;copy name to our buffer
+	mov eax,19  ;strcpy
+	mov esi,STOR1
+	mov edi,name
+	sysenter
+
+
+
+startover:
+
+
+	;prompt user to select a function
+	;add,sub,mul,div,shuffle,quit ?
+	mov eax,53 ;putscroll
+	mov ebx,s6
+	sysenter
+
+	mov eax,54         ;comprompt
+	mov ebx,s7         ;prompt
+	mov ecx,STOR1      ;destination buf
+	sysenter
+
+	;save the operator
+	mov al,[STOR1]
+	mov [oper],al
+
+
+	;feedback message to confirm the operator
+	cmp byte [oper],0x61   ;a=0x61 (add)
+	jnz doneADD
+	mov eax,53 ;putscroll
+	mov ebx,s20
+	sysenter
+doneADD:
+	cmp byte [oper],0x73   ;s=0x73 (sub)
+	jnz doneSUB
+	mov eax,53 ;putscroll
+	mov ebx,s21
+	sysenter
+doneSUB:
+	cmp byte [oper],0x6d   ;m=0x6d (mul)
+	jnz doneMUL
+	mov eax,53 ;putscroll
+	mov ebx,s22
+	sysenter
+doneMUL:
+	cmp byte [oper],0x64   ;d=0x64 (div)
+	jnz doneDIV
+	mov eax,53 ;putscroll
+	mov ebx,s23
+	sysenter
+doneDIV:
+
+
+	;test for quit q=0x71
+	cmp byte [oper],0x71
+	jz done
+
+	;test for shuffle f=0x66
+	cmp byte [oper],0x66
+	jz ShuffleTheDeck
+
+	jmp UserEnterNumber
+
+
+
+ShuffleTheDeck:
+
+
+	;shuffle the 'random's
+	mov eax,0             ;index 0-9
+shuffle:
+	mov ebx,shuf[eax]     ;get shuf
+	mov ecx,random[ebx]   ;get random based on shuf
+
+	mov _random[eax],ecx  ;store in next _random
+	inc eax
+	cmp eax,10
+	jb shuffle
+
+
+	;copy _random back to random (our working random array)
+	cld
+	mov esi,_random
+	mov edi,random
+	mov ecx,10
+	repmovsd   ;copy 10 dwords
+
+
+	;display the 10 'random' numbers
+	mov eax,53 ;putscroll
+	mov ebx,s16
+	sysenter
+
+	mov ecx,10
+	mov esi,random   ;source
+display_random:
+	lodsd            ;[esi]->eax, esi++
+
+	push ecx
+	mov eax,55  ;ebx2dec
+	mov ebx,buf
+	mov ecx,0
+	mov edx,0
+	sysenter
+
+	mov eax,53 ;putscroll
+	mov ebx,buf
+	sysenter
+	pop ecx
+
+	dec ecx
+	jnz display_random
+
+
+	jmp startover
+
+
+
+
+
+UserEnterNumber:
+
+	;prompt user to enter a number to work with 1-998
+	mov eax,54         ;comprompt
+	mov ebx,s8         ;prompt
+	mov ecx,STOR1      ;destination buf
+	sysenter
+
+
+
+	;convert number to value in [num]
+	mov eax,56  ;str2eax
+	mov esi,STOR1
+	sysenter
+	jz goodconversion
+	mov eax,53  ;putscroll
+	mov ebx,s17 ;invalid entry
+	sysenter
+	jmp done
+goodconversion:
+	mov [num],eax ;stor num to work with
+
+
+	;display the working number
+	mov eax,57  ;printf
+	mov ecx,2
+	mov ebx,numargtype
+	mov esi,numARGS
+	mov edi,buf
+	sysenter
+
+	mov eax,53  ;putscroll
+	mov ebx,buf
+	sysenter
+
+
+
+	;start clock
+	mov eax,58  ;clock
+	sysenter
+	mov [time1],eax
+
+	mov eax,53  ;putscroll
+	mov ebx,s13
+	sysenter
+
+
+	;inititalize 
+	mov dword [i],0
+	mov dword [qty_mistakes],0
+
+
+
+	;main calculating loop
+	;loop 10 times
+	;presents 10 random numbers
+	;if you enter the wrong answer
+	;you are prompted with too hi, or too low
+	;and you are stuck in the loop
+	;until you get the answer correct
+
+mainloop:
+
+	;which operation are we doing ?
+	cmp byte [oper],0x61  ;a=0x61 (add)
+	jz _add
+	cmp byte [oper],0x73  ;s=0x73 (sub)
+	jz _sub
+	cmp byte [oper],0x6d  ;m=0x6d (mul)
+	jz _mul
+	cmp byte [oper],0x64  ;d=0x64 (div)
+	jz _div
+
+
+
+
+	;******************
+	;   ADD
+	;******************
+
+_add:
+
+
+	;load num and random into seperate registers
+	mov eax,[num]
+	mov ebx,[i]
+	mov ecx,random[ebx]
+	mov [num2],ecx        ;save for display of math problem
+	add eax,ecx           ;compute result
+	mov [correct_ans],eax ;store result
+
+	;display the math problem
+	mov eax,57  ;printf
+	mov ecx,4
+	mov ebx,argtype
+	mov esi,arglistADD
+	mov edi,buf
+	sysenter
+
+	mov eax,53  ;putscroll
+	mov ebx,buf
+	sysenter
+
+	jmp getanswer
+
+
+
+	;******************
+	;   SUBTRACT
+	;******************
+
+_sub:
+
+
+	;load num and random into seperate registers
+	mov eax,[num]
+	mov ebx,[i]
+	mov ecx,random[ebx]
+
+	;test which is bigger
+	cmp eax,ecx
+	jae subContinue
+
+	;our second number if bigger than the first so swap
+	;we dont expect the user to handle negative answers
+	xchg eax,ecx
+
+
+subContinue:
+
+	;compute the correct answer for subtraction
+	mov [num1],eax
+	mov [num2],ecx
+	sub eax,ecx           ;compute result
+	mov [correct_ans],eax ;store result
+
+	;display the math problem
+	mov eax,57  ;printf
+	mov ecx,4
+	mov ebx,argtype
+	mov esi,arglistSUB
+	mov edi,buf
+	sysenter
+
+	mov eax,53  ;putscroll
+	mov ebx,buf
+	sysenter
+
+	jmp getanswer
+
+
+
+
+	;******************
+	;   MULTIPLY
+	;******************
+
+_mul:
+
+	;load num and random into seperate registers
+	mov eax,[num]         ;num in eax
+	mov ebx,[i]
+	mov ecx,random[ebx]   ;random in ecx
+	mov [num2],ecx        ;save for display of math problem
+	xor edx,edx
+	mul ecx               ;eax=num*random
+	mov [correct_ans],eax ;store result
+
+	;display the math problem
+	mov eax,57  ;printf
+	mov ecx,4
+	mov ebx,argtype
+	mov esi,arglistMUL
+	mov edi,buf
+	sysenter
+
+	mov eax,53  ;putscroll
+	mov ebx,buf
+	sysenter
+
+	jmp getanswer
+
+
+
+	;******************
+	;   DIVIDE
+	;******************
+
+
+_div:
+
+	;answer = random = (random * num) / num 
+	;load num and random into seperate registers
+	;the problem is displayed as num2 / num
+	mov eax,[num]            ;num in eax is display second
+	mov esi,eax              ;copy num
+	mov ebx,[i]
+	mov ecx,random[ebx]      ;random in ecx = answer
+	xor edx,edx
+	mul ecx                  ;eax=random*num=numerator 
+	mov [num2],eax           ;random*num is displayed first
+	mov [correct_ans],ecx    ;store answer
+	
+
+	;display the math problem
+	mov eax,57  ;printf
+	mov ecx,4
+	mov ebx,argtype
+	mov esi,arglistDIV
+	mov edi,buf
+	sysenter
+
+	mov eax,53  ;putscroll
+	mov ebx,buf
+	sysenter
+
+
+
+	;******************
+	;   CHECK ANSWER
+	;******************
+
+	;Get the user's answer and compare to the correct answer
+
+getanswer:
+
+	;get the users answer
+	mov eax,54         ;comprompt
+	mov ebx,s18        ;prompt
+	mov ecx,STOR1      ;destination buf
+	sysenter
+
+
+	;convert answer string to value in eax
+	;if the user enters non numerical chars we will catch this
+	mov eax,56  ;str2eax
+	mov esi,STOR1
+	sysenter
+	jz .1
+	;invalid entry
+	mov eax,53  ;putscroll
+	mov ebx,s17
+	sysenter
+
+	jmp done
+.1:
+
+	;save users answer
+	mov [user_ans],eax
+
+	;check if answer is correct
+	mov eax,[correct_ans]
+	cmp eax,[user_ans]
+	jz correct
+
+	;answer is not correct 
+	inc dword [qty_mistakes]
+
+	;is correct_ans < num entered ?
+	jb toohi 
+	
+	;entry is low
+	;here we display the users incorrect entry e.g. "12-too low"
+	mov eax,57  ;printf
+	mov ecx,2
+	mov ebx,AnswerArgType
+	mov esi,AnswerArgLo
+	mov edi,buf
+	sysenter
+
+	mov eax,53  ;putscroll
+	mov ebx,buf
+	sysenter
+
+	jmp mainloop
+	
+
+toohi:
+	;entry is too hi
+	mov eax,57  ;printf
+	mov ecx,2
+	mov ebx,AnswerArgType
+	mov esi,AnswerArgHi
+	mov edi,buf
+	sysenter
+
+	mov eax,53  ;putscroll
+	mov ebx,buf
+	sysenter
+
+	jmp mainloop
+	
+correct:
+	inc dword [i]         ;increment i
+	cmp dword [i],10      ;10 numbers in random[]
+	jnz mainloop
+	;end of main loop
+	
+
+
+
+stopclock:
+	
+	;display time to solve batch of 10 problems
+	mov eax,58  ;clock
+	sysenter
+	sub eax,[time1]
+	xor edx,edx
+	mov ebx,1000
+	div ebx     ;eax=total elapsed time
+	mov [elapsedTime],eax
+
+
+	;display the 'Total time for that round was ... string
+	mov eax,57 ;printf
+	mov ecx,3
+	mov ebx,timeargtype
+	mov esi,timeARGS
+	mov edi,buf
+	sysenter
+
+	mov eax,53  ;putscroll
+	mov ebx,buf
+	sysenter
+
+
+	;display "Qty wrong" 
+	mov eax,57 ;printf
+	mov ecx,2
+	mov ebx,mistakeargtype
+	mov esi,mistakeARGS
+	mov edi,buf
+	sysenter
+
+	mov eax,53  ;putscroll
+	mov ebx,buf
+	sysenter
+
+
+	cmp dword [qty_mistakes],0
+	jnz startover
+
+	;display the "good job" string if 0 wrong
+	mov eax,53  ;putscroll
+	mov ebx,s15
+	sysenter
+
+	jmp startover
+
+done:
+	
+	mov eax,53  ;putscroll
+	mov ebx,thnk
+	sysenter
+
+	mov eax,53  ;putscroll
+	mov ebx,name
+	sysenter
+
+	mov eax,53  ;putscroll
+	mov ebx,PAK
+	sysenter
+
+	getc
+	exit
+
+
+; **************************THE END :)**********************************
+
+  

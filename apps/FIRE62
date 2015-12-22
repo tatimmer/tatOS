@@ -1,0 +1,529 @@
+
+;**********************************************************
+;FIRE.S
+;your classic fire demo
+;uses a custom 256 color palette
+
+;this version sets pixels in a private pixel buffer
+;that is reserved in the same page after the user code
+;it then uses "swapuserbuf" to copy to the LFB
+;this code runs several times faster than writting directly 
+;to the LFB
+
+;runs an an infinite loop until you press any key
+
+;the orignal author of this code is unknown
+;it falls under the classification of old DOS demos
+;rev Aug 2013 tat for tatOS
+;************************************************************
+
+org STARTOFEXE
+
+
+
+;***************
+;   DATA
+;***************
+
+
+;Aug 2013
+;the 'exit' function assembles to 0x20002f3 
+;this is the end of executable
+
+
+;we build a custom palette array 256*3 colors = 768 bytes
+;placing it after our exe code 
+;we ramp from black to dark red to orange to yellow to white
+;this is the starting address of our fire palette array
+equ FIREPALETTE,0x2001000
+
+
+;we draw to a private pixel buffer
+;then use swapuserbuf to copy to the linear frame buffer
+;this is the starting address of the private pixel buffer
+;we store this buffer immediately after the fire exe code
+;in the same user page
+equ FIREVIDEOBUF,0x2002000
+
+
+
+
+Fire:
+dd 0
+Fuel:
+dd 0
+x:
+dd 0
+qtyY:
+dd 0
+BytesPerScanLine:
+dd 0
+
+
+
+
+
+
+
+
+;**************
+;  CODE
+;**************
+
+..start
+
+
+
+
+	;build our custom fire palette
+	;there are 4 parts to building the palette A,B,C,D
+	;of course how you build this palette makes all the differance
+	;in how the fire looks
+	;for starters I divided the 256 color palette into 4 chunks
+	;1) 64 entries black 0,0,0 -> DkRed 192,0,0
+	;2) 64 entries DkRed  -> Orange 255,128,0
+	;3) 64 entries Orange -> Yellow 255,255,0
+	;4) 64 entires Yellow -> White 255,255,255
+	;This palette produces a very "red" fire, not much orange
+	;So I changed the palette to:
+	;1) 32  entires black ->DkRed
+	;2) 32  entries DkRed -> Orange
+	;3) 128 entries Orange -> Yellow
+	;4) 64  entries Yellow -> White
+	;This palette produces more of a gradient fire with
+	;more yellow/orange at the bottom and red at top fading to black
+	
+	
+
+
+	;[A]
+	;32 rgb entries from black 0,0,0 to dark red 192,0,0
+	;just increment red by 6
+	cld
+	mov ecx,32    ;loop count
+	xor ebx,ebx   ;used to assign red
+	mov edi,FIREPALETTE
+palgenA:
+	mov eax,ebx
+	shr eax,2  ;convert from 8bit to 6bit
+	stosb      ;save red, al->[edi], edi++
+	mov al,0
+	stosb      ;save green
+	stosb      ;save blue
+	add ebx,6  ;inc red
+	loop palgenA
+
+
+	;[B]
+	;32 rgb entries from dark red 192,0,0 to orange 255,128,0
+	;just increment red by 2 and green by 4
+	mov ecx,32
+	;retain bl for red from above
+	;use dl for g
+	xor edx,edx
+palgenB:
+	;save r
+	mov eax,ebx
+	shr eax,2
+	stosb
+
+	;save g
+	mov eax,edx
+	shr eax,2
+	stosb
+
+	;save b
+	mov al,0
+	stosb
+
+	;inc red
+	add ebx,2
+	;inc green
+	add edx,4
+	loop palgenB
+
+
+
+	;[C]
+	;128 rgb entries from orange 255,128,0 to yellow 255,255,0
+	;just increment green by 1
+	mov ecx,128
+	;retain green from above 
+palgenC:
+	;save r
+	mov eax,0x3f
+	stosb
+
+	;save g
+	mov eax,edx
+	shr eax,2
+	stosb
+
+	;save b
+	mov al,0
+	stosb
+
+	;inc green
+	add edx,1
+	loop palgenC
+
+
+
+	
+	;[D]
+	;64 rgb entries from yellow 255,255,0  to white 255,255,255
+	;just increment blue by 4
+	mov ecx,64
+	;use ebx for blue now
+	xor ebx,ebx
+palgenD:
+	;save r
+	mov eax,0x3f
+	stosb
+
+	;save g
+	mov eax,0x3f
+	stosb
+
+	;save b
+	mov eax,ebx
+	shr eax,2
+	stosb
+
+	;inc blue
+	add ebx,4
+	loop palgenD
+
+
+
+
+	;set our custom palette
+	mov eax,17
+	mov ebx,FIREPALETTE
+	mov edx,0x00ff    ;color for kernel text
+	sysenter
+
+
+
+
+
+	;to view the palette uncomment this code
+;	mov eax,18  ;putpalette
+;	sysenter
+;	swapbuf
+;	getc
+;	jmp .done
+
+
+
+
+
+	;increment
+	cld
+
+
+
+	;obtain bytes per scanline
+	mov eax,22
+	sysenter     ;returns eax=BytesPerScanLine
+	mov [BytesPerScanLine],eax
+
+
+	
+
+	;compute the address of the upper left corner of the fire
+	;in the private pixel buffer
+	;this is at x=0, y=400
+	mov esi,FIREVIDEOBUF
+	mov eax,[BytesPerScanLine]
+	mov ebx,400
+	mul ebx
+	add esi,eax
+	mov [Fire],esi
+
+
+
+	;compute the starting address of the Fuel
+	;fuel takes up bottom 3 lines of screen as random color bits
+	;x=0, y=597 is the starting pixel
+	mov esi,FIREVIDEOBUF
+	mov eax,[BytesPerScanLine]
+	mov ebx,597
+	mul ebx
+	add esi,eax
+	mov [Fuel],esi
+	
+
+
+
+
+	;paint the entire screen black
+	cld
+	mov edx,600
+	mov al,0     ;custom palette color=0 is black
+	mov edi,FIREVIDEOBUF
+.PaintBlack:
+	mov ecx,800
+	push edi
+	repstosb   ;al->[edi], es:edi++
+	pop edi
+	add edi,[BytesPerScanLine]
+	dec edx
+	jnz .PaintBlack
+
+
+
+
+
+	;ready to paint fire
+	mov edi,[Fire]
+
+
+
+
+
+.MainLoop:
+
+
+
+	;set the bottom 3 rows on the screen 
+	;with random colors
+	;this is "fuel" for the fire
+
+
+	;Fuel: 3rd row up from bottom
+	;note ecx and edx may not be used in a loop with tlib functions
+	;because of our protected mode interface use of sysenter
+	mov edi,[Fuel]
+	mov esi,200
+.row3:
+	rand 0        ;returns random dword in eax
+	mov [edi],eax ;save dword
+	add edi,4     ;move over 4 bytes
+	dec esi
+	jnz .row3
+
+
+	;to see just the bottom row of Fuel 
+	;insert a jmp .done here and put getc after jmp .done
+
+
+	;Fuel: 2nd row up from bottom
+	mov edi,[Fuel]
+	add edi,[BytesPerScanLine]
+	mov esi,200
+.row2:
+	rand 0
+	mov [edi],eax
+	add edi,4
+	dec esi
+	jnz .row2
+
+
+
+
+	;Fuel: bottom row
+	mov edi,[Fuel]
+	add edi,[BytesPerScanLine]
+	add edi,[BytesPerScanLine]
+	mov esi,200
+.row1:
+	rand 0
+	mov [edi],eax
+	add edi,4
+	dec esi
+	jnz .row1
+
+
+
+
+
+	;now start at the top and left end of the fire
+	;work from top->down in the far left column
+	;then move right 1 column and work down again
+	;the color of the destination pixel is the average of
+	;4 pixels below it and further we set 4 adjacent destination 
+	;pixels to the same color
+
+
+
+	mov dword [x],0
+
+
+
+	;set source
+	mov esi,[Fire]
+
+
+
+
+
+	;dest is 2 rows up
+	mov edi,esi
+	sub edi,[BytesPerScanLine]
+	sub edi,[BytesPerScanLine]
+
+
+	;now add some incs to modify the angle of the flames
+	;without these incs, the flames will appear to bend left
+	;like a wind blowing a prairie fire from the right
+
+	;if you want the flames to move straight up
+	;incomment these 2 lines
+	inc edi
+	inc edi
+
+	;if you want the flames to bend right
+	;just uncomment this line
+	;inc edi
+
+
+
+.xloop:
+
+
+	;fire is 200 pixels hi starting at y=400
+	mov dword [qtyY],198
+
+
+	;save for moving over to next column
+	push esi
+	push edi
+
+
+
+.yloop:
+
+	xor eax,eax
+
+
+	;save for moving down 2 rows
+	push esi
+	push edi
+
+
+
+
+.apple:
+	;compute the average of 4 pixels with the following addresses
+	;esi, esi+2, esi+4 and then the pixel 1 line down from esi+4
+	lodsb     ;[ds:esi]->al, esi++
+
+
+
+	inc esi
+	mov ebx,eax
+	lodsb
+	inc esi
+	add ebx,eax
+	lodsb
+	add ebx,eax
+	;mov down 1 row
+	add esi,[BytesPerScanLine]
+	;mov left 1 pixel
+	dec esi
+	lodsb
+	add ebx,eax
+	;divide by 4 to get the average color value
+	shr ebx,2
+	;ebx=average color value of 4 source pixels
+	mov eax,ebx
+
+	
+	;the previous shr may set ZF
+	;if the average color is 0 then dont decrement
+	;else this will flip the color to ff=white
+	;and we get some really funky white stuff as a "sky"
+	jz .setPixels
+
+
+	;make the color darker
+	;without this the fire is more a solid color without gradient
+	;this little statement has a profound affect on the
+	;looks of the fire
+	dec eax
+
+
+.setPixels:
+
+	;set pixels to edi (2 on current row and 2 below)
+	stosb   ;al->[edi], edi++
+	stosb
+	add edi,[BytesPerScanLine]
+	sub edi,2
+	stosb
+	stosb
+
+
+	;some fire routines set a few random pixels here
+	;to add some variance
+
+
+	;adjust src and des down 2 rows for next pixel
+	pop edi
+	pop esi
+	add esi,[BytesPerScanLine]
+	add esi,[BytesPerScanLine]
+	add edi,[BytesPerScanLine]
+	add edi,[BytesPerScanLine]
+	
+
+	;check for end of Yloop
+	dec dword [qtyY]
+	jnz .yloop
+
+	;***********end of loop going down *****************************
+
+
+
+
+
+	;mov back up to top 
+	pop edi
+	pop esi
+
+
+	;mov over two columns
+	inc edi
+	inc edi
+	inc esi
+	inc esi
+
+
+
+	;test for right end of screen
+	inc dword [x]
+	cmp dword [x],800
+	jb .xloop
+	;end of loop going across ***************************
+
+
+
+
+	;copy our private pixel buffer to linear frame buffer
+	mov eax,23  
+	mov esi,FIREVIDEOBUF
+	sysenter
+
+
+
+	;any keypress to quit
+	checkc
+	jz .MainLoop
+
+
+
+.done:
+
+
+	mov eax,17  ;setpalette
+	mov ebx,0   ;std palette
+	sysenter
+	exit
+
+
+
+;*************************The End *********************************
+
+
+                      

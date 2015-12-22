@@ -1,0 +1,123 @@
+
+tatOS/apps/TCAD/README
+
+Dec 2015
+
+tcad is a simple cadd program for tatOS
+this version can only draw lines and export to pdf
+
+a crash coarse on how to use tcad
+
+
+[1] read the sources 
+main.s = the main module and program entry are here
+seg.s  = all the code to draw and control segments/lines
+io.s   = read/write tcd files, export to pdf
+
+
+[2] assemble, link & run
+to generate the TCAD executable for tatOS do the following in order:
+   * assemble main.s  (F11 within tedit)
+   * assemble seg.s   (F11 within tedit)
+   * assemble io.s    (F11 within tedit)
+   * tlink            (Ctrl+F11 within tedit)
+   * run              (F10 within tedit)
+
+You may examine the dump messages (F6 within tedit) after each
+assembly or after linking
+
+
+[3] to draw lines with the mouse press the 'l' key
+endpoints may be defined with Lclicks
+See the Draw menu for other line drawing options including
+(k) keyboard, (i) intersection, (pd2) perpendicularTo
+As you hover with the mouse, yellow boxes will be drawn around
+existing endpoints or midpoints, a yellow angle is drawn if the
+mouse is hover over a line segment but not near an endpoint.
+
+[4] hold the middle mouse button down to pan
+roll the mouse wheel to zoom
+
+[5] press F12 to quit
+
+[6] Object selection is done with the Lclick or drag box.
+Selected objects are shown with a dashed pixel pattern.
+Many functions require you to indicate that you are done selecting
+by hitting the ENTER key or alternately do Rclick.
+To un-select, hit the ESC key.
+
+
+
+A few notes about some key variables:
+
+dword [CurrentObjectLink] holds address of a link in the list
+that is currently being defined with the keyboard or mouse
+address comes from a call to CreateBlankLink
+after you are done creating the object
+SaveKeyboardPoint or SaveMousePoint or Escape
+will reset the [CurrentObjectLink] to 0
+
+
+dword [FeedbackMessageIndex]
+is used to display a paint message at the bottom of the screen
+that guides/informs the user
+feedback message strings may be added to the FeedbackMessageTable
+the default feedback message index = 0 
+
+
+public dword [LftMousProc]
+a Left Mouse Handler is called with every left button down
+the default left mouse handler is 0
+since most operations are a sequence of Lclicks
+all left mouse handlers must return a valid value in eax,ebx:
+eax = feedback message index
+ebx = new left mouse handler or 0 for default IdleLeftMouseHandler
+or to set a new left mouse handler from any proc
+secondary sources may write a valid address to
+dword [LftMousProc]
+
+
+public dword [EntrKeyProc]
+an Enter Key Handler is called with every press of the ENTER key
+the default enter key handler is 0
+all enter key handlers must return a valid value in eax:
+eax = feedback message index
+to set a new enter key handler, secondary sources may 
+write a valid address to dword [EntrKeyProc]
+
+
+public dword [FlipKeyProc]
+some operations may put an object in a position that is
+90 or 180 deg from the desired position or offset to the wrong side. 
+The flip key "f" can be programmed to flip the object
+the default handler for the flip key is 0
+there is no prompt for flip so just try it
+to set a flip key handler, secondary sources may
+write a valid address to dword [FlipKeyProc]
+
+
+public dword [PassToPaint]
+in order to execute a procedure immediately after a selection
+secondary source files must write a valid proc address to
+dword  [PassToPaint]
+the way this works is as follows:
+* assign dword [PassToPaint]
+* assign the left mouse handler to 0 for default
+* user makes a selection with Lclick
+* IDLELEFTMOUSEHANDLER is executed
+* IDLELEFTMOUSEHANDLER will pass on to PAINT the address indicated
+* at the end of the first paint cycle the object is shown selected
+  and then your procedure will be executed 1 time
+see segment->Corner for an example of how this works
+every "pass-handler-to-paint" procedure must set 
+the following return values:
+eax=feedback message index or 0 for default
+ebx=idle left mouse handler or 0 for default
+this is same as for the left mouse handlers
+
+
+Thanks for trying TCAD.
+Tom Timmermann
+Janesville, WI 
+
+  

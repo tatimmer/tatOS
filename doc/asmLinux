@@ -1,0 +1,182 @@
+asmLinus
+Tips and starter code for Linux assembly 
+
+tatos is developed on Linux using nasm.
+
+Assembly Language Debugger
+Copyright (C) 2000-2004 Patrick Alken
+http://ald.sourceforge.net
+
+I use ALD on linux for testing assembly code. Highly recommended. 
+Allows you to step thru the code 1 line at a time and watch the registers.
+
+
+<ald exename> to invoke
+<help> within ald to see list of interactive commands
+<n> single step next instruction, skip over "call sub"
+<s> single step, jump into "call sub"
+<display buf -n 10> show 10 bytes starting address 'buf'
+<display esi -n 10> show 10 bytes starting address in esi
+<display 0x80497cd -n 10> show 10 bytes starting this hex address
+<break 0x80480B8> set breakpoint at this instruction address
+<d> disassemble get address etc for breakpoint
+<continue> run to breakpoint
+<register> display registers & flags, n&s also give you this
+<set step-display-fpregs on> to see the fpu registers
+see also ~/.aldrc  resource file
+
+
+
+
+
+
+
+And here is the starter code I use with ald on Linux:
+Put this code in a file main.s
+    
+    
+
+bits 32
+
+global _start
+
+section .text
+_start:
+	nop ;starting point for ald debugger
+
+	;insert your asm code here
+
+quit: 
+	PUTC 0xa  ;newline
+	mov eax,1 ;SYS_EXIT
+	mov ebx,0 ;return 0
+	int 80h   ;call Linux
+
+
+section .bss
+random   resb 10
+mac_char resb 1
+
+
+section .data
+buf times 10 db 0
+stor dd 0
+
+
+
+
+
+
+
+And here are a couple of handy macros for 
+i/o on a Linux terminal:
+
+;**************************************************
+;putc
+;put char
+;arg1=ascii character
+;to print a newline use: PUTC 0xa
+;**************************************************
+%macro PUTC 1
+	pushad
+	mov byte [mac_char], %1
+	mov eax,SYS_WRITE 
+	mov ebx,STDOUT 
+	mov ecx,mac_char
+	mov edx,1 
+	int 80h
+	popad
+%endmacro
+
+
+;**************************************************
+;puts
+;put string
+;arg1=address of string
+;arg2=num of char in string
+;return value for put & get is in eax 
+;num bytes sucessfully read/write
+;if string contains 0xa this is end of string
+;then eax is less than arg2
+;**************************************************
+%macro PUTS 2
+	pushad  
+	mov eax,SYS_WRITE 
+	mov ebx,STDOUT 
+	mov ecx,%1 ;pointer to memory
+	mov edx,%2 ;num bytes
+	int 80h
+	popad  
+%endmacro
+	
+
+;*******************************************
+;putebx
+;display contents of ebx as hex
+;the heart of this code comes from 
+;John Eckerdahls web site
+;*******************************************
+%macro PUTEBX 0
+	push eax
+	push ecx
+	mov ecx,8
+	rol ebx,4
+	
+%%.1: 
+	mov eax,ebx 
+	
+	;mask off all but low nibble
+	and eax,0x0000000f  
+	
+	;convert al to ascii
+	;code from John Eckerdahl
+	cmp al,10
+	sbb al,69h
+	das
+
+	PUTC al 
+
+	rol ebx,4
+	loop %%.1
+
+	pop ecx
+	pop eax
+%endmacro
+	
+
+
+Some defines for Linux i/o
+%define STDIN 0
+%define STDOUT 1
+%define SYS_READ 3
+%define SYS_WRITE 4
+%define SYS_EXIT 1
+
+
+
+
+
+
+
+
+
+And here is the makefile for your Linux asm starter code:
+
+# makefile for a simple nasm project
+# requires NASM and gnu ld to build the elf executable
+go: main.o 
+	ld -g -o go main.o 
+
+main.o : main.s tatos.inc 
+	nasm -f elf main.s
+
+
+
+
+
+For more help see Dr. Paul Carters website.
+Download and study his "PC Assembly Language" and the code.
+See especially his file "asm_io.asm"
+
+
+

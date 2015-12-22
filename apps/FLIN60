@@ -1,0 +1,377 @@
+
+
+;FlashInfo
+;this program displays the various usb descriptors for your flash drive: 
+;Device, Configuration, Interface, and endpoint descriptors 
+;these values are saved to kernel memory during a call to initflash()
+;kernel gives us a copy of these values, then we build strings to display
+;Jan 2011 tat for tatOS
+;rev: Oct 2013 for protected mode interface
+
+
+org STARTOFEXE
+
+
+
+;*************
+;    DATA 
+;*************
+
+
+
+equ QTYSTRINGS,38
+
+;we will ask kernel to write flash drive info here
+equ FLASHINFO,0x2005000
+
+
+
+title1:
+db 'Flash Drive Info',0
+
+title2:
+db 'USB Mass Storage Class Bulk-Only Transport, Rev 1.0 Sept 31, 1999',0
+
+
+
+FlashListControlStrings:
+dd 0x2006000, 0x2006100, 0x2006200, 0x2006300, 0x2006400
+dd 0x2006500, 0x2006600, 0x2006700, 0x2006800, 0x2006900
+dd 0x2006a00, 0x2006b00, 0x2006c00, 0x2006d00, 0x2006e00
+dd 0x2006f00, 0x2007000, 0x2007100, 0x2007200, 0x2007300
+dd 0x2007400, 0x2007500, 0x2007600, 0x2007700, 0x2007800
+dd 0x2007900, 0x2007a00, 0x2007b00, 0x2007c00, 0x2007d00
+dd 0x2007e00, 0x2007f00, 0x2008000, 0x2008100, 0x2008200
+dd 0x2008300, 0x2008400, 0x2008500
+
+
+
+str1:
+db '*******************',0
+
+
+
+usbstr13:
+db '*********Device Descriptor',0
+
+usbstr15:
+db 'Size of the descriptor in bytes - bLength',0
+
+usbstr16:
+db 'Device Descriptor type - bDescriptorType',0
+
+usbstr17:
+db 'USB Spec Release Number in BCD - bcdUSB',0
+
+usbstr18:
+db 'Max packet size for endpoint 0 - bMaxPacketSize0',0
+
+
+
+usbstr19:
+db 'Number of possible configurations - bNumConfigurations',0
+
+usbstr20:
+db '*********Interface Descriptor',0
+
+usbstr21:
+db 'Interface Descriptor Type',0
+
+usbstr22:
+db 'Number of Interface - bInterfaceNumber',0
+
+usbstr23:
+db 'Number of Endpoints - bNumEndpoints',0
+
+
+
+usbstr24:
+db 'Interface Class (08h=Mass Storage Class)',0
+
+usbstr25:
+db 'Interface SubClass (06h=SCSI Commands)',0
+
+usbstr26:
+db 'Interface Protocol (50h=Bulk-Only Transport)',0
+
+usbstr27:
+db '*********Configuration Descriptor',0
+
+usbstr28:
+db 'Size of Config+Interface+AllEndpoint Descriptors',0
+
+
+
+usbstr29:
+db 'Number of Interfaces',0
+
+usbstr30:
+db 'Configuration Value',0
+
+usbstr31:
+db '*********Endpoint Descriptor',0
+
+usbstr32:
+db 'Endpoint Descriptor Type (=05h)',0
+
+usbstr33:
+db 'Endpoint Address (bit7 set=IN, bit7 clear=OUT)',0
+
+
+
+usbstr34:
+db 'Endpoint Attributes (02h=bulk endpoint)',0
+
+usbstr35:
+db 'Max Packet Size, bytes',0
+
+usbstr36:
+db 'Vendor ID',0
+
+usbstr37:
+db 'Product ID',0
+
+usbstr38:
+db '*********SCSI Read Capacity (10)',0
+
+
+
+usbstr39:
+db 'Max Logical Block',0
+
+usbstr40:
+db 'Block Length, bytes',0
+
+usbstr41:
+db '*********SCSI Inquiry',0
+
+
+
+
+
+;*************
+;    CODE
+;*************
+
+
+
+..start
+
+
+	;ask kernel to give us flash info
+	mov eax,24   ;getflashinfo
+	mov edi,FLASHINFO
+	sysenter
+
+
+	;now build a bunch of ascii strings to display the flash info
+	;and put the strings into a tatOS list control
+
+
+
+	;Device Descriptor
+	;*******************
+	strcpy2 usbstr13,0x2006000
+
+	;size of descriptor
+	movzx ebx,byte [FLASHINFO]
+	ebxstr ebx,usbstr15,0x2006100
+
+	;descriptor type
+	movzx ebx,byte [FLASHINFO+1]
+	ebxstr ebx,usbstr16,0x2006200
+
+	;spec release number
+	movzx ebx,byte [FLASHINFO+2]
+	ebxstr ebx,usbstr17,0x2006300
+
+	;max packet size
+	movzx ebx,byte [FLASHINFO+7]
+	ebxstr ebx,usbstr18,0x2006400
+
+	;vendor id
+	movzx ebx,word [FLASHINFO+8]
+	ebxstr ebx,usbstr36,0x2006500
+
+	;product id
+	movzx ebx,word [FLASHINFO+0xa]
+	ebxstr ebx,usbstr37,0x2006600
+
+	;number of configurations
+	movzx ebx,byte [FLASHINFO+0x11]
+	ebxstr ebx,usbstr19,0x2006700
+
+
+
+
+	;Configuration Descriptor
+	;*************************
+
+	strcpy2 usbstr27,0x2006800
+
+	movzx ebx, byte [FLASHINFO+0x20]
+	ebxstr ebx,usbstr15,0x2006900
+
+	movzx ebx, word [FLASHINFO+0x22]
+	ebxstr ebx,usbstr28,0x2006a00
+
+	movzx ebx, byte [FLASHINFO+0x24]
+	ebxstr ebx,usbstr29,0x2006b00
+
+	movzx ebx, byte [FLASHINFO+0x25]
+	ebxstr ebx,usbstr30,0x2006c00
+
+
+
+
+	;Interface Descriptor
+	;*********************
+
+	strcpy2 usbstr20,0x2006d00
+
+	movzx ebx, byte [FLASHINFO+0x29]
+	ebxstr ebx,usbstr15,0x2006e00
+
+	movzx ebx, byte [FLASHINFO+0x2a]
+	ebxstr ebx,usbstr21,0x2006f00
+
+	movzx ebx, byte [FLASHINFO+0x2b]
+	ebxstr ebx,usbstr22,0x2007000
+
+	movzx ebx, byte [FLASHINFO+0x2d]
+	ebxstr ebx,usbstr23,0x2007100
+
+	movzx ebx, byte [FLASHINFO+0x2e]
+	ebxstr ebx,usbstr24,0x2007200
+
+	movzx ebx, byte [FLASHINFO+0x2f]
+	ebxstr ebx,usbstr25,0x2007300
+
+	movzx ebx, byte [FLASHINFO+0x30]
+	ebxstr ebx,usbstr26,0x2007400
+
+
+
+
+	;1st Endpoint Descriptor
+	;***********************
+
+	strcpy2 usbstr31,0x2007500
+
+	movzx ebx, byte [FLASHINFO+0x32]
+	ebxstr ebx,usbstr15,0x2007600
+
+	movzx ebx, byte [FLASHINFO+0x33]
+	ebxstr ebx,usbstr32,0x2007700
+
+	movzx ebx, byte [FLASHINFO+0x34]
+	ebxstr ebx,usbstr33,0x2007800
+
+	movzx ebx, byte [FLASHINFO+0x35]
+	ebxstr ebx,usbstr34,0x2007900
+
+	movzx ebx, word [FLASHINFO+0x36]
+	ebxstr ebx,usbstr35,0x2007a00
+
+
+
+
+
+	;2nd Endpoint Descriptor
+	;************************
+
+	strcpy2 usbstr31,0x2007b00
+
+	movzx ebx, byte [FLASHINFO+0x39]
+	ebxstr ebx,usbstr15,0x2007c00
+
+	movzx ebx, byte [FLASHINFO+0x3a]
+	ebxstr ebx,usbstr32,0x2007d00
+
+	movzx ebx, byte [FLASHINFO+0x3b]
+	ebxstr ebx,usbstr33,0x2007e00
+
+	movzx ebx, byte [FLASHINFO+0x3c]
+	ebxstr ebx,usbstr34,0x2007f00
+
+	movzx ebx, word [FLASHINFO+0x3d]
+	ebxstr ebx,usbstr35,0x2008000
+
+
+
+
+
+	;Results from SCSI ReadCapacity Command
+	;***************************************
+
+	strcpy2 usbstr38,0x2008100
+
+	mov ebx, [FLASHINFO+0x100]
+	;the bytes are in order msb first which is not normal intel
+	bswap ebx
+	ebxstr ebx,usbstr39,0x2008200
+
+	mov ebx, [FLASHINFO+0x104]
+	bswap ebx
+	ebxstr ebx,usbstr40,0x2008300
+
+
+
+
+
+	;Results from SCSI Inquiry
+	;***************************
+	;"Simple Flash Disk 2.0  2.00"
+	;TOSHIBA TransMemory  PMAP"
+
+	strcpy2 usbstr41,0x2008400
+
+	;string is 28 bytes long starting at 0ffset 0x208
+	lea esi,[FLASHINFO+0x208]
+	mov byte [esi+28],0  ;0 terminate
+	strcpy2 esi,0x2008500
+
+
+
+
+
+.initListControl:
+
+
+	;tell kernel we have list control strings to display
+	mov eax,25   ;list control add strings
+	mov ebx,FlashListControlStrings
+	mov ecx,QTYSTRINGS
+	mov edx,210  ;Yloc
+	sysenter
+
+
+
+
+.mainloop:
+
+	backbufclear
+
+	;program title
+	puts FONT01,0,170,title1,0xefff
+	puts FONT01,0,185,title2,0xefff
+
+	mov eax,26  ;listctrlpaint
+	sysenter
+
+	swapbuf
+	getc        ;will take care of list control scrolling
+
+	cmp al,ESCAPE
+	jnz .mainloop
+
+
+.done:
+
+	exit
+
+
+;********************* THE END ********************************
+
+
+  

@@ -1,0 +1,297 @@
+this code is not done, not functioning yet
+looks like something I started and never finished
+May 2015 tat
+
+************************************************************8
+
+
+;DOSTEST
+;your basic starter code for a tatOS app
+;no fancy code for mouse/paint or keyboard
+;just calc some things and paint or dump
+;used mostly to debug some small portion of code
+
+jmp start
+
+
+;*************
+;   DATA
+;*************
+
+str1:
+db 'Hello World',0
+str2:
+db 'value of ebx',0
+
+
+
+str4:
+db 'k1',0
+str5:
+db 'k2',0
+str6:
+db 'k3',0
+str7:
+db 'k4',0
+str8:
+db 'k5',0
+str9:
+db 'k6',0
+str10:
+db 'xc num',0
+str11:
+db 'xc denom',0
+
+str20:
+db 'value of xc',0
+str21:
+db 'value of yc',0
+
+
+;*************
+;   CODE
+;*************
+
+
+start:
+
+	backbufclear
+
+	fillrect 0,100,50,50,RED
+
+	puts FONT01,100,100,str1,0xeffe
+
+	mov ebx,0xaabbccdd
+	putebx ebx,100,150,0xefff,0
+
+	setpixel 10,10,RED
+
+	dumpstr str1
+
+	mov ebx,3
+	dumpebx ebx,str2
+
+
+	push RED
+	push 0xffffffff
+	push 5
+	push 8
+	push 7
+	push 11
+	push 10
+	push 13
+	call arc3p
+
+
+	swapbuf
+	getc
+
+	exit
+
+
+
+       
+
+
+;*****************************************************
+;arc3p
+;draw an arc defined by 3 points
+;P1 and P3 are the endpoints
+;P2 is some point on the arc between the endpoints
+;this function uses the tlib arc() function to draw
+;the arc
+
+;input
+;push color        [ebp+36]
+;push linetype     [ebp+32]
+;push dword x1     [ebp+28]
+;push dword y1     [ebp+24]
+;push dword x2     [ebp+20]
+;push dword y2     [ebp+16]
+;push dword x3     [ebp+12]
+;push dword y3     [ebp+8]
+;return:none
+
+;locals
+ArcStruct:
+db0 32
+k1:
+dd 0
+k2: 
+dd 0
+k3: 
+dd 0
+k4: 
+dd 0
+k5: 
+dd 0
+k6: 
+dd 0
+x1x1plusy1y1:
+dd 0
+k3k5Lessk2k6:
+dd 0
+k1k5Lessk2k4:
+dd 0
+xc:
+dd 0
+yc:
+dd 0
+
+;********************************************************
+
+arc3p:
+
+	push ebp
+	mov ebp,esp
+
+
+	;first some theory that we have worked out in advance
+	;k1=2(x2-x1)
+	;k2=2(y2-y1)
+	;k3=(x2^2 + y2^2)-(x1^2+y1^2)
+	;k4=2(x3-x1)
+	;k5=2(y3-y1)
+	;k6=(x3^2 + y3^2)-(x1^2+y1^2)
+	
+	;we use 2x2 determinates to find xc,yc center of arc
+     ;          k3  k2               k1  k3
+	;Xcenter = k6  k5     Ycenter = k4  k6
+	;          -------              -------
+	;          k1  k2               k1  k2
+	;          k4  k5               k4  k5
+
+
+	;compute k1=2(x2-x1)
+	mov eax,[ebp+20] ;eax=x2
+	sub eax,[ebp+28] ;eax=x2-x1
+	mov ebx,2
+	mul ebx          ;eax=2(x2-x1)
+	mov [k1],eax     ;save k1
+mov ebx,eax
+dumpebx ebx,str4,0
+	
+	;compute k2=2(y2-y1)
+	mov eax,[ebp+16] ;eax=y2
+	sub eax,[ebp+24] ;eax=y2-y1
+	mov ebx,2
+	mul ebx          ;eax=2(y2-y1)
+	mov [k2],eax     ;save k2
+mov ebx,eax
+dumpebx ebx,str5,0
+	
+	;compute k3=(x2^2 + y2^2)-(x1^2+y1^2)
+	mov eax,[ebp+20]   ;eax=x2
+	mul dword [ebp+20] ;eax=x2^2
+	mov ecx,eax        ;ecx=x2^2
+	mov eax,[ebp+16]   ;eax=y2
+	mul dword [ebp+16] ;eax=y2^2
+	add ecx,eax        ;eax=x2^2 + y2^2
+	push ecx           ;save (x2^2 + y2^2) for later
+	mov eax,[ebp+28]   ;eax=x1
+	mul dword [ebp+28] ;eax=x1^2
+	mov ecx,eax        ;ecx=x1^2
+	mov eax,[ebp+24]   ;eax=y1
+	mul dword [ebp+24] ;eax=y1^2
+	add ecx,eax        ;ecx=x1^2+y1^2
+	mov [x1x1plusy1y1],ecx  ;save for later
+	pop eax            ;eax=(x2^2 + y2^2)
+	sub eax,ecx        ;eax=k3
+	mov [k3],eax       ;save k3
+mov ebx,eax
+dumpebx ebx,str6,0
+
+
+	;compute k4=2(x3-x1)
+	mov eax,[ebp+12] ;eax=x3
+	sub eax,[ebp+28] ;eax=x3-x1
+	mov ebx,2
+	mul ebx          ;eax=2(x3-x1)
+	mov [k4],eax     ;save k4
+mov ebx,eax
+dumpebx ebx,str7,0
+	
+	;compute k5=2(y3-y1)
+	mov eax,[ebp+8]  ;eax=y3
+	sub eax,[ebp+24] ;eax=y3-y1
+	mov ebx,2
+	mul ebx          ;eax=2(y3-y1)
+	mov [k5],eax     ;save k5
+mov ebx,eax
+dumpebx ebx,str8,0
+
+	;compute k6=(x3^2 + y3^2)-(x1^2+y1^2)
+	mov eax,[ebp+12]   ;eax=x3
+	mul dword [ebp+12] ;eax=x3^2
+	mov ecx,eax        ;ecx=x3^2
+	mov eax,[ebp+8]    ;eax=y3
+	mul dword [ebp+8]  ;eax=y3^2
+	add ecx,eax        ;eax=x3^2 + y3^2
+	sub ecx,[x1x1plusy1y1]  ;ecx=(x3^2+y3^2)-(x1^2+y1^2)
+	mov [k6],ecx       ;save k6
+mov ebx,eax
+dumpebx ebx,str9,0
+
+
+	;compute numerator for xc center of arc
+	mov eax,[k2]
+	mul dword [k6]
+	mov ebx,eax
+	mov eax,[k3]
+	mul dword [k5]
+	sub eax,ebx   ;eax=(k3*k5)-(k2*k6) 
+	mov [k3k5Lessk2k6],eax
+mov ebx,eax
+dumpebx ebx,str10,0
+
+	;compute denominator used for xc and yc
+	mov eax,[k2]
+	mul dword [k4]
+	mov ebx,eax
+	mov eax,[k1]
+	mul dword [k5]
+	sub eax,ebx   ;eax=(k1*k5)-(k2*k4)
+	mov [k1k5Lessk2k4],eax
+	mov ebx,eax
+
+dumpebx ebx,str11,0
+
+	;compute xc
+	mov eax,[k3k5Lessk2k6]
+	xor edx,edx
+	cdq    ;sign extend numerator into edx
+	idiv ebx
+	mov [xc],eax
+mov ebx,eax
+dumpebx ebx,str20,0
+
+	;compute numerator used for yc
+	mov eax,[k3]
+	mul dword [k4]
+	mov ebx,eax
+	mov eax,[k1]
+	mul dword [k6]
+	sub eax,ebx   ;eax=(k1*k6)-(k3*k4)  
+	mov ebx,[k1k5Lessk2k4]
+	xor edx,edx
+	cdq    ;sign extend numerator into edx
+	idiv ebx
+	mov [yc],eax
+mov ebx,eax
+dumpebx ebx,str21,0
+
+
+	;compute radius
+
+	;compute angle_start
+
+	;compute angle_end
+
+	;call arc 
+
+	pop ebp
+	retn 24
+
+
+
+  

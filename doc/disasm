@@ -1,0 +1,29 @@
+disasm
+
+ndisasm is a utility that comes with nasm. It only works on flat binary files.
+
+Disassembling the binary files is useful when you have an error 
+and want to know where the program stopped. The bochslog will give you among other 
+things the value of EIP when the program quit.
+
+
+to disassemble boot1.s:
+ndisasm -b 16 -o 0x7c00 boot1 > out
+
+
+to disassemble boot2.s:
+this only applies to the 16 bit code at the beginning
+ndisasm -b 16 -o 0x600 boot2 > out
+
+
+to disassemble application.s:
+ndisasm -b 32 -o 0x1200 application > out
+
+
+to disassemble a DOS .com file:
+ndisasm -b 16 -o 0x100 mycomfile.com > out
+
+
+See "man ndisasm" for more info.
+
+
