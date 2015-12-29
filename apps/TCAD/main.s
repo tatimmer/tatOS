@@ -1,6 +1,6 @@
 
 ;Project: TCAD
-;main02  Dec 18, 2015
+;main14  Dec 28, 2015
 
 ;this is the main entry procedure for TCAD
 ;TCAD is a basic 2d cad program
@@ -80,7 +80,11 @@ org STARTOFEXE
 ;assembling the secondary source files just appends data to these tables
 erasepe  
 
+
 ;assign a unique number to this source file
+;main.s = 00
+;seg.s  = 01
+;io.s   = 02
 source 0
 
 
@@ -115,6 +119,9 @@ extern RotateSegM
 extern SetChamSize
 extern GetNearPnt
 
+;symbols defined in txt.s
+extern txtcreate
+
 
 
 
@@ -148,7 +155,10 @@ dd 0
 ;for TCAD we divide up this space as follows:
 
 ;0x2000000-0x2100000 TCAD executable space available
-;as of Nov 2015 TCAD assembles to 0x200fad3
+;main.s starts at STARTOFEXE = 0x22000010
+;seg.s  starts at 0x2008000
+;io.s   starts at 0x2010000
+;txt.s  starts at 0x2020000
 
 ;0x2100000-0x2200000 TCAD link list
 ;each link is 256 bytes
@@ -617,7 +627,6 @@ str79:
 db 'qty links dumped',0
 
 
-
 str81:
 db '[SegCreateMPD2] Select P1 endpoint end/mid/near/scratch',0
 str82:
@@ -786,18 +795,20 @@ str164:
 db '[IdleLeftMouseHandler] Finish Drag Box',0
 str165:
 db '******************************************',0
+str166:
+db '[TextCreate] Mouse pick text location',0
 
 
 
 ;for debugging where we are in the code sometimes
 flag1:
-db 'flag1',0
+db '[main]flag1',0
 flag2:
-db 'flag2',0
+db '[main]flag2',0
 flag3:
-db 'flag3',0
+db '[main]flag3',0
 flag4:
-db 'flag4',0
+db '[main]flag4',0
 
 
 
@@ -924,6 +935,7 @@ dd str149,str150,str151,str155,str156            ;69,70,71,72,73
 dd str157,str158,str159,str95,str56              ;74,75,76,77,78
 dd str38,str160,str161,str162,str81              ;79,80,81,82,83
 dd str85,str66,str67,str57,strSTUB               ;84,85,86,87,88
+dd str166                                        ;89
 
 
 
@@ -989,15 +1001,15 @@ draw5:
 db 'Line-mpd2',0
 draw6:
 db 'Line-ipd2',0
+draw7:
+db 'Text',0
 
 ;future 2do
-;Draw4:
+;Draw??:
 ;db 'Circle',0
-;Draw5:
+;Draw??:
 ;db 'Arc',0
-;Draw6:
-;db 'Text',0
-;Draw7:
+;Draw??:
 ;db 'Rectangle',0
 
 DrawMenuStruc:
@@ -1008,13 +1020,14 @@ dd 0          ;y
 dd 99         ;w
 dd 0          ;h
 dd 0          ;expose
-dd 6          ;qty strings
-dd draw1,draw2,draw3,draw4,draw5,draw6
+dd 7          ;qty strings
+dd draw1,draw2,draw3,draw4,draw5,draw6,draw7
 
 
 DrawMenuProcTable:
 dd doLineMM, doLineKK, doLineMK, doLineMI, doLineMP, doLineIP
-;dd doCircle, doArc, doText, doRect
+dd doText
+;dd doCircle, doArc, doRect
 
 
 
@@ -1574,7 +1587,7 @@ PaintObject:
 	push esi
 
 	;inputs to object paint proc's
-	;object paint proc must cleanup 8 args from stack
+	;object paint proc must cleanup these args from stack
 	;esi=address of object to paint
 	push zoom
 	push xorg
@@ -1587,14 +1600,14 @@ PaintObject:
 	mov eax,[esi+20] ;get address of paint routine
 	call eax         ;call object->paint
 
-	;segment->paint returns the following
+	;the object->paint must return the following:
 	;eax = dword flag to indicate if mouse is over/near this object
 	;      0 mouse is not over/near this object
 	;      1 mouse is over an object "point"
 	;      2 mouse is "near" the object
-	;ebx = X screen coordinates of YellowBox point
-	;ecx = Y screen coordinates of YellowBox point
-	;edx = address of YellowBox point (floating point coordinates)
+	;ebx = X screen coordinates of YellowBox point or 0
+	;ecx = Y screen coordinates of YellowBox point or 0
+	;edx = address of YellowBox point (floating point coordinates)or 0
 
 
 	;check for valid address of yellow box point
@@ -2331,6 +2344,11 @@ doLineIP:  ;P1=intersection, P2=perpendicularTo
 	mov dword [LftMousProc],ebx
 	jmp AppMainLoop
 
+doText:
+	call txtcreate
+	mov dword [FeedbackMessageIndex],eax
+	mov dword [LftMousProc],ebx
+	jmp AppMainLoop
 
 	
 
@@ -2339,13 +2357,8 @@ doCircle:
 	;not implemented yet
 	mov dword [FeedbackMessageIndex],50
 	jmp AppMainLoop
-
 doArc:
 	jmp AppMainLoop
-
-doText:
-	jmp AppMainLoop
-
 doRect:
 	jmp AppMainLoop
 
@@ -2980,10 +2993,6 @@ public CreateBLink
 
 
 
-objectstub:
-	ret
-
-
 
 
 ;**********************************************************
@@ -3001,7 +3010,7 @@ objectstub:
 ;on success CF is clear and
 ;eax=address of 8 byte layer name not 0 terminated
 ;ebx=visibility in low byte
-;ecx=color in low byte
+;ecx=color
 ;edx=linetype
 ;edi=dword [currentlayer]
 ;esi is preserved
@@ -3032,7 +3041,7 @@ public GetLayItems
 	mov eax,ebx
 	;stdcall str17,0,[DUMPEAX]
 
-	;ecx=color in low byte
+	;ecx=color
 	mov ecx,[esi+12]
 	mov eax,ecx
 	;stdcall str18,0,[DUMPEAX]
@@ -4849,6 +4858,8 @@ public float2int
 
 
 
+
+
 ;**********************************************************
 ;                   THE END
 ;**********************************************************
@@ -4882,4 +4893,6 @@ public float2int
 
 
 
-                                                                    
+
+
+  

@@ -1,6 +1,6 @@
 
 ;Project: TCAD
-;seg02 Dec 18, 2015 
+;seg03 Dec 27, 2015 
 
 
 ;this file contains code and data for TCD_SEGMENT
@@ -173,6 +173,7 @@ extern FlipKeyProc
 extern PassToPaint
 extern headlink
 extern float2int
+extern objectstub
 
 
 
@@ -6925,10 +6926,6 @@ jmp .1
 
 
 
-objectstub:
-	ret
-
-
 
 
 
@@ -7532,4 +7529,4 @@ SaveMidPoint:
 
 
 
-                           
+                            

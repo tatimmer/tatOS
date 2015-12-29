@@ -66,7 +66,6 @@
 ;putebxdec ebx,x,y,color,signed
 ;line SOLIDLINE,x1,y1,x2,y2,color
 ;polyline OpenClose,linetype,AddressPointsArray,QtyPoints,color
-;putshershey Xcenter,Ycenter,String,color,FontType,ScaleFactor
 ;swapbuf
 
 
@@ -136,7 +135,7 @@ dd _setyorient, _polyline, _line, _putc, _putst0               ;28,29,30,31,32
 dd _getkeystate, _mmult44, _mmult41, _dumpst0, _sleep          ;33,34,35,36,37
 dd _grid, _rectangle, _circle, _putscriptT, _subdivide         ;38,39,40,41,42
 dd _putvectorq, _chamfer, _linepolar, _arc, _fillet            ;43,44,45,46,47
-dd _putshershey, _rose, _putmarker, _swaprectprep, _swaprect   ;48,49,50,51,52
+dd _putsHershey, _rose, _putmarker, _swaprectprep, _swaprect   ;48,49,50,51,52
 dd _putscroll, _comprompt, _ebx2dec, _str2eax, _printf         ;53,54,55,56,57
 dd _clock, _polar2rect, _setdestvideobuf, _setdaccolor         ;58,59,60,61
 dd _arrowpointer, _usbcheckmouse, _getmousexy, _puttransbits   ;62,63,64,65
@@ -245,16 +244,12 @@ _fillrect:
 
 _putsml:
 	;eax=7
-	;ebx=fontID
-	;ecx=x
-	;edx=y
-	;esi=Address of string
-	;edi=color 0000ttbb
-	push ebx 
-	push ecx
-	push edx
-	push esi 
-	push edi
+	VALIDATE esi
+	push ebx   ;fontID
+	push ecx   ;x
+	push edx   ;y
+	push esi   ;address of string
+	push edi   ;color 0000ttbb
 	call putsml
 	jmp near Exit
 
@@ -571,6 +566,11 @@ _arc:
 
 _fillet:
 	;mov eax,47
+	VALIDATE ebx
+	VALIDATE ecx
+	VALIDATE edx
+	VALIDATE esi
+	VALIDATE edi
 	push ebx   ;Address of qword vector A
 	push ecx   ;Address of qword vector B
 	push edx   ;Address of qword arc radius
@@ -579,14 +579,16 @@ _fillet:
 	call fillet
 	jmp near Exit
 
-_putshershey:
+_putsHershey:
 	;mov eax,48
+	VALIDATE edx
 	push ebx   ;X center of first char
 	push ecx   ;Y center of first char
 	push edx   ;Address of 0 terminated ascii string
 	push esi   ;color (byte from std palette)
-	push edi   ;FontType 0=HERSHEYROMAN, 1=HERSHEYGOTHIC
-	push ebp   ;scale factor (integer >=1)
+	push edi   ;FontType 0=HERSHEYROMANLARGE, 1=HERSHEYGOTHIC, 2=HERSHEYROMANSMALL
+	push 0     ;not used 
+	;st0 = qword scale factor
 	call putsHershey
 	jmp near Exit
 

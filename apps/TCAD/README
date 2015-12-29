@@ -1,7 +1,7 @@
 
-tatOS/apps/TCAD/README
+tatOS/apps/TCAD/README03
 
-Dec 2015
+Dec 27, 2015
 
 tcad is a simple cadd program for tatOS
 this version can only draw lines and export to pdf
@@ -11,8 +11,9 @@ a crash coarse on how to use tcad
 
 [1] read the sources 
 main.s = the main module and program entry are here
-seg.s  = all the code to draw and control segments/lines
+seg.s  = code/data to draw segments/lines
 io.s   = read/write tcd files, export to pdf
+txt.s  = code/data to draw text
 
 
 [2] assemble, link & run
@@ -20,6 +21,7 @@ to generate the TCAD executable for tatOS do the following in order:
    * assemble main.s  (F11 within tedit)
    * assemble seg.s   (F11 within tedit)
    * assemble io.s    (F11 within tedit)
+   * assemble txt.s   (F11 within tedit)
    * tlink            (Ctrl+F11 within tedit)
    * run              (F10 within tedit)
 
@@ -45,6 +47,15 @@ Selected objects are shown with a dashed pixel pattern.
 Many functions require you to indicate that you are done selecting
 by hitting the ENTER key or alternately do Rclick.
 To un-select, hit the ESC key.
+
+
+
+Link List
+***********
+All objects drawn by TCAD are stored in a link list.
+See function CreateBLink in main.s for the organization of each link.
+You can dump all the links with dumpall or just those selected with 
+dumpsel.
 
 
 
@@ -120,4 +131,4 @@ Thanks for trying TCAD.
 Tom Timmermann
 Janesville, WI 
 
-  
+    

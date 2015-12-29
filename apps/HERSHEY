@@ -1,0 +1,359 @@
+
+;hersh33  Dec 27, 2015
+
+;Hershey Font Demo
+
+;the Hershey font is a scaleable line drawing font
+;this app demonstrates the 3 Hershey Fonts available for tatOS
+;see notes in tatOS/tlib/putHershey.s and fontHershey.inc
+;for details on how the Hershey Font is constructed
+
+;you can use the UP/DOWN arrow to increase/decrease the size of
+;the font, or the RIGHT/LEFT arrow to shift the strings 
+;the horizontal and vertical lines show the x,y axis
+
+;the fontID is as follows:
+;0=HERSHEYROMANLARGE
+;1=HERSHEYGOTHIC
+;2=HERSHEYROMANSMALL
+
+;2do: add some code to increase line spacing in proportion
+;to font size
+
+org STARTOFEXE
+
+
+
+;*************
+;   DATA
+;*************
+
+str1:
+db 'Hershey Font Demo',0
+
+LowerCase:
+db 'abcdefghijklmnopqrstuvwxyz',0
+
+UpperCase:
+db 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',0
+
+MiscChar:
+db  '0123456789~`!@#$%^&*()-_=+{<[\|/]>}"^?.,',0x3b,0x3a,0
+;semi colon (0x3b) and colon (0x3a) 
+;can not appear in quoted string
+;so we add outright using ascii
+;HERSHEYROMANSMALL does not have {} 
+
+
+
+One:
+dq 1.0
+Scale:
+dq 1.0
+ScaleInc:
+dq 0.125
+LeftMargin:
+dd 25
+
+
+Instructions:
+db 'Right/Left Arrow = move right/left',NL
+db 'Up/Down Arrow    = inc/dec font size',NL
+db 'ESC = quit',NL
+db 'Dec 27, 2015',0
+
+
+;*************
+;   CODE
+;*************
+
+
+..start
+
+
+.1:
+
+	backbufclear
+
+
+
+	;title: "HERSHEY FONT DEMO" appears at bottom
+	;***********************************************
+	mov eax,48   ;putsHershey
+	mov ebx,100  ;x
+	mov ecx,550  ;y
+	mov edx,str1 ;address of string
+	mov esi,BLA  ;color
+	mov edi,1    ;fontID
+	fld qword [One] ;scale factor
+	sysenter
+	ffree st0     ;free scale factor
+
+
+	;draw some horizontal lines under "Hershey Font Demo"
+	mov eax,101  ;hline
+	mov ebx,100  ;x
+	mov ecx,570  ;y
+	mov edx,250  ;length
+	mov esi,BLA  ;color
+	sysenter
+	mov eax,101  ;hline
+	mov ebx,100  ;x
+	mov ecx,572  ;y
+	mov edx,250  ;length
+	mov esi,BLA  ;color
+	sysenter
+	
+
+	;Instructions
+	mov eax,7    ;putsml
+	mov ebx,FONT02
+	mov ecx,450  ;x
+	mov edx,550  ;y
+	mov esi,Instructions
+	mov edi,0xefff
+	sysenter
+
+
+
+	;draw a vertical line at LeftMargin
+	;and to show the Y-axis of the first Hershey char
+	;if user shifts text with LEFT or RIGHT arrow then the
+	;Y-axis will be off because it does not move
+	mov eax,102           ;vline
+	mov ebx,[LeftMargin]  ;X
+	mov ecx,50            ;Y
+	mov edx,400           ;length
+	mov esi,RED  
+	sysenter
+
+
+
+
+	;draw some horizontal lines 
+	;to show the X-axis of each glyph
+	;**********************************
+	mov eax,101  ;hline
+	mov ebx,25   ;x
+	mov ecx,50   ;y
+	mov edx,750  ;length
+	mov esi,RED  ;color
+	sysenter
+
+	mov eax,101  ;hline
+	mov ebx,25   ;x
+	mov ecx,100  ;y
+	mov edx,750  ;length
+	mov esi,RED  ;color
+	sysenter
+
+	mov eax,101  ;hline
+	mov ebx,25   ;x
+	mov ecx,150  ;y
+	mov edx,750  ;length
+	mov esi,RED  ;color
+	sysenter
+
+	mov eax,101  ;hline
+	mov ebx,25   ;x
+	mov ecx,200  ;y
+	mov edx,750  ;length
+	mov esi,RED  ;color
+	sysenter
+
+	mov eax,101  ;hline
+	mov ebx,25   ;x
+	mov ecx,250  ;y
+	mov edx,750  ;length
+	mov esi,RED  ;color
+	sysenter
+
+	mov eax,101  ;hline
+	mov ebx,25   ;x
+	mov ecx,300  ;y
+	mov edx,750  ;length
+	mov esi,RED  ;color
+	sysenter
+
+	mov eax,101  ;hline
+	mov ebx,25   ;x
+	mov ecx,350  ;y
+	mov edx,750  ;length
+	mov esi,RED  ;color
+	sysenter
+
+	mov eax,101  ;hline
+	mov ebx,25   ;x
+	mov ecx,400  ;y
+	mov edx,750  ;length
+	mov esi,RED  ;color
+	sysenter
+
+	mov eax,101  ;hline
+	mov ebx,25   ;x
+	mov ecx,450  ;y
+	mov edx,750  ;length
+	mov esi,RED  ;color
+	sysenter
+
+
+
+
+	;HERSHEYROMANLARGE
+	;******************
+
+	;draw the string
+	mov eax,48   ;putsHershey
+	mov ebx,[LeftMargin]  ;x
+	mov ecx,50   ;y
+	mov edx,LowerCase ;address of string
+	mov esi,BLU  ;color
+	mov edi,0    ;fontID
+	fld qword [Scale] ;scale factor
+	sysenter
+	ffree st0     ;free scale factor
+
+	mov eax,48   ;putsHershey
+	mov ebx,[LeftMargin]  ;x
+	mov ecx,100
+	mov edx,UpperCase
+	mov esi,BLU
+	mov edi,0
+	fld qword [Scale] ;scale factor
+	sysenter
+	ffree st0     ;free scale factor
+
+	mov eax,48   ;putsHershey
+	mov ebx,[LeftMargin]  ;x
+	mov ecx,150
+	mov edx,MiscChar
+	mov esi,BLU
+	mov edi,0
+	fld qword [Scale] ;scale factor
+	sysenter
+	ffree st0     ;free scale factor
+
+
+
+
+	;HERSHEYGOTHIC
+	;**************
+
+	mov eax,48   ;putsHershey
+	mov ebx,[LeftMargin]  ;x
+	mov ecx,200
+	mov edx,LowerCase
+	mov esi,BLU
+	mov edi,1
+	fld qword [Scale] ;scale factor
+	sysenter
+	ffree st0     ;free scale factor
+
+	mov eax,48   ;putsHershey
+	mov ebx,[LeftMargin]  ;x
+	mov ecx,250
+	mov edx,UpperCase
+	mov esi,BLU
+	mov edi,1
+	fld qword [Scale] ;scale factor
+	sysenter
+	ffree st0     ;free scale factor
+
+	mov eax,48   ;putsHershey
+	mov ebx,[LeftMargin]  ;x
+	mov ecx,300
+	mov edx,MiscChar
+	mov esi,BLU
+	mov edi,1
+	fld qword [Scale] ;scale factor
+	sysenter
+	ffree st0     ;free scale factor
+
+
+
+
+	;HERSHEYROMANSMALL
+	;*******************
+
+	mov eax,48   ;putsHershey
+	mov ebx,[LeftMargin]  ;x
+	mov ecx,350
+	mov edx,LowerCase
+	mov esi,BLU
+	mov edi,2
+	fld qword [Scale] ;scale factor
+	sysenter
+	ffree st0     ;free scale factor
+
+	mov eax,48   ;putsHershey
+	mov ebx,[LeftMargin]  ;x
+	mov ecx,400
+	mov edx,UpperCase
+	mov esi,BLU
+	mov edi,2
+	fld qword [Scale] ;scale factor
+	sysenter
+	ffree st0     ;free scale factor
+
+	mov eax,48   ;putsHershey
+	mov ebx,[LeftMargin]  ;x
+	mov ecx,450
+	mov edx,MiscChar
+	mov esi,BLU
+	mov edi,2
+	fld qword [Scale] ;scale factor
+	sysenter
+	ffree st0     ;free scale factor
+
+
+
+	swapbuf
+
+	getc
+
+	cmp al,UP
+	jz .increaseScale
+	cmp al,DOWN
+	jz .decreaseScale
+	cmp al,LEFT
+	jz .MoveLeft
+	cmp al,RIGHT
+	jz .MoveRight
+
+	jmp .done
+
+.increaseScale:
+
+	fld  qword [Scale]
+	fadd qword [ScaleInc]
+	fstp qword [Scale]
+	jmp .1
+
+.decreaseScale:
+
+	fld  qword [Scale]
+	fsub qword [ScaleInc]
+	fstp qword [Scale]
+	jmp .1
+
+.MoveRight:
+	add dword [LeftMargin],10
+	jmp .1
+
+.MoveLeft:
+	sub dword [LeftMargin],10
+	jmp .1
+
+.done:
+	exit
+
+      
+;********************************
+;       THE END THAT ALL FOLKS
+;********************************
+
+
+
+
+
+  

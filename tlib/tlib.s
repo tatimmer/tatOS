@@ -285,6 +285,7 @@ dd _tlibstub               ;0x10310
 %include "tlib/font02.inc"
 %include "tlib/fontHershey.inc"
 %include "tlib/put.s"
+%include "tlib/putHershey.s"
 %include "tlib/getc.s"
 %include "tlib/gets.s"
 %include "tlib/rectangle.s"

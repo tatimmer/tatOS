@@ -14,7 +14,7 @@
 ;SIZEOFTLIB is used at the end of tlib.s
 ;to set the qty blocks of assembled code
 ;SIZEOFTLIB is also used in boot2.s for loading tatOS
-%define SIZEOFTLIB 280
+%define SIZEOFTLIB 290
 
 
 ;my SimpleTech flash drive has a listed capacity of 250meg
@@ -168,10 +168,12 @@ LBAMAX equ 488000
 
 
 
-;defines for our bitmap fonts
-;we have only two fonts as of May 2013
+;defines for fonts
 %define FONT01 1
 %define FONT02 2
+%define HERSHEYROMANLARGE 0
+%define HERSHEYGOTHIC     1
+%define HERSHEYROMANSMALL 2
 
 
 ;*******************************************************

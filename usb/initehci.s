@@ -83,6 +83,7 @@ usbinitstr45 db 'releasing ownership of ehci port to companion controller',0
 usbinitstr46 db 'no low speed device found-no release port ownership-no init uhci',0
 usbinitstr47 db 'init ehci with root hub',0
 usbinitstr48 db 'resetting upstream port of ehci with root hub',0
+usbinitstr49 db '[init_EHCI_base] error ehci still running-attempting to continue',0
 
 usbcompstr1 db 'bus:dev:fun of UHCI Companion is invalid pci device',0
 usbcompstr2 db 'found valid bus:dev:fun for UHCI companion',0
@@ -285,10 +286,27 @@ init_EHCI_base:
 	mov [esi+0],eax    ;write it back
 	;make sure ehci is HCHalted (bit is bit12 of USBSTS)
 	mov esi,[EHCIOPERBASE]    
-.stillrunning:
+	mov ecx,100  ;counter
+
+.check4ehcirunning:
+	;we loop max 100 times or 10 seconds waiting for ehci to stop
+	mov ebx,100  
+	call sleep
+	dec ecx
+	jz .stillrunning
 	mov eax,[esi+4]    ;read USBSTS
-	bt eax,12
-	jnc .stillrunning
+	bt eax,12          ;copy bit12 into CF
+	jnc .check4ehcirunning
+
+	;if we got here ehci is stopped
+	jmp .reset
+
+.stillrunning:
+	;if we jumped to this code label, ehci failed to stop
+	;so the remaining code may not execute properly
+	;but we will try
+	STDCALL usbinitstr49,putscroll  ;stop ehci failed time out error
+
 
 
 
@@ -297,8 +315,7 @@ init_EHCI_base:
 	;tatOS does not actually use the interrupt at all so why bother ?
 	
 
-
-
+.reset:
 	;reset EHCI 
 	;the reset bit is set to zero by the controller when reset is complete
 	;the controller must be halted (HCHalted bit of USBSTS = 1)before resetting
@@ -481,15 +498,6 @@ init_EHCI_base:
 	;QH3 = Mouse control xfer
 	;QH4 = Flash bulk IN
 	;QH5 = Flash bulk OUT
-
-
-	;note there are %defines in usb.s for these QH addresses
-	;so dont just go and reorder things willy nilly tom !
-;%define HUB_CONTROL_QH               0x1005300
-;%define FLASH_CONTROL_QH             0x1005400
-;%define MOUSE_CONTROL_QH             0x1005500
-;%define FLASH_BULKIN_QH              0x1005600
-;%define FLASH_BULKOUT_QH             0x1005700
 
 
 
@@ -784,13 +792,14 @@ init_EHCI_base:
 	or eax,1       ;set bit0 to start
 	mov [esi+0],eax
 
-	mov ebx,500
-	call sleep
 
+	mov ebx,500  ;pause 1/2 second
+	call sleep
 
 	;at this point Via USBCMD reports 0x80021 = run, async enable
 	;end of setting up the EHCI controller
 
+.done:
 	ret
 
 

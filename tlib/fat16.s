@@ -36,66 +36,6 @@
 
 
 
-;Apr 2015 
-;functions which modify the fat or root directory do not write back to flash
-;on file save we do not write the VBR+FAT1+FAT2+ROOTDIR back to flash 
-;file save will only update the fats and rootdir in memory
-;only the file data will be written to flash on file save. 
-;This is done to save time and to save wear and tear on your flash. 
-;You must from the filemanager press F11 to manually save VBR+FAT1+FAT2+ROOTDIR to flash. 
-;If you forget to do this and you pull out your flash drive 
-;you can always plug it back in and go thru the initflash sequence again, 
-;provided you havent turned off your computer !
-;there are only two places in tatOS where the vbr, fats and rootdir are loaded 
-;into memory, 1=end of initflash, 2=after fatformatflash
-
-
-;you can copy your files off the flash drive in Linux without updating FAT2 provided
-;you do not delete any files off your flash drive in Linux.
-;Because this driver saves files as continguous blocks, I suggest to avoid
-;deleting files from your tatOS flash drive in linux because this will create holes
-;in your fat and Im not sure how the tatOS driver will respond to that.
-;I also suggested not using vi to view/edit a file on your tatOS flash drive 
-;because this will create a new swap file and delete the old again causing holes.
-;In short with Linux just list your files using "ls" or just copy them off.
-
-;we store the root directory entries seperately from sub directory entries 
-;and use a variable [CurrentWorkingDirectory] 
-;to distinguish which entries represent the current working directory.
-
-;The code in filemanager.s is closely linked to this file. The filemanager allows
-;interactive use of the functions in this file.
-
-;FAT16 allows for a max of 2GB addressible flash
-;you may format flash drives larger than 2GB but only the first 2GB can be used
-;there is no code to partition the volume (someday perhaps)
-;I save all my developed asm code to a 2GB Toshiba flash drive
-;the Max Logical Block = 0x003c87ff
-;with 64 sectors or blocks per cluster on a tatOS formatted flash drive
-;we have max cluster number = 61983
-;I mostly write asm source to my flash drive and after a couple months
-;Im only up to cluster numbers in the hundreds (actually cl=2388 as of Nov 2013)
-
-;you should not use this code unless your flash was formatted by tatOS
-;your files can be interchanged to Linux or Windows with restrictions see below
-
-;Stability  
-;this code is not yet as stable as I would like it to be
-;Caution: my knowledge of usb is limited, still learning, 
-;occasionally fatwritefile will fail 
-;and may write spurious bytes to the root dir or FAT
-;so BACKUP ! 
-;I can go for months with no problem then one day -  poof...
-
-
-;fixme:
-;we have the ability to create a duplicate directory entry which references the
-;same file data but we should copy the file data and have the directory entry
-;point to this new data instead. dosfsck does not like what we are doing currently.
-
-
-
-
 ;**********************************************************
 ;Where are things on a tatOS formatted FAT16 flash drive:
 ;**********************************************************
@@ -509,6 +449,54 @@
 ;2 byte first cluster in FAT
 ;4 bytes filesize
 ;total bytes = 32
+
+
+
+;Copy Your Files off the Flash drive in Linux first
+;******************************************************
+;dont delete files off your flash in linux, just copy
+;you do not delete any files off your flash drive in Linux.
+;Because this driver saves files as continguous blocks, I suggest to avoid
+;deleting files from your tatOS flash drive in linux because this will create holes
+;in your fat and Im not sure how the tatOS driver will respond to that.
+;I also suggested not using vi to view/edit a file on your tatOS flash drive 
+;because this will create a new swap file and delete the old again causing holes.
+;In short with Linux just list your files using "ls" or just copy them off.
+
+;we store the root directory entries seperately from sub directory entries 
+;and use a variable [CurrentWorkingDirectory] 
+;to distinguish which entries represent the current working directory.
+
+;The code in filemanager.s is closely linked to this file. The filemanager allows
+;interactive use of the functions in this file.
+
+;FAT16 allows for a max of 2GB addressible flash
+;you may format flash drives larger than 2GB but only the first 2GB can be used
+;there is no code to partition the volume (someday perhaps)
+;I save all my developed asm code to a 2GB Toshiba flash drive
+;the Max Logical Block = 0x003c87ff
+;with 64 sectors or blocks per cluster on a tatOS formatted flash drive
+;we have max cluster number = 61983
+;I mostly write asm source to my flash drive and after a couple months
+;Im only up to cluster numbers in the hundreds (actually cl=2388 as of Nov 2013)
+
+;you should not use this code unless your flash was formatted by tatOS
+;your files can be interchanged to Linux or Windows with restrictions see below
+
+;Stability  
+;have used this code for all of 2015 without any failed usb transactions
+;still BACKUP !
+
+
+;fixme:
+;we have the ability to create a duplicate directory entry which references the
+;same file data but we should copy the file data and have the directory entry
+;point to this new data instead. dosfsck does not like what we are doing currently.
+
+
+
+
+
 
 
 

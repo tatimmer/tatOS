@@ -88,7 +88,16 @@ shell:
 
 
 	;"Welcome to tatOS" string using Hershey Gothic
-	STDCALL 100,50,shellstr7,RED,HERSHEYGOTHIC,2,putsHershey
+	;STDCALL 100,50,shellstr7,RED,HERSHEYGOTHIC,2,putsHershey
+	push 100            ;XC start
+	push 50             ;YC start
+	push shellstr7      ;address of string
+	push RED            ;color
+	push HERSHEYGOTHIC  ;font
+	push 0              ;not used
+	fld qword [two]     ;st0=2.0 scale factor
+	call putsHershey
+	ffree st0           ;must free the scale factor
 
 	;Instruction string
 	STDCALL FONT01,0,100,shellstr0,0xefff,putsml
