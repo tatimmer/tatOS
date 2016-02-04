@@ -1,10 +1,10 @@
 
 ;Project: TCAD
-;seg03 Dec 27, 2015 
+;seg02 Feb 02, 2016
 
 
 ;this file contains code and data for TCD_SEGMENT
-;a segment is just a line of finite length 
+;a segment is just a line of finite length
 ;having a start x1,y1 and endpoint x2,y2
 
 
@@ -20,9 +20,13 @@
 ;128 qword xnear
 ;136 qword ynear
 ;144 dword x1 bounding box inflated & clipped screen coordinates
-;148 dword y1 bounding box inflated & clipped screen coordinates
-;152 dword x2 bounding box inflated & clipped screen coordinates
-;156 dword y2 bounding box inflated & clipped screen coordinates
+;148 dword y1      ditto
+;152 dword x2      ditto
+;156 dword y2      ditto
+;160 dword x1 clipped screen coordinates for painting & export to pdf
+;164 dword y1      ditto
+;168 dword x2      ditto
+;172 dword y2      ditto
 
 
 ;the Draw menu gives a variety of options for drawing lines:
@@ -56,6 +60,17 @@
 ;the segment midpoint now resides in the object link
 ;new objects can be attached to a segment midpoint 
 ;the yellow box will show up at the midpoint
+
+
+;offset 144-156
+;here we store the coordinates of a bounding box around the segment
+;which are used for yellow box mouse hit testing
+
+;offset 160-172
+;here we store the actual screen coordinates used to draw the segment
+;these are also used for pdf output
+
+
 
 ;Left Mouse Handler
 ;every function that is a left mouse handler must return:
@@ -113,6 +128,7 @@
 ;segmentmirror
 ;segmentscale
 ;segmentdump
+;segmentpdf
 
 ;segmodify      (public)
 ;SegmentModifyX1Y1
@@ -126,6 +142,7 @@
 ;SegmentModifyHorizontal
 ;SegmentModifyVertical
 ;SegmentModifyOrtho
+;SegmentModifyLayer
 
 ;OffsetSegK           (public)
 ;OffsetSegM           (public)
@@ -173,7 +190,10 @@ extern FlipKeyProc
 extern PassToPaint
 extern headlink
 extern float2int
-extern objectstub
+
+;symbols defined in io.s
+extern PDFpencolor
+
 
 
 
@@ -233,6 +253,8 @@ dd 0
 OrthoMode:
 dd 1      ;at startup Ortho mode is "on"
 zoom_pixel:
+dd 0
+pdfcurrentlayer:
 dd 0
 
 
@@ -337,10 +359,7 @@ db0 100
 UnclippedEndpoints:
 db0 16
 
-;x1,y1,x2,y2 dword pixel coordinates
-;segment is drawing with these values
-ClippedEndpoints:
-db0 16
+
 
 ;x1,y1,x2,y2 for ptinrect testing
 InflatedBoundingBox:
@@ -373,8 +392,6 @@ vector5:
 db0 32
 vector6:
 db0 32
-
-
 
 
 
@@ -615,6 +632,7 @@ db '[SegP2C]address of segment',0
 str119:
 db '[SegP2C]which endpoint',0
 
+
 str120:
 db '[SegP2C]qword length',0
 str121:
@@ -629,8 +647,14 @@ str125:
 db '[segmentpaint] yorg',0
 str126:
 db '[Chamfer] Enter size of chamfer as qword float',0
-str127:
-db '[segmentpaint] ClippedEndpoints x1,y1,x2,y2',0
+str128:
+db 'segmentpdf',0
+str129:
+db '[segmentpdf] writting RG new pen',0
+
+
+str130:
+db '[segmentpdf] address of PDFpencolor string',0
 
 
 
@@ -714,6 +738,7 @@ dd SegmentModifyPerpendicular, SegmentModifyTangent
 dd SegmentModifyEqual,         SegmentModifyAngle
 dd SegmentModifyLength,        SegmentModifyHorizontal
 dd SegmentModifyVertical,      SegmentModifyOrtho
+dd SegmentModifyLayer
 
 
 
@@ -731,11 +756,9 @@ dd SegmentModifyVertical,      SegmentModifyOrtho
 
 
 segmentdelete:
-
-	;some objects like text may have pointers to allocated memory
+	;some objects may have pointers to allocated memory
 	;that must be freed
 	;TCD_SEGMENT does not use this function
-
 	ret
 
 
@@ -887,8 +910,8 @@ segmentmirror:
 
 public segmodify
 
-	;we got here after user picked a menu item
-	;from the SegmentModify top level menu
+	;we got here after user picked an item
+	;from the Segment Modify Popup menu
 
 	;cant dumpstr here tom, it would trash eax
 
@@ -916,12 +939,13 @@ public segmodify
 SegmentModifyX1Y1:
 
 	;prompt user to select segment to modify
-	mov eax,65 ;feedback message index
-	mov ebx,0  ;idle left mouse handler
-	mov dword [PassToPaint],SegmentModifyX1Y1_11
+;	mov eax,65 ;feedback message index
+;	mov ebx,0  ;idle left mouse handler
+;	mov dword [PassToPaint],SegmentModifyX1Y1_11
+;	ret
 
-	ret
-
+;	as of Jan 2016 the user must now preselect the segment
+;	then Rclick to invoke the segment modify popup
 
 
 SegmentModifyX1Y1_11:
@@ -987,11 +1011,13 @@ SegmentModifyX1Y1_11:
 SegmentModifyX2Y2:
 
 	;prompt user to select segment to modify
-	mov eax,66 ;feedback message index
-	mov ebx,0  ;idle left mouse handler
-	mov dword [PassToPaint],SegmentModifyX2Y2_11
+;	mov eax,66 ;feedback message index
+;	mov ebx,0  ;idle left mouse handler
+;	mov dword [PassToPaint],SegmentModifyX2Y2_11
+;	ret
 
-	ret
+;	as of Jan 2016 the user must now preselect the segment
+;	then Rclick to invoke the segment modify popup
 
 
 SegmentModifyX2Y2_11:
@@ -1080,14 +1106,15 @@ SegmentModifyX2Y2_11:
 
 SegmentModifyParallel:
 
-	dumpstr str33
-
+;	dumpstr str33
 	;prompt user to select segment to modify
-	mov eax,68 ;feedback message index
-	mov ebx,0  ;idle left mouse handler
-	mov dword [PassToPaint],SegmentModifyParallel_11
+;	mov eax,68 ;feedback message index
+;	mov ebx,0  ;idle left mouse handler
+;	mov dword [PassToPaint],SegmentModifyParallel_11
+;	ret
 
-	ret
+;	as of Jan 2016 the user must preselect the segement
+;	to modify then Rclick to invoke the segment modify popup
 
 
 
@@ -1275,14 +1302,16 @@ SegmentModifyParallel_55:
 
 SegmentModifyPerpendicular:
 
-	dumpstr str41
+;	dumpstr str41
 
 	;prompt user to select segment to modify
-	mov eax,69 ;feedback message index
-	mov ebx,0  ;idle left mouse handler
-	mov dword [PassToPaint],SegmentModifyPerpendicular_11
+;	mov eax,69 ;feedback message index
+;	mov ebx,0  ;idle left mouse handler
+;	mov dword [PassToPaint],SegmentModifyPerpendicular_11
+;	ret
 
-	ret
+;	as of Jan 2016 the user must preselect the segment to 
+;	modify then Rclick to invoke the segment modify popup
 
 
 
@@ -1481,14 +1510,16 @@ SegmentModifyTangent:
 
 SegmentModifyEqual:
 
-	dumpstr str12
+;	dumpstr str12
 
 	;prompt user to select segment to modify
-	mov eax,75 ;feedback message index
-	mov ebx,0  ;idle left mouse handler
-	mov dword [PassToPaint],SegmentModifyEqual_11
+;	mov eax,75 ;feedback message index
+;	mov ebx,0  ;idle left mouse handler
+;	mov dword [PassToPaint],SegmentModifyEqual_11
+;	ret
 
-	ret
+;	as of Jan 2016 the user must preselect the segment
+;	to modify and Rclick to invoke segment modify popup
 
 
 
@@ -1641,14 +1672,16 @@ SegmentModifyEqual_33:
 
 SegmentModifyAngle:
 
-	dumpstr str62
+;	dumpstr str62
 
 	;prompt user to select segment to modify
-	mov eax,76 ;feedback message index
-	mov ebx,0  ;idle left mouse handler
-	mov dword [PassToPaint],SegmentModifyAngle_11
+;	mov eax,76 ;feedback message index
+;	mov ebx,0  ;idle left mouse handler
+;	mov dword [PassToPaint],SegmentModifyAngle_11
+;	ret
 
-	ret
+;	as of Jan 2016 user must preselect segment to modify
+;	then Rclick to invoke segment modify popup
 
 
 
@@ -1829,14 +1862,16 @@ SegmentModifyAngle_33:
 
 SegmentModifyLength:
 
-	dumpstr str50
+;	dumpstr str50
 
 	;prompt user to select segment to modify
-	mov eax,77 ;feedback message index
-	mov ebx,0  ;idle left mouse handler
-	mov dword [PassToPaint],SegmentModifyLength_11
+;	mov eax,77 ;feedback message index
+;	mov ebx,0  ;idle left mouse handler
+;	mov dword [PassToPaint],SegmentModifyLength_11
+;	ret
 
-	ret
+;	as of Jan 2016 user must preselect segment to modify
+;	then Rclick to invoke segment modify popup
 
 
 SegmentModifyLength_11:
@@ -1944,14 +1979,16 @@ SegmentModifyLength_22:
 
 SegmentModifyHorizontal:
 
-	dumpstr str90
+;	dumpstr str90
 
 	;prompt user to select segment to modify
-	mov eax,78 ;feedback message index
-	mov ebx,0  ;idle left mouse handler
-	mov dword [PassToPaint],SegmentModifyHorizontal_11
+;	mov eax,78 ;feedback message index
+;	mov ebx,0  ;idle left mouse handler
+;	mov dword [PassToPaint],SegmentModifyHorizontal_11
+;	ret
 
-	ret
+;	as of Jan 2016 user must preselect segment to modify
+;	and Rclick to invoke segment modify popup
 
 
 
@@ -2071,14 +2108,16 @@ SegmentModifyHorizontal_33:
 
 SegmentModifyVertical:
 
-	dumpstr str96
+;	dumpstr str96
 
 	;prompt user to select segment to modify
-	mov eax,79 ;feedback message index
-	mov ebx,0  ;idle left mouse handler
-	mov dword [PassToPaint],SegmentModifyVertical_11
+;	mov eax,79 ;feedback message index
+;	mov ebx,0  ;idle left mouse handler
+;	mov dword [PassToPaint],SegmentModifyVertical_11
+;	ret
 
-	ret
+;	as of Jan 2016 user must preselect segment to modify
+;	and Rclick to invoke segment modify popup
 
 
 
@@ -2196,11 +2235,13 @@ SegmentModifyVertical_33:
 SegmentModifyEndpoint:
 
 	;prompt user to select segment to modify
-	mov eax,67 ;feedback message index
-	mov ebx,0  ;idle left mouse handler
-	mov dword [PassToPaint],SegmentModifyEndpoint_11
+;	mov eax,67 ;feedback message index
+;	mov ebx,0  ;idle left mouse handler
+;	mov dword [PassToPaint],SegmentModifyEndpoint_11
+;	ret
 
-	ret
+;	as of Jan 2016 the user must preselect the segment
+;	then Rclick to invoke the segment modify popup
 
 
 
@@ -2324,6 +2365,57 @@ SegmentModifyOrtho:
 	mov eax,57  ;feedback message index for "OrthoMode=on"
 
 .done:
+	mov ebx,0   ;left mouse handler
+	call UnselectAll
+	ret
+
+
+
+
+
+
+SegmentModifyLayer:
+
+	;get address of selected object
+	mov eax,TCD_SEGMENT
+	call GetSelObj
+	;returns:
+	;eax=qty selected objects else 0 if none selected
+	;ebx=address of 1st selected object
+	;ecx=address of 2nd selected object
+
+	;do we have only 1 object selected ?
+	cmp eax,1
+	jnz .done
+
+	
+	;save address of selected object
+	push ebx
+
+
+	;get the current layer
+	mov ecx,0  ;dumy
+	call GetLayItems
+	;this function returns:
+	;eax=layer name
+	; bl=visibility
+	; cl=color
+	;edx=linetype
+	;edi=dword [currentlayer]   this is what we want
+	;esi=preserved
+
+
+	pop esi              ;esi=address of selected object
+	mov [esi+4],edi      ;change layer number
+
+.done:
+	mov eax,0
+	mov ebx,0
+	ret
+
+
+
+
 	ret
 
 
@@ -2335,9 +2427,11 @@ SegmentModifyOrtho:
 ;with object type == TCD_SEGMENT
 
 ;input:
-;esi= address of segment object data to read
+;esi= address of segment object data to read in tcd file
 ;     see segmentwrite for format of this data
-;return: esi is incremented to start of next object
+
+;return: 
+;esi is incremented to start of next object
 
 ;make sure all the reads here match the writes in segmentwrite
 ;**************************************************************
@@ -2410,7 +2504,7 @@ public segmentread
 	mov dword [edi+56],segmentscale
 	mov dword [edi+60],segmentdump
 	mov dword [edi+64],segmentselectdrag
-	mov dword [edi+68],objectstub
+	mov dword [edi+68],segmentpdf
 
 	;x1
 	fld  qword [esi+32]
@@ -2473,6 +2567,8 @@ public segmentread
 ;*********************************************************
 
 segmentwrite:
+
+	push esi  ;must preserve
 
 
 	;dword object type   offset 0
@@ -2543,6 +2639,9 @@ segmentwrite:
 	;return eax=qty bytes written
 	mov eax,80
 
+	pop esi  ;must restore
+	;and edi is incremented by qty of bytes written 
+
 	ret
 
 
@@ -2555,7 +2654,7 @@ segmentwrite:
 ;DeltaX and DeltaY
 
 ;input: 
-;eai=address of segment to move 
+;esi=address of segment to move 
 ;push address of qword DeltaX      [ebp+12]
 ;push address of qword DeltaY      [ebp+8]
 ;**********************************************
@@ -2588,7 +2687,10 @@ segmentmove:
 	;y2=y2+[DeltaY]
 	fld  qword [esi+104] 
 	fadd qword [ebx]
-	fstp qword [esi+104] 
+	fstp qword [esi+104]
+
+
+	call SaveMidPoint
 	
 	pop ebp
 	retn 8  ;cleanup 2 args
@@ -2656,7 +2758,7 @@ segmentcopy:
 	mov dword [esi+56],segmentscale  
 	mov dword [esi+60],segmentdump
 	mov dword [esi+64],segmentselectdrag
-	mov dword [esi+68],objectstub
+	mov dword [esi+68],segmentpdf
 
 	;now get X1 then add DeltaX and save to new link X1
 	fld  qword [edi+80] 
@@ -2673,6 +2775,8 @@ segmentcopy:
 	fld  qword [edi+104] 
 	fadd qword [ebx]    ;y2+DeltaY
 	fstp qword [esi+104] 
+
+	call SaveMidPoint
 	
 	pop ebp
 	retn 8  ;cleanup 2 args
@@ -2973,26 +3077,6 @@ segmentpaint:
 
 
 
-	;for debug: dump zoom, xorg, yorg
-	;dumpstr str123
-	;mov eax, [ebp+32]
-	;fld qword [eax]
-	;dumpst0
-	;ffree st0
-	;dumpstr str124
-	;mov eax, [ebp+28]
-	;fld qword [eax]
-	;dumpst0
-	;ffree st0
-	;dumpstr str125
-	;mov eax, [ebp+24]
-	;fld qword [eax]
-	;dumpst0
-	;ffree st0
-	
-
-
-
 	;retrieve the segments linetype & color from the layer index
 	mov ecx,[esi+4]   ;ecx=segment layer index
 	call GetLayItems
@@ -3014,14 +3098,14 @@ segmentpaint:
 
 	;edi holds address of buffer to store unclipped endpoints
 	;this buffer is used to draw a templine and
-	;used to compute the ClippedEndpoints buffer
+	;used to compute the clipped endpoints
 	mov edi,UnclippedEndpoints
 
 	;note esi and edi must be preserved
 	;throughout this function across all tlib calls
 	;esi=address of line segment
 	;edi=address of UnclippedEndpoints
-	;later on edi will hold address of ClippedEndpoints
+	;later on edi will hold address of the clipped endpoints
 
 
 	;eax=object qty points defined (so far)
@@ -3234,15 +3318,6 @@ segmentpaint:
 
 
 
-	;zero out the ClippedEndpoints buffer
-	;just to see if this improves things
-	cld
-	mov ecx,16
-	mov al,0
-	mov edi,ClippedEndpoints
-	repstosb
-
-
 
 
 	;now clip the line endpoints to the 800x600 pixel screen
@@ -3250,26 +3325,11 @@ segmentpaint:
 	push ebp      ;perserve
 	mov eax,90    ;tlib function lineclip
 	mov esi,UnclippedEndpoints
-	mov ebp,ClippedEndpoints
+	mov ebp,[ebp-12]  ;address of segment object
+	add ebp,160       ;address to store clipped screen coordinates
 	sysenter
 	;returns value in eax, 0=success, nonzero=failure
 	pop ebp
-
-
-
-	;debug: dump the ClippedEndpoints
-	;push eax
-	;dumpstr str127
-	;mov ebx,[ClippedEndpoints]
-	;dumpebx ebx,0,3
-	;mov ebx,[ClippedEndpoints+4]
-	;dumpebx ebx,0,3
-	;mov ebx,[ClippedEndpoints+8]
-	;dumpebx ebx,0,3
-	;mov ebx,[ClippedEndpoints+12]
-	;dumpebx ebx,0,3
-	;pop eax
-	
 
 
 
@@ -3325,17 +3385,19 @@ segmentpaint:
 	;if selected we use special dashed line type
 	;use clipped screen coordinates
 
-	mov edi,ClippedEndpoints
+
+	mov edi,[ebp-12]  ;address of segment object
+
 
 	push esi             ;preserve
 	push edi             ;preserve
 	push ebp             ;preserve
 	mov eax,30           ;draw line function
 	;ebx=linetype
-	mov ecx,[edi+0]      ;x1
-	mov edx,[edi+4]      ;y1
-	mov esi,[edi+8]      ;x2
-	mov edi,[edi+12]     ;y2
+	mov ecx,[edi+160]    ;x1  clipped screen coordinates (pixels)
+	mov edx,[edi+164]    ;y1     ditto
+	mov esi,[edi+168]    ;x2     ditto
+	mov edi,[edi+172]    ;y2     ditto
 	mov ebp,[ebp-4]      ;color
 	sysenter
 	pop ebp              ;restore
@@ -3361,9 +3423,10 @@ segmentpaint:
 
 
 
-	;copy ClippedEndpoints to InflatedBoundingBox
+	;copy clipped endpoints to InflatedBoundingBox
 	cld
-	mov esi,ClippedEndpoints
+	mov esi,[ebp-12]  ;address of segment object
+	add esi,160       ;address of clipped screen coordinates
 	mov edi,InflatedBoundingBox
 	mov ecx,16
 	repmovsb
@@ -3423,18 +3486,12 @@ segmentpaint:
 
 	;just make sure we have these important pointer set correctly
 	mov esi,[ebp-12]  ;address of segment object
-	mov edi,ClippedEndpoints
-
-	;[edi+0] = x1 clipped, all screen coordinates
-	;[edi+4] = y1 clipped
-	;[edi+8] = x2 clipped
-	;[edi+12]= y2 clipped
 
 
 
 	;is mousex within 10 pixels of segment x1 ?
 	mov ebx,[ebp+20]        ;mousex
-	sub ebx,[edi+0]         ;x1 clipped
+	sub ebx,[esi+160]       ;x1 clipped screen coordinate
 	mov eax,100             ;tlib function absval(b)
 	sysenter                ;returns eax=|ebx|
 
@@ -3444,7 +3501,7 @@ segmentpaint:
 
 	;is mousey within 10 pixels of segment y1 ?
 	mov ebx,[ebp+16]        ;mousey
-	sub ebx,[edi+4]         ;y1 clipped
+	sub ebx,[esi+164]       ;y1 clipped screen coordinate
 	mov eax,100             ;tlib function absval(b)
 	sysenter                ;returns eax=|ebx|
 
@@ -3474,7 +3531,7 @@ segmentpaint:
 	;is mousex within 10 pixels of segment x2 ?
 	mov eax,100       ;tlib function absval(b)
 	mov ebx,[ebp+20]  ;mousex
-	sub ebx,[edi+8]   ;x2 clipped
+	sub ebx,[esi+168] ;x2 clipped screen coordinate
 	sysenter
 
 	cmp eax,10
@@ -3484,7 +3541,7 @@ segmentpaint:
 	;is mousey within 10 pixels of segment y2 ?
 	mov eax,100       ;absval(b)
 	mov ebx,[ebp+16]  ;mousey
-	sub ebx,[edi+12]  ;y2 clipped
+	sub ebx,[esi+172] ;y2 clipped screen coordinate
 	sysenter
 
 	cmp eax,10
@@ -3664,7 +3721,7 @@ segmentpaint:
 	;set segment select state ->2 to indicate 
 	;object is off screen, if the object was previously 
 	;selected, it will be not so
-	dumpstr str78
+	;dumpstr str78
 	mov esi,[ebp-12]   ;esi=address of object
 	mov dword [esi+8],2
 
@@ -3759,7 +3816,7 @@ public segcreate
 	mov dword [esi+56],segmentscale
 	mov dword [esi+60],segmentdump
 	mov dword [esi+64],segmentselectdrag
-	mov dword [esi+68],objectstub
+	mov dword [esi+68],segmentpdf
 
 	;and zero out the x1,y1,x2,y2,xmid,ymid endpoint coordinates
 	fldz
@@ -3992,7 +4049,7 @@ public segcreatek
 	mov dword [esi+56],segmentscale  
 	mov dword [esi+60],segmentdump
 	mov dword [esi+64],segmentselectdrag
-	mov dword [esi+68],objectstub    
+	mov dword [esi+68],segmentpdf
 
 	;and assign endpoint coordinates to the object link
 	fld  qword [X1]
@@ -4170,7 +4227,7 @@ segmentcreatemk_11:
 	mov dword [esi+56],segmentscale  
 	mov dword [esi+60],segmentdump
 	mov dword [esi+64],segmentselectdrag
-	mov dword [esi+68],objectstub    
+	mov dword [esi+68],segmentpdf
 
 	;and assign endpoint coordinates to the object link
 	fld  qword [X1]
@@ -4375,7 +4432,7 @@ segmentcreateMI_33:
 	mov dword [esi+56],segmentscale
 	mov dword [esi+60],segmentdump
 	mov dword [esi+64],segmentselectdrag
-	mov dword [esi+68],objectstub
+	mov dword [esi+68],segmentpdf
 
 
 	;save x1,y1,x2,y2 endpoint coordinates to the object link
@@ -4522,7 +4579,7 @@ segmentcreateMPD2_22:
 	mov dword [esi+56],segmentscale
 	mov dword [esi+60],segmentdump
 	mov dword [esi+64],segmentselectdrag
-	mov dword [esi+68],objectstub
+	mov dword [esi+68],segmentpdf
 
 
 	;and save the x1,y1,x2,y2 endpoint coordinates to the object link
@@ -4744,7 +4801,7 @@ segmentcreateIPD2_33:
 	mov dword [esi+56],segmentscale
 	mov dword [esi+60],segmentdump
 	mov dword [esi+64],segmentselectdrag
-	mov dword [esi+68],objectstub
+	mov dword [esi+68],segmentpdf
 
 
 	;and save the x1,y1,x2,y2 endpoint coordinates to the object link
@@ -4894,7 +4951,7 @@ OffsetSegmentMakeNewLink:
 	mov dword [esi+56],segmentscale  
 	mov dword [esi+60],segmentdump
 	mov dword [esi+64],segmentselectdrag
-	mov dword [esi+68],objectstub    
+	mov dword [esi+68],segmentpdf
 
 
 
@@ -5072,7 +5129,7 @@ OffsetSegmentM_22:
 	mov dword [esi+56],segmentscale  
 	mov dword [esi+60],segmentdump
 	mov dword [esi+64],segmentselectdrag
-	mov dword [esi+68],objectstub    
+	mov dword [esi+68],segmentpdf
 
 
 	;now add DX,DY to Segment1 endpoint coordinates
@@ -6507,7 +6564,7 @@ ChamferSegments_22:
 	mov dword [esi+56],segmentscale  
 	mov dword [esi+60],segmentdump
 	mov dword [esi+64],segmentselectdrag
-	mov dword [esi+68],objectstub
+	mov dword [esi+68],segmentpdf
 
 	;chamfer endpoints
 	fld  qword [ChamferVector]  ;x1
@@ -6850,7 +6907,7 @@ jmp .1
 	push ebx
 	push ecx
 	dumpstr str120
-	dumpst0
+	;dumpst0  this wont assemble
 	ffree st0
 	pop ecx
 	pop ebx
@@ -6862,7 +6919,7 @@ jmp .1
 	push ebx
 	push ecx
 	dumpstr str121
-	dumpst0
+	;dumpst0  this wont assemble
 	ffree st0
 	pop ecx
 	pop ebx
@@ -7192,20 +7249,6 @@ GetKeyboardPoint:
 	mov ebx,0
 	mov ecx,0
 .done:
-;	push eax
-;	push ebx
-;	push ecx
-;	mov ebx,eax
-;	dumpebx ebx,str19,0
-;	fld qword [gkp_FirstValue]
-;	dumpst0
-;	ffree st0
-;	fld qword [gkp_SecondValue]
-;	dumpst0
-;	ffree st0
-;	pop ecx
-;	pop ebx
-;	pop eax
 	ret
 
 
@@ -7224,7 +7267,10 @@ GetKeyboardPoint:
 
 ;locals
 DLstr0:
-db '***** dump segment ******',0
+db 0xa
+db 'TCD_SEGMENT',0
+DLstra:
+db 'address of segment object/link',0
 DLstr1:
 db 'object type',0
 DLstr2:
@@ -7259,8 +7305,25 @@ DLstr13:
 db 'previous link',0
 DLstr14:
 db 'next link',0
-DLstr15:
-db 'x1,y1,x2,y2,xmid,ymid,xnear,year',0
+
+segstr15a:
+db 'x1=',0
+segstr15b:
+db 'y1=',0
+segstr15c:
+db 'x2=',0
+segstr15d:
+db 'y2=',0
+segstr15e:
+db 'xmid=',0
+segstr15f:
+db 'ymid=',0
+segstr15g:
+db 'xnear=',0
+segstr15h:
+db 'ynear=',0
+
+
 DLstr16:
 db 'mirror proc',0
 DLstr17:
@@ -7273,6 +7336,14 @@ DLstr18c:
 db 'x2 clipped inflated screen coord',0
 DLstr18d:
 db 'y2 clipped inflated screen coord',0
+DLstr19a:
+db 'x1 screen coordinate, pixels',0
+DLstr19b:
+db 'y1 screen coordinate, pixels',0
+DLstr19c:
+db 'x2 screen coordinate, pixels',0
+DLstr19d:
+db 'y2 screen coordinate, pixels',0
 ;************************************************
 
 segmentdump:
@@ -7281,6 +7352,9 @@ segmentdump:
 
 	mov ebx,[esi]   ;obj type
 	dumpebx ebx,DLstr1,0
+
+	mov ebx,esi     ;address of segment object/link
+	dumpebx ebx,DLstra,0
 
 	mov ebx,[esi+4] ;layer index
 	dumpebx ebx,DLstr2,0
@@ -7296,41 +7370,6 @@ segmentdump:
 
 	;these proc addresses are not very interesting
 
-;	mov ebx,[esi+20] ;paint proc
-;	dumpebx ebx,DLstr6,0
-
-;	mov ebx,[esi+24] ;delete proc
-;	dumpebx ebx,DLstr7,0
-
-;	mov ebx,[esi+28] ;copy proc
-;	dumpebx ebx,DLstr8,0
-
-;	mov ebx,[esi+32] ;move proc
-;	dumpebx ebx,DLstr9,0
-
-;	mov ebx,[esi+36] ;mirror proc
-;	dumpebx ebx,DLstr16,0
-
-;	mov ebx,[esi+40] ;edit proc
-;	dumpebx ebx,DLstr17,0
-
-;	mov ebx,[esi+44] ;write proc
-;	dumpebx ebx,DLstr10,0
-
-;	mov ebx,[esi+48] ;read proc
-;	dumpebx ebx,DLstr11,0
-
-;	mov ebx,[esi+52] ;selection proc
-;	dumpebx ebx,DLstr12,0
-
-;	mov ebx,[esi+56] ;scale proc
-;	dumpebx ebx,DLstr12a,0
-
-;	mov ebx,[esi+60] ;dump proc
-;	dumpebx ebx,DLstr12b,0
-
-;	mov ebx,[esi+64] ;dragbox proc
-;	dumpebx ebx,DLstr12c,0
 
 
 	mov ebx,[esi+72] ;previous link
@@ -7340,39 +7379,63 @@ segmentdump:
 	dumpebx ebx,DLstr14,0
 
 
-	dumpstr DLstr15
 
+	;X1
 	fld qword [esi+80]  ;x1
-	dumpst0
+	mov eax,36          ;dumpst0
+	mov ebx,segstr15a
+	sysenter
 	ffree st0
 
+	;Y1
 	fld qword [esi+88]  ;y1
-	dumpst0
+	mov eax,36          ;dumpst0
+	mov ebx,segstr15b
+	sysenter
 	ffree st0
 
+	;X2
 	fld qword [esi+96]  ;x2
-	dumpst0
+	mov eax,36          ;dumpst0
+	mov ebx,segstr15c
+	sysenter
 	ffree st0
 
+	;Y2
 	fld qword [esi+104]  ;y2
-	dumpst0
+	mov eax,36           ;dumpst0
+	mov ebx,segstr15d
+	sysenter
 	ffree st0
 
+	;Xmid
 	fld qword [esi+112]  ;xmid
-	dumpst0
+	mov eax,36           ;dumpst0
+	mov ebx,segstr15e
+	sysenter
 	ffree st0
 
+	;Ymid
 	fld qword [esi+120]  ;ymid
-	dumpst0
+	mov eax,36           ;dumpst0
+	mov ebx,segstr15f
+	sysenter
 	ffree st0
 
+	;Xnear
 	fld qword [esi+128]  ;Xnear
-	dumpst0
+	mov eax,36           ;dumpst0
+	mov ebx,segstr15g
+	sysenter
 	ffree st0
 
+	;Ynear
 	fld qword [esi+136]  ;Ynear
-	dumpst0
+	mov eax,36           ;dumpst0
+	mov ebx,segstr15h
+	sysenter
 	ffree st0
+
 
 
 	mov ebx,[esi+144]       ;x1 clipped inflated
@@ -7386,6 +7449,19 @@ segmentdump:
 
 	mov ebx,[esi+156]       ;y2 clipped inflated
 	dumpebx ebx,DLstr18d,3
+
+
+	mov ebx,[esi+160]       ;x1 screen coordinate
+	dumpebx ebx,DLstr19a,3
+
+	mov ebx,[esi+164]       ;y1 screen coordinate
+	dumpebx ebx,DLstr19b,3
+
+	mov ebx,[esi+168]       ;x2 screen coordinate
+	dumpebx ebx,DLstr19c,3
+
+	mov ebx,[esi+172]       ;y2 screen coordinate
+	dumpebx ebx,DLstr19d,3
 
 	ret
 
@@ -7502,6 +7578,154 @@ SaveMidPoint:
 
 
 
+;a function that does nothing
+objectstub:
+	ret
+
+
+
+
+
+
+;***************************************************************
+;segmentpdf
+
+;this is an object->writepdf procedure for TCD_SEGMENTS
+;writes a TCD_SEGMENT object to a pdf graphic stream
+
+;this function will write the following pdf commands:
+
+;x y m  
+;this is a MoveTo command
+
+;x y l
+;this is a LineTo command
+
+;r g b RG
+;this declares DeviceRGB color space with pen color r g b
+
+;S
+;this is the stroke operator (draw the line)
+
+
+;all x,y coordinates are the clipped screen coordinates (pixels)
+;you should zoom/pan your objects to fit the screen 
+;before exporting to pdf
+
+
+;many commercial applications will write the graphic stream
+;using  zlib compression, pdf calls this "FlateDecode". 
+;TCAD does not support this (yet)
+;instead we just use ascii text which pdf also supports
+
+
+;input: edi = destination address of pdf graphic stream buffer
+;       esi = address of segment object in link list
+
+;return:
+;       edi is incremented to the end of the pdf graphic stream
+;       esi = address of segment object in link list
+;***************************************************************
+
+
+segmentpdf:
+
+	push ebp
+	mov ebp,esp
+	sub esp,8  ;local variables
+	;[ebp-4]    address of pdf graphic stream
+	;[ebp-8]    address of segment object in link list
+
+
+	;edi holds destination address for PDF graphic stream
+	;throughout this proc edi must be preserved and incremented
+	;with every byte written to the graphic stream buffer
+
+	mov [ebp-4],edi  ;save destination stream address
+	mov [ebp-8],esi  ;save address of segment object for later
+
+
+	dumpstr str128
+
+
+
+	;set DeviceRGB space and pen color
+	;looks like this: "r g b RG"
+	;************************************************
+
+	
+	mov ebx,[esi+4]
+	;ebx=object layer index
+	;the layer index must be from 0->9
+	;since TCAD currently only supports 10 layers
+
+
+	;is the new layer same as previous ?
+	cmp ebx,[pdfcurrentlayer]
+	jz .2  ;skip RG since we have the same layer
+
+	;save new pdf layer
+	mov [pdfcurrentlayer],ebx
+
+	;compute address of RG string to write to pdf
+	;mov esi,PDFpencolor[ecx]  this code wont work
+	;PDFpencolor is an extern variable in io.s
+	;cant use ttasm array syntax on an extern variable
+	;so we do it the long way
+	;PDFpencolor is an array of pencolor strings
+	;there are 10 addresses in the table, 1 for each of the
+	;10 basic tatOS palette colors and 1 for each layer in TCAD
+	mov ecx,PDFpencolor
+	mov eax,4
+	xor edx,edx
+	mul ebx       ;eax=4 * LayerIndex
+	add ecx,eax   ;esi=PDFpencolor + 4*LayerIndex
+
+
+	;now read the address from the PDFpencolor lookup table
+	;this is the starting address of a string like 'r g b RG'
+	;see io.s
+	mov esi,[ecx]
+
+
+	;write 'r g b RG',0xa  string
+	mov eax,19       ;strcpy
+	mov edi,[ebp-4]  ;dest pdf graphic stream
+	sysenter
+	;edi is incremented
+
+	;done writting new pen color to pdf graphic stream
+
+.2:
+	mov esi,[ebp-8]     ;esi=address of object
+
+	;this tlib function will generate 3 pdf strings
+	;x1 y1 m
+	;x2 y2 l
+	;S
+	mov ebx,[esi+160]   ;x1
+	mov ecx,[esi+164]   ;y1
+	mov edx,[esi+168]   ;x2
+	mov esi,[esi+172]   ;y2
+	;edi=destination pdf buffer
+	mov eax,124         ;linepdf
+	sysenter
+
+
+	;done writting PDF graphic stream commands 
+	;for one TCD_SEGMENT
+
+
+.done:
+
+	;must return address of object in esi
+	mov esi,[ebp-8]
+
+	;edi holds address of end of graphic stream
+
+	mov esp,ebp  ;deallocate locals
+	pop ebp
+	ret
 
 
 
@@ -7512,7 +7736,6 @@ SaveMidPoint:
 ;**********************************************************
      
 
-;if you want to dump the value in st0 for debug use "dumpst0"
 
 ;just a friendly reminder to use double indirection
 ;when passing the address of a qword to any function in this
@@ -7524,9 +7747,17 @@ SaveMidPoint:
 ;fadd [eax]       ;add value to st0
 
 
+;mov eax,3  ;dumpreg
+;sysenter
+
+;mov eax,9     ;dumpebx
+;mov ecx,dum2  ;address string
+;mov edx,0     ;dword register size
 
 
 
 
 
-                            
+
+
+                                        

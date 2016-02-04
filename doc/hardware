@@ -1,5 +1,6 @@
 tatOS/doc/hardware
-July 2012
+
+last updated 2015
 
 
 A brief discussion on tatOS Supported Hardware.
@@ -26,6 +27,7 @@ Ive tested the following:
 	* HP Pavillion Laptop circa 2009
 	* Dell Latitute & Inspiron laptops
 	* Asus Eee 1001PX 10" Netbook, Intel Atom circa 2012
+	* Acer laptop circa 2013
 
 
 * processor: 
@@ -52,6 +54,15 @@ Ive tested the following:
 	0f      08      02                Dual Core 64bit
 	0f      03      02                Dual Core 64bit
 
+
+
+* Macintosh & VmWare
+My sons mac laptop with vmware 
+this laptop actually has a usb 3.0 xHCI controller but
+the tatOS pci scan for usb controllers reports OHCI and EHCI controller (emulated)
+EHCI controller bus/dev/fun = 00/0b/00
+so you can reassemble tatOS with USBCONTROLLERTYPE=3 and the above bus/dev/fun
+and use EHCI only with no usb 1.0 support since tatOS does not support OHCI
 
 
 

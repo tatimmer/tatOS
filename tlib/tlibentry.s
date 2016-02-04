@@ -9,6 +9,7 @@
 ;all apps that call kernel functions must enter the kernel here
 ;all arguments are passed to tlib functions in registers
 ;all functions in this file are accessible to apps via "sysenter"
+;see tatOSinit.s which programs model specific registers MSR's 
 
 ;sysexit is also used to start a userland process
 ;see tedit where pressing F10 makes this happen
@@ -59,9 +60,8 @@
 
 ;dumpstr AddressOfString    (note this trashes ebx)
 ;dumpebx ebx,AddressStringTag,RegSize
-;dumpst0
 ;fillrect x,y,w,h,color
-;puts FONT02,x,y,string,color
+;puts FONT02,x,y,string,color0xttbb
 ;putebx ebx,x,y,color,size
 ;putebxdec ebx,x,y,color,signed
 ;line SOLIDLINE,x1,y1,x2,y2,color
@@ -135,7 +135,7 @@ dd _setyorient, _polyline, _line, _putc, _putst0               ;28,29,30,31,32
 dd _getkeystate, _mmult44, _mmult41, _dumpst0, _sleep          ;33,34,35,36,37
 dd _grid, _rectangle, _circle, _putscriptT, _subdivide         ;38,39,40,41,42
 dd _putvectorq, _chamfer, _linepolar, _arc, _fillet            ;43,44,45,46,47
-dd _putsHershey, _rose, _putmarker, _swaprectprep, _swaprect   ;48,49,50,51,52
+dd _putshershey, _rose, _putmarker, _swaprectprep, _swaprect   ;48,49,50,51,52
 dd _putscroll, _comprompt, _ebx2dec, _str2eax, _printf         ;53,54,55,56,57
 dd _clock, _polar2rect, _setdestvideobuf, _setdaccolor         ;58,59,60,61
 dd _arrowpointer, _usbcheckmouse, _getmousexy, _puttransbits   ;62,63,64,65
@@ -152,10 +152,10 @@ dd _pickoption, _gets, _dropdowncreate, _dropdownpaint         ;103,104,105,106
 dd _strchr, _rotateline, _getangleinc, _toggle, _offset        ;107,108,109,110,111
 dd _gethubinfo, _hypot, _dumpFPUstatus, _dumpview              ;112,113,114,115
 dd _dumpst09, _arccos, _strlenB, _st02str, _inflaterect        ;116,117,118,119,120
-dd _dumpreset                                                  ;121
+dd _dumpreset, _showpopup, _dumpstrquote, _linepdf             ;121,122,123,124
 
 ;dont forget to increment this tom when you add a function to this table !!!
-%define MAXTLIBFUNCTIONID 121
+%define MAXTLIBFUNCTIONID 124
 ;**********************************************************************************
 
 tlibEntryProc:
@@ -212,7 +212,7 @@ _swapbuf:
 	jmp near Exit
 
 _dumpreg:
-	;eax=3
+	;mov eax,3   ;dumpreg
 	call dumpreg
 	jmp near Exit
 
@@ -338,19 +338,19 @@ _setpalette:
 	jmp near Exit
 
 _putpalette:
-	;eax=18
+	;mov eax,18    ;putpalette
 	call putpalette
 	jmp near Exit
 
 _strcpy:
-	;eax=19
+	;mov eax,19    ;strcpy
 	VALIDATE esi   ;address source str
 	VALIDATE edi   ;adderss dest str
 	call strcpy
 	jmp near Exit
 
 _strcpy2:
-	;eax=20
+	;mov eax,20    ;strcpy2
 	VALIDATE ebx   ;address source str
 	VALIDATE ecx   ;address dest str
 	push ebx
@@ -359,7 +359,7 @@ _strcpy2:
 	jmp near Exit
 
 _ebxstr:
-	;mov eax,21
+	;mov eax,21   ;ebxstr
 	;ebx = value to convert to hex
 	VALIDATE ecx  ;address 0 term string tag
 	VALIDATE edx  ;address dest buffer
@@ -424,7 +424,7 @@ _polyline:
 
 _line:
 	;mov eax,30
-	push ebx  ;linetype
+	push ebx  ;linetype  (0xffffffff=solid)
 	push ecx  ;x1
 	push edx  ;y1
 	push esi  ;x2
@@ -477,6 +477,8 @@ _mmult41:
 
 _dumpst0:
 	;mov eax,36
+	VALIDATE ebx  ;address of string tag
+	push ebx
 	call dumpst0
 	jmp near Exit
 
@@ -579,17 +581,11 @@ _fillet:
 	call fillet
 	jmp near Exit
 
-_putsHershey:
+_putshershey:
 	;mov eax,48
-	VALIDATE edx
-	push ebx   ;X center of first char
-	push ecx   ;Y center of first char
-	push edx   ;Address of 0 terminated ascii string
-	push esi   ;color (byte from std palette)
-	push edi   ;FontType 0=HERSHEYROMANLARGE, 1=HERSHEYGOTHIC, 2=HERSHEYROMANSMALL
-	push 0     ;not used 
+	VALIDATE edi  ;edi=address of 28 byte HERSHEYSTRUC
 	;st0 = qword scale factor
-	call putsHershey
+	call putshershey
 	jmp near Exit
 
 _rose:
@@ -1160,6 +1156,31 @@ _dumpreset:
 	;mov eax,121
 	call dumpreset
 	jmp near Exit
+
+_showpopup:
+	;mov eax,122
+	VALIDATE esi   ;esi=address of DROPDOWNSTRUC
+	call showpopup
+	jmp near Exit
+
+_dumpstrquote:
+	;mov eax,123
+	VALIDATE ebx  ;ebx=address of string
+	push ebx
+	call dumpstrquote
+	jmp near Exit
+
+_linepdf:
+	;mov eax,124
+	VALIDATE edi  
+	push edi      ;destination pdf buffer
+	push ebx      ;x1
+	push ecx      ;y1
+	push edx      ;x2
+	push esi      ;y2
+	call linepdf
+	jmp near Exit
+
 
 
 

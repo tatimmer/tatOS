@@ -1,5 +1,6 @@
 ;tatOS/tlib/dump.s
 
+;rev: Feb 01, 2016  dumpst0
 
 ;various functions to write ascii bytes to a special block of memory
 ;we call the "dump". Useful for debugging
@@ -335,25 +336,46 @@ dumpchar:
 ;*******************************************************************************
 ;dumpst0
 ;dump the contents of the fpu st0 register
-;this will produce a 0 terminated floating point string up to 27 bytes long
-;e.g. 123.456, see st02str for details
-;defaults to 3 decimal places
-;input:none
+
+;this works opposite of dumpeax, first string tag appears then value in st0
+;"my string tag"1.234
+;"Length of Apple = "3.456
+
+;the value in st0 defaults to 3 decimal places
+
+;input:
+;push address of string tag, if address=0 then skip string  [ebp+8]
 ;return:none
-;local variable
+
+;kernel functions may use this string tag 
 _st0tag db 'ST0=',0
 ;******************************************************************************
 
 dumpst0:
+
+	push ebp
+	mov ebp,esp
 	pushad
 
 	;check that we do not put too much into the dump
 	cmp dword [_dumptr],MAXDUMPADDRESS
 	ja .done
 
-	push _st0tag
-	call dumpstrnol      ;"ST0="
+
+	;check for a value string tag address
+	cmp dword [ebp+8],0
+	jz .1
+
+
+	;string tag
+	push dword [ebp+8]
+	call dumpstrnol
+
+	;there are no spaces inserted after the string tag
+	;user may append spaces to his string to create space if desired
 	
+.1:
+	;value in st0
 	push dword [_dumptr] ;destination
 	push 3               ;numdecimals fixed at 3
 	call st02str
@@ -364,7 +386,8 @@ dumpst0:
 	
 .done:
 	popad
-	ret
+	pop ebp
+	retn 4
 
 
 

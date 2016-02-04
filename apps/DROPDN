@@ -1,0 +1,440 @@
+
+;drop16 Jan 12, 2016 
+
+;dropdown list box demo
+
+;shows how to use the dropdown control to make
+;  * main program menu
+;  * popup on Right click
+
+;shows how to respond to mouse clicks
+;make sure you have the usb mouse ready to go
+
+;assembles with ttasm for tatOS 
+
+
+org STARTOFEXE
+
+
+;*************
+;   DATA
+;*************
+
+
+LclickSaturday:
+dd 0
+LclickColor:
+dd 0
+LclickLanguages:
+dd 0xffffffff
+LclickPopup:
+dd 0
+
+str99:
+db 'popup',0
+
+
+;****************
+;DROPDOWNSTRUC #1
+;****************
+
+ddtitle:
+db 'Things to do on the weekend',0
+
+ddstr0:
+db '00 go shopping',0
+ddstr1:
+db '01 take a nap',0
+ddstr2:
+db '02 eat a snack',0
+ddstr3:
+db '03 take a drive in the country',0
+ddstr4:
+db '04 work on tatOS',0
+ddstr5:
+db '05 read a book',0
+ddstr6:
+db '06 go to church',0
+ddstr7:
+db '07 talk to your parents',0
+ddstr8:
+db '08 do some mudding',0
+ddstr9:
+db '09 quit',0
+
+
+dropdown_Saturday:
+dd 0       ;type=menu
+dd 0       ;ID selected string (by kernel)
+dd ddtitle ;address of title string
+dd 0       ;x
+dd 0       ;y
+dd 250     ;width of dialog
+dd 0       ;height (by kernel)
+dd 0       ;expose
+dd 10      ;qty option strings
+dd ddstr0, ddstr1, ddstr2, ddstr3, ddstr4
+dd ddstr5, ddstr6, ddstr7, ddstr8, ddstr9
+
+
+
+;****************
+;DROPDOWNSTRUC #2
+;****************
+
+colorTitle:
+db 'My Favorite Colors',0
+
+color1:
+db '00 red',0
+color2:
+db '01 green',0
+color3:
+db '02 blue',0
+color4:
+db '03 purple',0
+color5:
+db '04 black',0
+color6:
+db '05 orange',0
+
+
+dropdown_Color:
+dd 0           ;type=menu
+dd 0           ;ID selected string (by kernel)
+dd colorTitle  ;address title string
+dd 250         ;x
+dd 0           ;y
+dd 250         ;width of dialog
+dd 0           ;height (by kernel)
+dd 0           ;expose
+dd 6           ;qty option strings
+dd color1, color2, color3, color4, color5, color6
+
+
+ColorTable:
+;red, green, blue, purple, black, orange
+dd 0xf5, 0xf1, 0xf0, 0xf3, 0xee, 0x11
+
+
+;****************
+;DROPDOWNSTRUC #3
+;****************
+
+langTitle:
+db 'Great Programming Languages',0
+
+lang0:
+db '00 x86 Assembly',0
+lang1:
+db '01 C or C++',0
+lang2:
+db '02 Fortran',0
+lang3:
+db '03 Visual basic',0
+lang4:
+db '04 PHP',0
+lang5:
+db '05 Ruby on Rails',0
+lang6:
+db '06 Java',0
+lang7:
+db '07 Cobol',0
+
+
+dropdown_Languages:
+dd 0           ;type=menu
+dd 0           ;ID selected string (by kernel)
+dd langTitle   ;address title string
+dd 500         ;x
+dd  50         ;y
+dd 250         ;width of dialog
+dd 0           ;height (by kernel)
+dd 0           ;expose
+dd 8           ;qty option strings
+dd lang0,lang1,lang2,lang3,lang4,lang5,lang6,lang7
+
+str0:
+db 'x86 asm is the best !',0
+str1:
+db 'The language of Linux and I like it too',0
+str2:
+db 'Fortran - A great language for engineers',0
+str3:
+db 'VB - Cant say I use this much',0
+str4:
+db 'PHP - Outragous',0
+str5:
+db 'Ruby - My son-in-law loves it',0
+str6:
+db 'Java - Just drink it',0
+str7:
+db 'Cobol - business computers only, not for me',0
+
+FeedbackTable:
+dd str0, str1, str2, str3, str4, str5, str6, str7
+
+
+
+
+
+
+;****************
+;DROPDOWNSTRUC #4
+;****************
+
+;this demonstrates a popup with the Rclick
+
+popTitle:
+db 'Segment Modify',0
+
+sm01:
+db 'length',0
+sm02:
+db 'color',0
+sm03:
+db 'linetype',0
+sm04:
+db 'angle',0
+sm05:
+db 'quit',0
+
+
+dropdown_Popup:
+dd 1           ;type=popup
+dd 0           ;ID selected string (by kernel)
+dd popTitle    ;address title string
+dd 0           ;xloc
+dd 0           ;yloc
+dd 250         ;width of dialog
+dd 0           ;height (by kernel)
+dd 0           ;expose
+dd 5           ;qty option strings
+dd sm01, sm02, sm03, sm04, sm05
+
+
+
+
+
+
+
+
+;*************
+;   CODE
+;*************
+
+
+..start
+
+	
+	mov eax,105  ;dropdowncreate
+	mov ebx,dropdown_Saturday
+	sysenter
+
+	mov eax,105  ;dropdowncreate
+	mov ebx,dropdown_Color
+	sysenter
+
+	mov eax,105  ;dropdowncreate
+	mov ebx,dropdown_Languages
+	sysenter
+
+	mov eax,105 ;dropdowncreate
+	mov ebx,dropdown_Popup
+	sysenter
+
+
+	;init
+	mov dword [LclickSaturday],0
+	mov dword [LclickColor],0
+
+
+
+.appmainloop:
+
+
+
+	;begin paint
+	backbufclear
+
+
+
+	mov eax,106  ;dropdownpaint
+	mov ebx,dropdown_Saturday
+	sysenter
+
+	mov eax,106  ;dropdownpaint
+	mov ebx,dropdown_Color
+	sysenter
+
+	mov eax,106  ;dropdownpaint
+	mov ebx,dropdown_Languages
+	sysenter
+	
+	mov eax,106  ;dropdownpaint
+	mov ebx,dropdown_Popup
+	sysenter
+
+
+
+
+	;do other painting ...
+
+
+
+	;dropdown_Saturday
+	;display the integer ID of users selection 0->n-1
+	mov ebx,[LclickSaturday]
+	putebx ebx,0,200,0xf5ff,0
+
+
+
+	;dropdown_Color
+	;display the integer ID of users selection
+	;but we use a matching font color of course !
+	cmp dword [LclickColor],0xffffffff
+	jz .nocolorpick
+	;the user picked from the color dropdown
+	mov eax,[LclickColor]   ;eax=0->5
+	mov esi,ColorTable[eax]
+	shl esi,8
+	or esi,0xff
+	jmp .assigncolor
+	;the user did not pick from the color dropdown
+.nocolorpick:
+	mov esi,0xefff  ;black on transparent background
+	;fall thru
+.assigncolor:
+	mov eax,14  ;putebx
+	mov ebx,[LclickColor]
+	mov ecx,250 ;x
+	mov edx,200 ;y
+	;esi=black or color selected per above
+	mov edi,0   ;size 0=ebx
+	sysenter
+
+
+
+
+	;dropdown_Languages
+	;display the integer ID of users selection
+	mov ebx,[LclickLanguages]
+	putebx ebx,500,200,0xf5ff,0
+	;display a string appropriate for the programming language selected
+	cmp dword [LclickLanguages],0xffffffff
+	jz .doneFeedbackMessage
+	mov ebx,FONT01             ;font
+	mov ecx,50                 ;x
+	mov edx,300                ;y
+	mov eax,[LclickLanguages]  ;0->7
+	mov esi,FeedbackTable[eax] ;address of string
+	mov edi,0x30ff             ;color
+	mov eax,13                 ;puts
+	sysenter
+.doneFeedbackMessage:
+
+
+
+
+	;dropdown_Popup
+	;display the string "popup"
+	puts FONT01,20,500,str99,0xf5ff
+	;display the integer ID of users selection 0->n-1
+	mov ebx,[LclickPopup]
+	putebx ebx,100,500,0xf5ff,0
+
+
+
+
+	mov eax,62  ;arrow pointer
+	sysenter
+
+	swapbuf  
+	;endpaint
+
+
+
+
+
+	;check for keyboard activity
+	checkc
+	cmp al,ESCAPE
+	jz .quit
+
+
+	;queue up a new usb mouse request
+	mov eax,63  ;usbcheckmouse
+	sysenter    ;return value in al
+
+	cmp al,1    ;Lclick
+	jz .leftmousehandler
+	cmp al,2    ;Rclick
+	jz .rightmousehandler
+
+	jmp .appmainloop
+
+
+
+.leftmousehandler:
+
+	;here we check for dropdown selections and act accordingly
+
+	;instead of just saving the selected list item ID
+	;you could use a jmp table to execute some action
+	;in response to the menu selection
+
+	;save the ID of the selected list item
+	;if the ID=0xffffffff this means no item selected
+	;i.e. the user Lclick was outside the dropdown list 
+	;or on the dropdown title
+
+	;process dropdown_Saturday
+	mov eax,[dropdown_Saturday+4]  ;get ID of selection
+	mov [LclickSaturday],eax       ;and save
+	cmp eax,9  ;check if user wants to quit
+	jz .quit
+
+	;process dropdown_Color
+	mov eax,[dropdown_Color+4]  ;get ID of selection
+	mov [LclickColor],eax
+
+	;process dropdown_Languages
+	mov eax,[dropdown_Languages+4]  ;get ID of selection
+	mov [LclickLanguages],eax
+
+	;process dropdown_Popup
+	mov eax,[dropdown_Popup+4]  ;get ID of selection
+	mov [LclickPopup],eax
+	cmp eax,4  ;check if user wants to quit
+	jz .quit
+
+
+	jmp .appmainloop
+
+
+
+.rightmousehandler:
+
+	mov eax,122  ;showpopup
+	mov esi,dropdown_Popup
+	sysenter
+
+	jmp .appmainloop
+
+
+
+	;if you insert code here dont forget to jmp
+	;back to .appmainloop otherwise you will fall thru
+	;and quit !
+
+.quit:
+	exit
+
+
+
+
+
+;*************************** THE END *********************************
+
+
+  

@@ -138,9 +138,11 @@ initflash:
 
 ;****************************************************
 ;      ehci w/ uhci companion controllers
+;                    or
+;         ehci with no usb 1.0 support
 ;****************************************************
 
-%if USBCONTROLLERTYPE == 1  ;ehci with uhci companions
+%if ( USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 3 )  
 
 	;here we do not know whats plugged into what
 	;so we have to loop 
@@ -154,6 +156,7 @@ initflash:
 	;pause for 5 seconds
 	;if you try to init the flash too quickly immediately after bootup
 	;this sequence will fail. But just waiting a bit seems to help
+	;Dec 2015 Im not sure this is really necessary but we shall keep it in for now
 	STDCALL mpdstr1,putscroll
 	mov ebx,5000 ;5 seconds
 	call sleep
@@ -214,9 +217,13 @@ initflash:
 	mov eax,[portnumber]
 	call ehci_portreset
 
-%endif  ;ehci w/ uhci compannions  ***************************************
+%endif  ;ehci w/ uhci compannions  or ehci only no usb 1.0 support
 	
 
+
+;****************************************************
+;         good old fashioned UHCI 
+;****************************************************
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	
@@ -266,14 +273,15 @@ initflash:
 	mov eax,[portnumber]
 	call uhci_portreset
 
-%endif
+%endif   ;end uhci
+
+
+;end usb controller specific code
+;*************************************************************************
 
 
 
-
-
-
-
+	;INIT FLASH COMMON CODE
 	;prior to this the port must be detected 
 	;where the hi speed flash drive is plugged in
 	;and the port must be reset
@@ -296,6 +304,10 @@ initflash:
 	;also poses a code maintenance problem
 	;so as of April 2015 we are back to having to reinit the ehci if you
 	;suffer a failed flash transaction
+	;as of Dec 2015 we have not had any failed usb flash drive transactions
+	;very happy to report, so some day we may like to include code to 
+	;refresh the QH without reinitting the controller but for now its not
+	;a high priority
 	
 
 	

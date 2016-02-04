@@ -723,7 +723,6 @@ projectpointtoline:
 	;st0=x1+r*(x2-x1), st1=free, st2=free, st3=free, st4=free
 	;st5=r, st6=(y2-y1)
 
-	;call dumpst0   ;for debug
 
 	fstp qword [edi+16]   ;save x4
 	;st0=free, st1=free, st2=free, st3=free, st4=r, st5=(y2-y1)
@@ -742,7 +741,6 @@ projectpointtoline:
 	fadd qword [esi+8] 
 	;st0=y1+r*(y2-y1), st1=free, st2=free, st3=free, st4=r, st5=(y2-y1)
 
-	;call dumpst0   ;for debug
 
 	fstp qword [edi+24]   ;save y4
 	;st0=free, st1=free, st2=free, st3=r, st4=(y2-y1)

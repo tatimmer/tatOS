@@ -1,6 +1,7 @@
 ;tatOS/boot/ps2init.s
 
 
+;Jan 2016 this file is removed from tatOS (ps2 keyboard will still work)
 ;Jan 2010 - removed ps2mouseinit
 ;Dec09-output messages to dump instead of screen
 

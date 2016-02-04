@@ -38,7 +38,11 @@ calculator:
 	mov dword [decsign],0 
 
 
-	;load symbol table
+	;clear the symbtable memory 
+	call symtableclear
+
+
+	;load the "calc" symbol table
 	push rpnSymbolTable
 	push rpnEndSymbolTable
 	call symtableload

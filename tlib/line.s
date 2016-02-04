@@ -1,7 +1,9 @@
 ;tatOS/tlib/line.s
 
-;various functions to draw lines
+;various functions to draw lines:
+
 ;hline, vline, line, polyline, linepolar
+;linepdf
 
 
 
@@ -255,7 +257,11 @@ linepolar:
 ;2set + 4not + (1set + 4not) ... + 1set + 5not
 ;..    .    .    .    .    .    .    .    .
 
-;tatos.inc & ttasm have defines for these std line types:
+;for a dashline,   linetype = 0xf0f0f0f0
+;4set + 4not 
+;....    ....    ....    ....    ....    
+
+;tatOS.inc & ttasm have defines for these std line types:
 ;SOLIDLINE, CENTERLINE, HIDDENLINE, PHANTOMLINE, DOTLINE
 
 ;local variables
@@ -485,6 +491,126 @@ line:
 	retn 24 ;cleanup 6 args
 	
 
+
+
+
+;************************************************************
+;linepdf
+
+;this function will write 3 ascii strings which define
+;a line in a pdf file:
+
+;x1 y1 m   
+;x2 y2 l
+;S
+
+;m = MoveTo operator
+;l = LineTo operator
+;S = stroke operator
+
+;input:
+;push dword address of destination buffer to write pdf strings  [ebp+24]
+;push dword x1    [ebp+20]
+;push dword y1    [ebp+16]
+;push dword x2    [ebp+12]
+;push dword y2    [ebp+8]
+
+;return: 3 ascii strings are written to destination buffer
+;        eax=edi=address of next byte to be written to pdf buffer
+;***********************************************************
+
+linepdf:
+
+	push ebp
+	mov ebp,esp
+
+
+	mov edi,[ebp+24]  ;address of pdf buffer
+
+
+	; x1 y1 m
+	;*********
+
+	;convert X1 to ascii string
+	mov eax,[ebp+20]
+	push edi   ;dest buffer
+	push 0     ;unsigned
+	push 0     ;0 terminate
+	call eax2dec
+
+	;edi is incremented to hold address of 0 terminator
+	;which gets overwritten by the next SPACE
+
+	;write a space
+	mov byte [edi],0x20
+	inc edi
+
+	;convert Y1 to ascii string
+	mov eax,[ebp+16]
+	push edi   ;dest buffer
+	push 0     ;unsigned
+	push 0     ;0 terminate
+	call eax2dec
+
+	;write a space
+	mov byte [edi],0x20
+	inc edi
+
+	;write the "MoveTo" operator which is lower case 'm'
+	mov byte [edi],'m'
+	inc edi
+
+	;write end of line
+	mov byte [edi],0xa
+	inc edi
+
+
+
+	; x2 y2 l
+	;*********
+	
+	;convert X2 to ascii string
+	mov eax,[ebp+12]
+	push edi   ;dest buffer
+	push 0     ;unsigned
+	push 0     ;0 terminate
+	call eax2dec
+
+	;write a space
+	mov byte [edi],0x20
+	inc edi
+
+	;convert Y2 to ascii string
+	mov eax,[ebp+8]
+	push edi   ;dest buffer
+	push 0     ;unsigned
+	push 0     ;0 terminate
+	call eax2dec
+
+	;write a space
+	mov byte [edi],0x20
+	inc edi
+
+	;write the "LineTo" operator which is lower case l
+	mov byte [edi],'l'
+	inc edi
+
+	;write end of line
+	mov byte [edi],0xa
+	inc edi
+
+	;write the "Stroke" operator which is upper case S
+	mov byte [edi],'S'
+	inc edi
+
+	;write end of line
+	mov byte [edi],0xa
+	inc edi
+
+	mov eax,edi  ;return address of next byte to be written to pdf buffer
+
+	pop ebp
+	retn 20	
 
 
 

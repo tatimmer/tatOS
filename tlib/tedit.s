@@ -1,5 +1,5 @@
 ;tatOS/tlib/tedit.s   
-;rev June 2015
+;rev Dec 2015
 
 
 ;this determines where the left margin starts if using line numbering
@@ -865,23 +865,28 @@ te_doF6:
 
 
 
+
 	;*********************
 	;case: F7 
-	;clear the link list  
+	;empty
 	;*********************
 
+
 te_doF7:
-	call teditBlankList
 	jmp near tedit_endkeypress
+
 
 
 
 	;*********************
 	;case: F8 
-	;empty
+	;clear the link list  
 	;*********************
 
 te_doF8:
+	;this affectively erases the screen
+	;do this before loading a new file to assemble
+	call teditBlankList
 	jmp near tedit_endkeypress
 
 
@@ -889,22 +894,72 @@ te_doF8:
 
 	;*********************
 	;case: F9 
-	;empty
+	;Assemble/Link
 	;*********************
 
-
 te_doF9:
+
+	cmp byte [CTRLKEYSTATE],1
+	jz .invoketlink 
+
+	;first transfer the link list of assembler code
+	;to 0x1990000 as an ascii array of bytes
+	mov ebp,[headlink]
+	xor ecx,ecx  ;qtybytes=0
+
+.nextlink:
+	mov al,[ebp]           ;get byte
+	mov [0x1990000+ecx],al ;transfer
+	mov ebp,[ebp+8]        ;next link
+	inc ecx
+	cmp ebp,0              ;tail ?
+	jnz .nextlink
+	
+	mov byte [0x1990000+ecx],0 ;terminate
+
+	;now call our assembler
+	call ttasm 
+
+	;return eax=address of string giving the 
+	;results of the assembly
+	mov dword [messagepointer],eax
+
+	jmp near tedit_endkeypress
+
+
+.invoketlink:
+
+	;Ctrl+F9 = invoke tlink
+	call tlink
+	jz .1
+	mov dword [messagepointer],te_str22
+	jmp near tedit_endkeypress
+.1: ;there are linker errors
+	mov dword [messagepointer],te_str21
+	jmp near tedit_endkeypress
+
+
+
+	;*********************
+	;case: F10
+	;Make
+	;*********************
+
+te_doF10:
+	;this allows you to enter file names interactively
+	;and then run the make utility
+	call make
 	jmp near tedit_endkeypress
 
 
 
 
 	;*********************
-	;case: F10 
+	;case: F11 
 	;Execute/Run
 	;*********************
 
-te_doF10:
+te_doF11:
 
 	;kernel startup code prior to calling sysexit to run the users app
 
@@ -975,50 +1030,6 @@ te_doF10:
 
 
 
-
-	;*********************
-	;case: F11 
-	;Assemble/Link
-	;*********************
-
-te_doF11:
-
-
-	cmp byte [CTRLKEYSTATE],1
-	jz .invoketlink 
-
-	;F11 = assemble a source file
-
-	;first transfer the link list of assembler code
-	;to 0x1990000 as an ascii array of bytes
-	mov ebp,[headlink]
-	xor ecx,ecx  ;qtybytes=0
-
-.nextlink:
-	mov al,[ebp]           ;get byte
-	mov [0x1990000+ecx],al ;transfer
-	mov ebp,[ebp+8]        ;next link
-	inc ecx
-	cmp ebp,0              ;tail ?
-	jnz .nextlink
-	
-	mov byte [0x1990000+ecx],0 ;terminate
-
-	;now call our assembler
-	call ttasm 
-	jmp near tedit_endkeypress
-
-
-.invoketlink:
-
-	;Ctrl+F11 = invoke tlink
-	call tlink
-	jz .1
-	mov dword [messagepointer],te_str22
-	jmp near tedit_endkeypress
-.1: ;there are linker errors
-	mov dword [messagepointer],te_str21
-	jmp near tedit_endkeypress
 
 
 
@@ -2171,7 +2182,7 @@ te_str5 db 'Open FAT16 file off PenDrive: Enter 11 char filename',0
 te_str6 db 'File not found',0
 te_str7 db 'tedit: out of memory, reached 750000 max char links',0
 te_str8 db 'tedit: Save FAT16 file to Flash: Enter 11 char filename',0
-te_str9 db 'ready to leave kernel --- sysexit',0
+te_str9 db '[tedit] leaving kernel, continue execution at 0x1b:[0x2000008] userland',0
 te_str10 db 'File Save: Failed',0
 te_str11 db 'File Save: Failed - File already exists',0
 te_str12 db 'File Save: Success/Done',0
@@ -2188,7 +2199,7 @@ te_str22 db 'tlink:success',0
 
 
 ;menu string that appears at bottom of tedit 
-te_menu db 'tedit: F1=Open F2=Save F3=Metrics F4=calc F6=Dump F7=Clear F10=Run F11=Asm F12=quit',0
+te_menu db 'tedit: F1=Open F2=Save F3=Metrics F4=calc F6=Dump F8=Clear F9=Asm F10=make F11=Run F12=quit',0
 
 
 

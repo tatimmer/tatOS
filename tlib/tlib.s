@@ -251,8 +251,8 @@ dd ptonline                ;0x102c4
 dd bubblesort              ;0x102c8
 dd putpalette              ;0x102cc
 dd lineclip                ;0x102d0
-dd putcHershey             ;0x102d4
-dd putsHershey             ;0x102d8
+dd putchershey             ;0x102d4
+dd putshershey             ;0x102d8
 dd teditBlankList          ;0x102dc
 dd tatOSinit               ;0x102e0
 dd _tlibstub         ;0x102e4
@@ -285,7 +285,7 @@ dd _tlibstub               ;0x10310
 %include "tlib/font02.inc"
 %include "tlib/fontHershey.inc"
 %include "tlib/put.s"
-%include "tlib/putHershey.s"
+%include "tlib/puthershey.s"
 %include "tlib/getc.s"
 %include "tlib/gets.s"
 %include "tlib/rectangle.s"
@@ -336,6 +336,8 @@ dd _tlibstub               ;0x10310
 %include "tlib/paging.s"
 %include "tlib/clipboard.s"
 %include "tlib/dropdown.s"
+%include "tlib/make.s"
+
 
 
 

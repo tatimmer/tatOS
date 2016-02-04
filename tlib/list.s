@@ -259,9 +259,7 @@ ListControlKeydown:
 
 
 .doHOME:
-	mov dword [list_IndexFirstString],0
-	mov eax,[list_Ytop]
-	mov [list_YLoc_SelectionBar],eax
+	call ListControlDoHome
 
 
 .done:
@@ -526,5 +524,26 @@ ListControlAddStrings:
 	mov ebx,[list_Ytop]
 	call ListControlInit
 	ret
+
+
+
+;***********************************************
+;ListControlDoHome
+;this function is called when you press
+;Ctrl+HOME 
+;it moves the selecton bar to the top
+;and draws the first string of the list at top
+;this function is also called in fat.s when you
+;change from a subdir to root
+;**********************************************
+
+ListControlDoHome:
+	mov dword [list_IndexFirstString],0
+	mov eax,[list_Ytop]
+	mov [list_YLoc_SelectionBar],eax
+	ret
+
+
+
 
 

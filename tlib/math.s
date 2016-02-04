@@ -365,13 +365,11 @@ getslope:
 	fld qword [esi+24]  ;st0=y2
 	fld qword [esi+8]  	;st0=y1, st1=y2
 	fsubp st1 	        ;st0=dy
-	;call dumpst0
 
 	;work on dx
 	fld qword [esi+16]
 	fld qword [esi]
 	fsubp st1          ;st0=dx, st1=dy
-	;call dumpst0
 	
 	pop esi
 	pop ebp

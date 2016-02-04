@@ -1,6 +1,6 @@
 
 ;Project: TCAD
-;main14  Dec 28, 2015
+;main16  Feb 04, 2016
 
 ;this is the main entry procedure for TCAD
 ;TCAD is a basic 2d cad program
@@ -14,13 +14,13 @@
 
 
 ;*****************************************
-;	FUNCTION ENTRY POINTS
-;	DATA SYMBOLS
+;	FUNCTION ENTRY POINTS &
+;	DATA SYMBOLS in this file
 ;*****************************************
 
 ;EXTERN
 ;FeedbackMessageTable
-;TopLevelMenu
+;MenusAndPopups
 ;SEGMENT-MODIFY
 ;TcadMenuJumpTable
 ;LAYERS
@@ -62,10 +62,11 @@
 ;DumpSel
 ;DumpAll
 ;GetSelObj          (public)
+;Get1SelObj         (public)
 ;GetMousePnt        (public)
 ;UnselectAll        (public)
 ;GetLayItems        (public)
-;CreateBLink        (public)
+;CreateBLink        (public)   CreateBlankLink 
 ;float2int          (public)
 
 
@@ -75,16 +76,12 @@
 
 org STARTOFEXE
 
-;erase the public and extern symbol tables
-;this must be done before assembling the main source file
-;assembling the secondary source files just appends data to these tables
-erasepe  
-
 
 ;assign a unique number to this source file
 ;main.s = 00
 ;seg.s  = 01
 ;io.s   = 02
+;txt.s  = 03
 source 0
 
 
@@ -93,13 +90,13 @@ source 0
 ;  EXTERN
 ;****************
 
-;symbols that are defined in other files
+;symbols that are defined in other files but use in this file
 ;all extern & public symbols are max 11 bytes
 
 ;symbols defined in io.s
 extern FileOpenTCD
 extern FileSaveTCD
-extern tcd2pdf
+extern FileSavepdf
 
 ;symbols defined in seg.s
 extern segmodify
@@ -117,10 +114,12 @@ extern OffsetSegM
 extern RotateSegK
 extern RotateSegM
 extern SetChamSize
+extern SetTxtHight
 extern GetNearPnt
 
 ;symbols defined in txt.s
 extern txtcreate
+extern txtmodify
 
 
 
@@ -683,7 +682,7 @@ str109:
 db 'address linkPrevious',0
 
 str110:
-db 'address linkNext',0
+db '[DelSelObj] address of object to delete',0
 str111:
 db 'Delete Selected Objects',0
 str112:
@@ -796,7 +795,23 @@ db '[IdleLeftMouseHandler] Finish Drag Box',0
 str165:
 db '******************************************',0
 str166:
-db '[TextCreate] Mouse pick text location',0
+db '[TextCreate] mouse pick text location',0
+str167:
+db '[txtmodifyxy] mouse pick new text location',0
+
+str170a:
+db '[DelSelObj] delete head',0
+str170b:
+db '[DelSelObj] delete head with linklist size >= 2',0
+str171:
+db '[DelSelObj] delete tail',0
+str172:
+db '[DelSelObj] delete middle',0
+str173:
+db '[DelSelObj] address previous link',0
+str174:
+db '[DelSelObj] address next link',0
+
 
 
 
@@ -935,7 +950,7 @@ dd str149,str150,str151,str155,str156            ;69,70,71,72,73
 dd str157,str158,str159,str95,str56              ;74,75,76,77,78
 dd str38,str160,str161,str162,str81              ;79,80,81,82,83
 dd str85,str66,str67,str57,strSTUB               ;84,85,86,87,88
-dd str166                                        ;89
+dd str166,str167                                 ;89,90
 
 
 
@@ -948,7 +963,7 @@ dd 0
 
 
 ;*********************************
-;     TopLevelMenu
+;     MenusAndPopups
 ;*********************************
 
 ;this is the data required to support 
@@ -968,6 +983,7 @@ File4:
 db 'Exit (f12)',0
 
 FileMenuStruc:
+dd 0          ;type=menu
 dd 0          ;id selected string
 dd FileTitle  ;address title string
 dd 0          ;x
@@ -1002,7 +1018,7 @@ db 'Line-mpd2',0
 draw6:
 db 'Line-ipd2',0
 draw7:
-db 'Text',0
+db 'Text (t)',0
 
 ;future 2do
 ;Draw??:
@@ -1013,6 +1029,7 @@ db 'Text',0
 ;db 'Rectangle',0
 
 DrawMenuStruc:
+dd 0          ;type=menu
 dd 0          ;id selected string
 dd drawTitle  ;address title string
 dd 100        ;x
@@ -1046,6 +1063,7 @@ Dim3:
 db 'Leader',0
 
 DimMenuStruc:
+dd 0          ;type=menu
 dd 0          ;id selected string
 dd DimTitle   ;address title string
 dd 200        ;x
@@ -1090,10 +1108,10 @@ Mod10:
 db 'move',0
 Mod11:
 db 'copy',0
-Mod12:
-db 'layer',0
+
 
 ModMenuStruc:
+dd 0          ;type=menu
 dd 0          ;id selected string
 dd ModTitle   ;address title string
 dd 300        ;x
@@ -1101,14 +1119,14 @@ dd 0          ;y
 dd 99         ;w
 dd 0          ;h
 dd 0          ;expose
-dd 13         ;qty strings
+dd 12         ;qty strings
 dd Mod0,Mod1,Mod2,Mod3,Mod4,Mod5,Mod6
-dd Mod7,Mod8,Mod9,Mod10,Mod11,Mod12
+dd Mod7,Mod8,Mod9,Mod10,Mod11
 
 ModMenuProcTable:
 dd doExtendTrim, doCorner, doChamfer, doFillet
 dd doOffsetKeyboard, doOffsetMouse, doRotateKeyboard, doRotateMouse 
-dd doScale, doMirror, doMove, doCopy, doLayer
+dd doScale, doMirror, doMove, doCopy
 
 
 
@@ -1126,21 +1144,24 @@ db 'grid',0
 Misc3:
 db 'ChamfSize',0
 Misc4:
-db 'MeasAng-3pts',0
+db 'TextHeight',0
 Misc5:
-db 'MeasAng-2seg',0
+db 'MeasAng-3pts',0
 Misc6:
-db 'MeasDist',0
+db 'MeasAng-2seg',0
 Misc7:
-db 'DumpSel',0
+db 'MeasDist',0
 Misc8:
-db 'DumpAll',0
+db 'DumpSel',0
 Misc9:
+db 'DumpAll',0
+Misc10:
 db 'ViewDump',0
 
 
 
 MiscMenuStruc:
+dd 0          ;type=menu
 dd 0          ;id selected string
 dd MiscTitle  ;address title string
 dd 400        ;x
@@ -1148,12 +1169,15 @@ dd 0          ;y
 dd 99         ;w
 dd 0          ;h
 dd 0          ;expose
-dd 9          ;qty strings
-dd Misc1,Misc2,Misc3,Misc4,Misc5,Misc6,Misc7,Misc8,Misc9
+dd 10         ;qty strings
+dd Misc1,Misc2,Misc3,Misc4,Misc5,Misc6,Misc7,Misc8,Misc9,Misc10
 
+;the order of these proc addresses must match the order of 
+;strings in the dropdown !!!
 MiscMenuProcTable:
-dd doZoomReset, doGrid, doChamfSize, doMeasAng1, doMeasAng2
-dd doMeasDist,  doDumpSel, doDumpAll, doViewDump
+dd doZoomReset, doGrid, doChamfSize, doTextHeight
+dd doMeasAng1, doMeasAng2, doMeasDist
+dd doDumpSel, doDumpAll, doViewDump
 
 
 
@@ -1189,6 +1213,7 @@ db '9 Ltgray',0
 
 
 SelectLayerStruc:
+dd 0          ;type=menu
 dd 0          ;id selected string
 dd layerSel   ;address title string
 dd 500        ;x
@@ -1208,9 +1233,9 @@ dd layerstr6,layerstr7,layerstr8,layerstr9,layerstr10
 
 
 
-;SEGMENT-MODIFY Menu
+;SEGMENT MODIFY Popup
 smTitle:
-db 'SegMod',0
+db 'Segment Modify',0
 sm1:
 db 'x1,y1-k',0
 sm2:
@@ -1224,35 +1249,69 @@ db 'perp To',0
 sm6:
 db 'tang To',0
 sm7:
-db 'equal To',0
+db 'equal To-m',0
 sm8:
-db 'angle From',0
+db 'angle From-k',0
 sm9:
-db 'length',0
+db 'length-k',0
 sm10:
 db 'horizontal',0
 sm11:
 db 'vertical',0
 sm12:
 db 'ortho',0
+sm13:
+db 'layer',0
 
 ;not used are "near", "midpoint", "coincident with" and "colinear with"
 ;near/coincident and midpoint all live in segment paint
 ;colinear can be done with AngleFrom
 
 
-SegmentModifyStruc:
+SegmentModifyPopup:
+dd 1                  ;type=popup
 dd 0                  ;ID of selected string provided by kernel
 dd smTitle            ;title string
-dd 600                ;x
+dd 0                  ;x
 dd 0                  ;y
-dd 99                 ;width
+dd 130                ;width
 dd 0                  ;height exposed
 dd 0                  ;expose event
-dd 12                 ;qty option strings
+dd 13                 ;qty option strings
+;option string addresses:
 dd sm1,sm2,sm3,sm4,sm5
 dd sm6,sm7,sm8,sm9,sm10
-dd sm11,sm12
+dd sm11,sm12,sm13
+
+
+
+
+;TEXT MODIFY Popup
+txtTitle:
+db 'Text Modify',0
+txtmod1:
+db 'x,y',0
+txtmod2:
+db 'height',0
+txtmod3:
+db 'string',0
+txtmod4:
+db 'layer',0
+
+
+TextModifyPopup:
+dd 1                  ;type=popup
+dd 0                  ;ID of selected string provided by kernel
+dd txtTitle           ;title string
+dd 0                  ;x
+dd 0                  ;y
+dd 130                ;width
+dd 0                  ;height exposed
+dd 0                  ;expose event
+dd 4                  ;qty option strings
+;option string addresses:
+dd txtmod1, txtmod2, txtmod3, txtmod4
+
 
 
 
@@ -1413,7 +1472,10 @@ db0 1000
 	mov ebx,SelectLayerStruc
 	sysenter
 	mov eax,105  ;dropdowncreate
-	mov ebx,SegmentModifyStruc
+	mov ebx,SegmentModifyPopup
+	sysenter
+	mov eax,105  ;dropdowncreate
+	mov ebx,TextModifyPopup
 	sysenter
 	
 
@@ -1565,6 +1627,7 @@ DonePan:
 
 
 
+
 	;go thru the link list and draw the objects
 	;*******************************************
 	
@@ -1655,6 +1718,8 @@ PaintObject:
 	jnz PaintObject
 	
 DonePaintObjects:
+
+
 
 
 
@@ -1768,7 +1833,10 @@ DoneDrawDragBox:
 	mov ebx,SelectLayerStruc
 	sysenter
 	mov eax,106  ;dropdownpaint
-	mov ebx,SegmentModifyStruc
+	mov ebx,SegmentModifyPopup
+	sysenter
+	mov eax,106  ;dropdownpaint
+	mov ebx,TextModifyPopup
 	sysenter
 
 
@@ -1828,16 +1896,16 @@ EndPaint:
 
 	;HOTKEY definitions
 
-	cmp al,99   ;'c' circle
+	cmp al,99   ;'c' create a circle (we dont support this yet)
 	jz doCircle
 
-	cmp al,100  ;'d' distance
+	cmp al,100  ;'d' measure distance
 	jz doMeasDist
 
 	cmp al,102  ;'f' flip
 	jz doFlipKeyHandler
 
-	cmp al,108  ;'l' line by 2 mouse picks
+	cmp al,108  ;'l' create a line by 2 mouse picks
 	jz doLineMM
 
 	cmp al,111  ;'o' open tcd
@@ -1848,6 +1916,9 @@ EndPaint:
 
 	cmp al,115  ;'s'  save tcd
 	jz doFileSavetcd
+
+	cmp al,116  ;'t'  create some text
+	jz doText
 
 
 	cmp al,COPY
@@ -1921,7 +1992,7 @@ HandleLeftMouse:
 	dumpstr str1
 
 	;check for File menu selection
-	mov eax,[FileMenuStruc]
+	mov eax,[FileMenuStruc+4]
 	cmp eax,-1
 	jz .doneFileMenu
 	;get doFileOpen, doFileSave or doExit procedure address
@@ -1932,7 +2003,7 @@ HandleLeftMouse:
 .doneFileMenu:
 
 	;check for Draw menu selection
-	mov eax,[DrawMenuStruc]
+	mov eax,[DrawMenuStruc+4]
 	cmp eax,-1
 	jz .doneDrawMenu
 	;get procedure address
@@ -1943,7 +2014,7 @@ HandleLeftMouse:
 .doneDrawMenu:
 
 	;check for Dim menu selection
-	mov eax,[DimMenuStruc]
+	mov eax,[DimMenuStruc+4]
 	cmp eax,-1
 	jz .doneDimMenu
 	;get procedure address
@@ -1954,7 +2025,7 @@ HandleLeftMouse:
 .doneDimMenu:
 
 	;check for Modify menu selection
-	mov eax,[ModMenuStruc]
+	mov eax,[ModMenuStruc+4]
 	cmp eax,-1
 	jz .doneModMenu
 	;get procedure address
@@ -1965,7 +2036,7 @@ HandleLeftMouse:
 .doneModMenu:
 
 	;check for Misc menu selection
-	mov eax,[MiscMenuStruc]
+	mov eax,[MiscMenuStruc+4]
 	cmp eax,-1
 	jz .doneMiscMenu
 	;get procedure address
@@ -1976,7 +2047,7 @@ HandleLeftMouse:
 .doneMiscMenu:
 
 	;check for Layer menu selection
-	mov eax,[SelectLayerStruc]
+	mov eax,[SelectLayerStruc+4]
 	cmp eax,-1
 	jz .doneLayerMenu
 	call SetCurrentLayer  ;eax=ID of layer to set
@@ -1984,8 +2055,8 @@ HandleLeftMouse:
 .doneLayerMenu: 
 
 
-	;check for Segment-Modify menu selection
-	mov eax,[SegmentModifyStruc]
+	;check for Segment-Modify popup selection
+	mov eax,[SegmentModifyPopup+4]
 	cmp eax,-1
 	jz .doneSegModMenu
 	;pass headlink & current layer to these procs
@@ -2001,7 +2072,28 @@ HandleLeftMouse:
 
 	call UnselectAll
 	jmp AppMainLoop
-.doneSegModMenu: 
+.doneSegModMenu:
+
+
+
+	;check for Text Modify popup selection
+	mov eax,[TextModifyPopup+4]
+	cmp eax,-1
+	jz .doneTxtModMenu
+	;pass headlink & current layer to these procs
+	;some use them and some dont
+	;eax=index into SegmentModifyProcTable, see seg.s
+	mov esi,[headlink]      ;in case proc needs it
+	mov edi,[currentlayer]  ;in case proc needs it
+	call txtmodify
+
+	;all txtmodify procs must return valid values in eax,ebx
+	mov [FeedbackMessageIndex],eax
+	mov [LftMousProc],ebx
+
+	call UnselectAll
+	jmp AppMainLoop
+.doneTxtModMenu:
 
 
 
@@ -2060,7 +2152,44 @@ HandleLeftMouse:
         
 HandleRightMouse:
 
+
+	call Get1SelObj
+	;returns 
+	;ecx=qty selected objects 
+	;eax=type of last selected object 
+	;esi=address of last selected object
+
+	cmp ecx,1  ;if more than 1 selection we dont invoke popup
+	jnz AppMainLoop
+
+
+	cmp eax,TCD_SEGMENT
+	jz .popsegment
+	cmp eax,TCD_TEXT
+	jz .poptext
+
+	jnz AppMainLoop ;unhandled object option
+
+
+.popsegment:
+	;show the segment modify popup
+	mov eax,122  ;showpopup
+	mov esi,SegmentModifyPopup
+	sysenter
+	;handleleftmouse will process the users popup selection
 	jmp AppMainLoop
+
+
+.poptext:
+	;show the text modify popup
+	mov eax,122  ;showpopup
+	mov esi,TextModifyPopup
+	sysenter
+	;handleleftmouse will process the users popup selection
+	jmp AppMainLoop
+	
+
+
 
 
 
@@ -2152,16 +2281,7 @@ HandleWheelTowardScreen:
 	fstp qword [yorg] 
 	ffree st0
 
-	;dump zoom,xorg,yorg for debug
-	;fld [zoom] q
-	;dumpst0
-	;ffree st0
-	;fld [xorg] q
-	;dumpst0
-	;ffree st0
-	;fld [yorg] q
-	;dumpst0
-	;ffree st0
+
 
 	jmp AppMainLoop
 
@@ -2272,13 +2392,13 @@ doFileSavetcd:
 
 
 doFileSavePDF: 
-	call tcd2pdf
+	call FileSavepdf
 	jmp AppMainLoop
 
 
 doExit:
 	call ResetBackground
-	exit  ;return to tatOS
+	exit  ;return to tedit
 
 
 
@@ -2345,6 +2465,7 @@ doLineIP:  ;P1=intersection, P2=perpendicularTo
 	jmp AppMainLoop
 
 doText:
+	push [currentlayer]
 	call txtcreate
 	mov dword [FeedbackMessageIndex],eax
 	mov dword [LftMousProc],ebx
@@ -2442,10 +2563,6 @@ doMirror:
 	call MirrorObjects
 	jmp AppMainLoop
 
-doLayer:
-	call SetObjectLayerToCurrent
-	call UnselectAll
-	jmp AppMainLoop
 
 
 
@@ -2475,6 +2592,10 @@ doGrid:
 
 doChamfSize:
 	call SetChamSize
+	jmp AppMainLoop
+
+doTextHeight:
+	call SetTxtHight
 	jmp AppMainLoop
 
 
@@ -2776,7 +2897,7 @@ public InitLink1
 ;CreateBLink
 ;Create Blank Link
 
-;version December 2015
+;version January 2016
 
 ;this function allocates some memory for another graphic object
 ;and attaches the link to the end of our double link list
@@ -2794,19 +2915,19 @@ public InitLink1
 ; 8      dword    visibility state
 ;12      dword    qty points    (defined so far)
 ;16      dword    dat pointer
-;20      dword    address paint  procedure
-;24      dword    address delete procedure
-;28      dword    address copy   procedure
-;32      dword    address move   procedure
-;36      dword    address mirror procedure
-;40      dword    address modify procedure
-;44      dword    address write  procedure
-;48      dword    address read   procedure
+;20      dword    address paint     procedure
+;24      dword    address delete    procedure
+;28      dword    address copy      procedure
+;32      dword    address move      procedure
+;36      dword    address mirror    procedure
+;40      dword    address modify    procedure
+;44      dword    address writetcd  procedure
+;48      dword    address readtcd   procedure
 ;52      dword    address select by mouse pick procedure
-;56      dword    address scale  procedure
-;60      dword    address dump   procedure
+;56      dword    address scale     procedure
+;60      dword    address dump      procedure
 ;64      dword    address select by dragbox procedure
-;68      dword    open-assign stub proc
+;68      dword    address writepdf  procedure
 ;72      dword    address of previous link in double link list
 ;76      dword    address of next link in double link list
 ;80      qword    X1  object endpoint 1
@@ -2941,13 +3062,20 @@ public CreateBLink
 	mov esi, [newlink]   ;new links are always appended to the list
 
 
-	;dump address of newlink being created
-	mov eax,esi
+
+	;zero out all fields of the newlink 
+	;to erase previous garbage
+	mov edi,esi  ;edi=address of link
+	cld
+	mov ecx,256  ;qty bytes to write
+	mov al,0     ;write 0 byte
+	repstosb     ;al->[edi], edi++
 
 
 
 	;initialization of link data is the responsiblity
-	;of the calling function
+	;of the calling function (segmentcreate, txtcreate ...)
+	;all we do here is set the nextlink/previouslink pointers
 
 
 	;case 1: the first link of the list
@@ -2968,13 +3096,17 @@ public CreateBLink
 
 .SuccessInsert:
 	xor eax,eax
+
 	;return value
 	mov esi,[newlink]
+
 	;increment our link pointer
 	;this will be the starting address of the next link
 	add dword [newlink],256 
+
 	;increment link count
 	inc dword [sizeoflinklist] 
+
 
 	;check to make sure we havent exceeded 8000 links/objects
 	;????????????????
@@ -3009,7 +3141,7 @@ public CreateBLink
 ;on error CF is set
 ;on success CF is clear and
 ;eax=address of 8 byte layer name not 0 terminated
-;ebx=visibility in low byte
+;ebx=visibility
 ;ecx=color
 ;edx=linetype
 ;edi=dword [currentlayer]
@@ -3036,7 +3168,7 @@ public GetLayItems
 	;stdcall esi,8,[DUMPSTRN]
 	push eax
 
-	;ebx= visibiliy in low byte
+	;ebx= visibility
 	mov ebx,[esi+8]
 	mov eax,ebx
 	;stdcall str17,0,[DUMPEAX]
@@ -3333,7 +3465,7 @@ DragBoxPaint:
 	mov edx,[leftmouseY]   ;y1
 	mov esi,[mousex]       ;x2
 	mov edi,[leftmouseY]   ;y2
-	mov ebp,WHI            ;color
+	mov ebp,BLU            ;color
 	sysenter
 
 	mov eax,30
@@ -3342,7 +3474,7 @@ DragBoxPaint:
 	mov edx,[leftmouseY] 
 	mov esi,[leftmouseX] 
 	mov edi,[mousey]
-	mov ebp,WHI
+	mov ebp,BLU
 	sysenter
 
 	mov eax,30
@@ -3351,7 +3483,7 @@ DragBoxPaint:
 	mov edx,[mousey]
 	mov esi,[leftmouseX] 
 	mov edi,[mousey]
-	mov ebp,WHI
+	mov ebp,BLU
 	sysenter
 
 	mov eax,30
@@ -3360,7 +3492,7 @@ DragBoxPaint:
 	mov edx,[mousey]
 	mov esi,[mousex]
 	mov edi,[leftmouseY] 
-	mov ebp,WHI
+	mov ebp,BLU
 	sysenter
 
 	ret
@@ -3467,9 +3599,9 @@ MoveObjects_33:
 	;esi=address of object to move
 	push DeltaX       ;address DeltaX
 	push DeltaY       ;address DeltaY
-	mov eax,[esi+32]  ;get the object move routine address
-	call eax          ;call object move routine (i.e. segmentmove...)
-	;object move routine must cleanup 2 args on stack
+	mov eax,[esi+32]  ;get the object->move proc
+	call eax          ;call object->move proc (i.e. segmentmove...)
+	;object->move proc must cleanup 2 args on stack
 
 
 .getNextLink:
@@ -3658,17 +3790,29 @@ public UnselectAll
 
 
 
-;**********************************
+;**************************************************
 ;DeleteSelectedObjects
+
 ;go thru the link list
 ;and delete all selected objects
+
 ;offset 8 in the link is the visibility state
 ;   0=all or partially visible
 ;   1=selected
 ;   2=clipped totally off screen
+
+;Jan 2016
+;tom this function removes links from the list
+;but it does not call the object->deleteproc
+;(i.e. sementdelete, txtdelete are not called)
+;if we ever create an object like MTEXT 
+;that may have pointers to allocated memory
+;we will need to revise this code to include a
+;call to object->deleteproc (offset 24 in the link)
+
 ;input:none
 ;return:none
-;**********************************
+;****************************************************
 
 DeleteSelectedObjects:
 
@@ -3690,14 +3834,44 @@ DeleteSelectedObjects:
 	cmp dword [esi+8],1  ;is object selected ?
 	jnz .getNextLink     ;if not get next link
 
-	;save address of link either side of the selected one
-	mov eax,[esi+72]  ;eax=linkPrevious
-	mov ebx,[esi+76]  ;ebx=linkNext
+
+	;dump address of selected link
+	mov eax,9    ;dumpebx
+	mov ebx,esi  ;value to dump
+	mov ecx,str110
+	mov edx,0    ;0=reg32
+	sysenter
+
+
+	;get address of previous and next link
+	mov eax,[esi+72]  ;eax=previouslink
+	mov ebx,[esi+76]  ;ebx=nextlink
+
+
+	;dump the previous link
 	push eax
-	push esi
-	dumpebx ebx,str110,0
-	pop esi
+	push ebx
+	mov ebx,eax  ;value to dump
+	mov ecx,str173
+	mov edx,0    ;0=reg32
+	mov eax,9    ;dumpebx
+	sysenter
+	pop ebx
 	pop eax
+
+
+	;dump the next link
+	push eax
+	push ebx
+	;ebx=value to dump
+	mov ecx,str174
+	mov edx,0    ;0=reg32
+	mov eax,9    ;dumpebx
+	sysenter
+	pop ebx
+	pop eax
+
+
 
 	;check for head, tail or some link in the middle
 	cmp esi,[headlink]
@@ -3705,7 +3879,14 @@ DeleteSelectedObjects:
 	cmp esi,[taillink]
 	jz .deleteTail
 
+
 	;delete links in the middle of the list
+	push eax
+	push ebx
+	dumpstr str172    ;middle
+	pop ebx
+	pop eax
+
 	mov [eax+76],ebx  ;linkPrevious->Next = linkNext
 	mov [ebx+72],eax  ;linkNext->Previous = linkPrevious
 	inc dword [DeletedQtyObjects]
@@ -3714,22 +3895,44 @@ DeleteSelectedObjects:
 
 .deleteHead:
 	;head link only (esi=headlink=taillink)
+	push eax
+	push ebx
+	dumpstr str170a  ;head
+	pop ebx
+	pop eax
+
+	;does headlink==taillink ?
 	cmp esi,[taillink]
 	jnz .deleteHeadPlus
+
+	;if we got here there is only 1 link, esi=headlink=taillink
 	mov dword [sizeoflinklist],0 
 	inc dword [DeletedQtyObjects]
 	call InitLink1
 	jmp .done
 
+
 .deleteHeadPlus:
-	;head link with at least one more object
-	mov dword [ebx+72],0   ;linkNext->Previous=0
-	mov [headlink],ebx
+	;if we got here there are at least 2 links in the list
+	;ebx=address of nextlink
+	push eax
+	push ebx
+	dumpstr str170b  ;head
+	pop ebx
+	pop eax
+
+	mov dword [ebx+72],0   ;nextlink->previous=0
+	mov [headlink],ebx     ;nextlink==headlink
 	inc dword [DeletedQtyObjects]
 	jmp .decCount
 	
 
 .deleteTail:
+	;if we got here user wants to delete taillink
+	push eax
+	dumpstr str171      ;tail
+	pop eax
+
 	mov edx,eax
 	add edx,76          ;add offset for next link
 	mov dword [edx],0   ;linkPrevious->Next=0
@@ -3738,7 +3941,7 @@ DeleteSelectedObjects:
 
 
 .decCount:
-	dec dword [sizeoflinklist] 
+	dec dword [sizeoflinklist]
 	mov ebx,[sizeoflinklist]
 	dumpebx ebx,str23,0
 
@@ -3749,15 +3952,11 @@ DeleteSelectedObjects:
 	jnz .mainLoop
 
 
-
-
 	;now if user deleted the entire link list
 	;we need to call this one again
 	cmp dword [sizeoflinklist],0 
 	jnz .done
 	call InitLink1
-
-
 
 .done:
 
@@ -3823,11 +4022,6 @@ public GetMousePnt
 
 .done:
 
-	;for debug
-	dumpst0
-	fxch st1
-	dumpst0
-	fxch st1
 
 	ret
 
@@ -4087,14 +4281,7 @@ MeasureAngle2Seg_22:
 	sysenter
 
 
-	;dump the intersection point for debug
-	dumpstr str36
-	fld qword [X1]
-	dumpst0
-	ffree st0
-	fld qword [Y1]
-	dumpst0
-	ffree st0
+
 
 
 
@@ -4482,14 +4669,12 @@ MirrorObjects_22:
 ;GetSelObj
 ;Get Selected Objects
 
-;a number of functions need the address 
-;of only 1 selected object and some need the address of 2
-;we loop thru the link list and return the addresses
-;of up to 2 selected objects
+;this function searches by object type
+;and returns the address of the 1st and 2nd selected object
 
 ;note if two objects are returned as selected
 ;these are not necessarily in the order the user picked
-;the first selected object is closest to the headlink
+;the first selected object returned is closest to the headlink
 ;the 2nd selected object is next closest to the headlink
 
 ;input:
@@ -4586,6 +4771,84 @@ public GetSelObj
 
 
 
+
+
+;**********************************************
+;Get1SelObj
+;Get One Selected Object
+
+;this function will loop thru the link list
+;and count the number of selected objects
+;and return the object type and 
+;address of the last selected object
+;it was written to handle Rclick popup menus
+;the user should select only 1 object to use this function
+
+;input:none
+;return:
+;ecx=qty selected object
+;eax=type of last selected object
+;esi=address of last selected object
+;***********************************************
+
+public Get1SelObj
+
+	push ebp
+	mov ebp,esp
+	
+	;local variables
+	sub esp,12
+	;[ebp-4]   qty selections
+	;[ebp-8]   type of last selected object
+	;[ebp-12]  address of last selected object
+
+
+	;init qty selections
+	mov dword [ebp-4],0
+
+	mov esi,[headlink]
+
+.1:  
+	cmp dword [esi+8],1    ;is object selected ?
+	jnz .nextLink
+
+	;we have a selected object
+	add dword [ebp-4],1    ;inc qty selections
+
+	;save object type
+	mov eax,[esi] 
+	mov [ebp-8],eax
+
+	;save object address
+	mov [ebp-12],esi
+
+.nextLink:
+	mov esi,[esi+76]       ;get address of next link
+	cmp esi,0              ;is next link address valid ?
+	jnz .1
+
+
+.done:
+
+	;return values:
+	mov ecx,[ebp-4]  ;qty selected objects
+	mov eax,[ebp-8]  ;type of last selected object
+	mov esi,[ebp-12] ;address of last selected object
+
+	mov esp,ebp  ;deallocate local variables
+	pop ebp
+	ret
+
+
+
+
+
+
+
+
+
+
+
 ;*************************************************
 ;ScaleObjects
 ;scale all selected objects by a scale factor
@@ -4666,7 +4929,7 @@ ScaleObjects_22:
 	cmp dword [esi+8],1       ;is object selected ?
 	jnz .nextLink
 
-	;get object scale proc address
+	;get object->scale proc address
 	mov eax,[esi+56]
 
 	;we put 3 args on the stack for the scaling proc
@@ -4674,7 +4937,7 @@ ScaleObjects_22:
 	push XC          ;address XC ref point
 	push YC          ;address YC ref point
 	push ScaleFactor ;address scale factor
-	call eax         ;call it, must preserve esi
+	call eax         ;call object->scale proc (must preserve esi)
 
 .nextLink:
 	mov esi,[esi+76] ;get address of next link
@@ -4782,6 +5045,13 @@ DumpAll:
 	;[ebp-4]   ;link #
 	;[ebp-8]   ;qty links dumped
 
+
+	;is there anything to dump ?
+	cmp dword [sizeoflinklist],0
+	jz .emptylist
+
+
+	;init
 	mov dword [ebp-4],0  ;init link#
 	mov dword [ebp-8],0  ;init qty links dumped
 	mov esi,[headlink]
@@ -4810,8 +5080,15 @@ DumpAll:
 	jnz .1
 
 
-	;dump qty links dumped
+	;ebx=qty of links dumped
 	mov ebx,[ebp-8]
+	jmp .done
+
+
+.emptylist:
+	mov ebx,0
+.done:
+	;write to dump the qty links
 	dumpebx ebx,str79,3
 
 	mov esp,ebp  ;deallocate locals
@@ -4892,7 +5169,18 @@ public float2int
 
 
 
+;mov eax,9    ;dumpebx
+;mov ebx,edi  ;value to dump
+;mov ecx,txtdebug1
+;mov edx,0    ;0=reg32
+;sysenter
 
 
 
-  
+
+
+
+
+
+
+                               

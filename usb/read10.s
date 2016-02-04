@@ -120,7 +120,7 @@ read10:
 	mov [Read10_structTD_data],edi    ;buffer pointer
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2)  ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	mov [chainbytecount],eax
 	mov [BufferPointer],edi
 %endif
@@ -159,7 +159,7 @@ read10:
 	jnz near .ReadErrorCommandTransport
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2)  ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	;copy request to data buffer 0xb70000
 	;this request tells ehci what to do during data transport
 	mov esi,Read10Request
@@ -198,7 +198,7 @@ read10:
 	jnz near .ReadErrorDataTransport
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2)  ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 
 	;generate a chain of ehci TD's
 	;global dwords [chainbytecount], [BufferPointer] are set above
@@ -233,7 +233,7 @@ read10:
 	jnz near .ReadErrorStatusTransport
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2)  ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	;generate 1 usb Transfer Descriptor
 	mov eax,13 ;qty bytes to receive, every CSW is 13 bytes
 	mov ebx,1  ;PID IN

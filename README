@@ -1,4 +1,4 @@
-README - tatOS - May 2015
+README - tatOS - Jan 2016
 
 Welcome to tatOS - "programming for the common man in assembler"
 
@@ -6,13 +6,18 @@ tatOS is an x86 32 bit hobby operating system that gets worked on in my spare ti
 It has provided many hours of programming enjoyment (perhaps too many !)
 
 The corner stone of tatOS is the "tedit" text editor and the "ttasm" assembler.
+The assembler will create 32 bit executables from single source files, and supports 
+public and extern symbols and works with "tlink" and "make" to create executables 
+from multiple source file projects.
+
 There is a suite of functions for graphics, string handling, file system (/tlib) 
 There is a suite of functions to control the usb flash drive & usb mouse. (/usb)
 
-tatOS includes 3 differant usb controller drivers for flash drive & mouse:
+tatOS includes 4 differant usb controller drivers for flash drive & mouse:
 * usb 1.0 uhci 
 * usb 2.0 ehci with uhci companion controllers
 * usb 2.0 ehci with integrated root hub
+* usb 2.0 ehci with no usb 1.0 support
 You will have to set appropriate values in tatOS.config and reassemble for your hdwre.
 
 Not supported:

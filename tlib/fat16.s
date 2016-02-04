@@ -9,7 +9,7 @@
 ;fatFindAvailableCluster, fatFindAvailableDirEntry, fatfindfile 
 ;fatreadDirEntry, fatFillinDirEntry, fatWriteDirEntry, 
 ;fatGenerateDEStrings, fatbuildtatOSdirString
-;fatreadVBR, fatgetfilename, fatcluster2LBA, 
+;fatreadVBR, fatgetfilename, fatprocessfilename, fatcluster2LBA, 
 ;fatSetAttributes, fatCopyFilename,  fatsetCWDasRoot
 ;fatformatdrive
 
@@ -452,16 +452,18 @@
 
 
 
-;Copy Your Files off the Flash drive in Linux first
-;******************************************************
+;Copy Your Files off the Flash drive in Linux first (Dont create holes)
+;**************************************************************************
 ;dont delete files off your flash in linux, just copy
-;you do not delete any files off your flash drive in Linux.
+;you should not delete any files off your flash drive in Linux.
 ;Because this driver saves files as continguous blocks, I suggest to avoid
 ;deleting files from your tatOS flash drive in linux because this will create holes
 ;in your fat and Im not sure how the tatOS driver will respond to that.
 ;I also suggested not using vi to view/edit a file on your tatOS flash drive 
 ;because this will create a new swap file and delete the old again causing holes.
 ;In short with Linux just list your files using "ls" or just copy them off.
+;vmware on a mac also creates "trash" folders and holes in the fat so you
+;should reformat your tatOS flash after using vmware 
 
 ;we store the root directory entries seperately from sub directory entries 
 ;and use a variable [CurrentWorkingDirectory] 
@@ -1105,9 +1107,7 @@ fatreadVBR:
 	;values for the ListControl
 	mov eax,[qtyVBRstrings]
 	mov dword [list_QtyStrings],eax
-	mov dword [0x5e8],0   ;index of currently selected List Control string
-	mov dword [0x5ec],0   ;index of the first displayed List Control string
-
+	call ListControlDoHome
 	ret
 
 
@@ -2558,29 +2558,16 @@ fatgetfilename:
 	;zf is clear if user ESCaped
 
 
-
-	;is the filename entered less than 11 char ?
+	;mess-age the filename string to make it exactly 11 char
+	;with appended spaces and 0 terminated
 	mov eax,COMPROMPTBUF
-	call strlen   ;return value in ecx
+	call fatprocessfilename
 
-	cmp ecx,11
-	jae .terminate
 
-	;then append spaces to make it 11 char long
-	cld
+	STDCALL fatstr79,dumpstr  ;'filename entered:'
+
+	;dump the filename string (eax=address of)
 	mov eax,COMPROMPTBUF
-	lea edi,[eax+ecx]
-	mov ebx,11
-	sub ebx,ecx
-	xchg ebx,ecx  ;ecx=num spaces to append
-	mov al,SPACE
-	rep stosb
-
-.terminate:
-	mov eax,COMPROMPTBUF
-	mov byte [eax+11],0  ;terminate the 12th byte
-	STDCALL fatstr79,dumpstr
-	;dump the filename string entered by the user
 	STDCALL eax,dumpstrquote 
 
 	xor eax,eax  ;set ZF on success, comprompt clears on error
@@ -2590,6 +2577,45 @@ fatgetfilename:
 	popad
 	pop ebp
 	retn 4
+
+
+
+;**************************************************
+;fatprocessfilename
+;this code mess-ages a filename string making
+;it exactly 11 chars long with appended spaces
+;and 0 terminated
+;input: eax=address of unprocessed filename string
+;return:none
+;**************************************************
+
+fatprocessfilename:
+
+	mov edx,eax  ;save copy of string address for later
+
+	;is the filename string less than 11 char ?
+	call strlen   
+	;return value in ecx
+
+	cmp ecx,11
+	jae .terminate
+
+	;the string is shorter than 11 chars
+	;then append spaces to make it 11 char long
+	cld
+	;edx=address of string
+	;ecx=strlen
+	lea edi,[edx+ecx]
+	mov ebx,11
+	sub ebx,ecx
+	xchg ebx,ecx  ;ecx=num spaces to append
+	mov al,SPACE
+	rep stosb
+
+.terminate:
+	mov byte [edx+11],0  ;terminate the 12th byte
+	ret
+
 
 
 
@@ -2828,8 +2854,8 @@ fatGenerateDEStrings:
 
 	;values for the ListControl
 	mov dword [list_QtyStrings],ecx
-	mov dword [0x5e8],0   ;index of currently selected List Control string
-	mov dword [0x5ec],0   ;index of the first displayed List Control string
+	call ListControlDoHome
+
 
 .error:
 	ret

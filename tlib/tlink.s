@@ -12,18 +12,10 @@
 ;which were assembled with a value of 00000000.
 
 ;both the extern & public tables are built by ttasm and added to with the 
-;assembly of each source file. see tlib/tableext.s and tablepub.s  These tables 
-;are only erased with the "erasepe" directive which is used only for the first 
-;source file of a multi-source project.
+;assembly of each source file. see tlib/tableext.s and tablepub.s  
 
-;tlink is invoked from within tedit using Ctrl+F11
+;tlink works in concert with "make", see tlib/make.s 
 
-;to assemble a project using extern and public symbols, you must do the following 
-;in order:
-;  * assemble the main source file which calls "eraseall"
-;  * assemble the secondary sources files
-;  * call tlink (Ctrl+F11)
-;now run your project
 
 
 
@@ -44,11 +36,12 @@ tlinkstr11 db 'tlink:extern symbol has headlink=0, no usage of symbol',0
 
 
 
-;***************************************************
+;**************************************************************
 ;tlink
-;input:none
-;return:ZF is set on error, clear on success
-;***************************************************
+;input: code must be assembled into memory by ttasm
+;       public and extern symbol tables are built by ttasm
+;return: ZF is set on error, clear on success
+;**************************************************************
 
 tlink:
 

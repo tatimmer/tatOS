@@ -54,6 +54,7 @@ TLIB:
 	- all the graphic controls need to save YORIENT, set YORIENT=1 then restore on exit
 	- palette manager ability to display rgb component of any color box
 	- palette manager ability to set stock background color 38,34,27
+	- function dumpst0 which includes a string tag like dumpeax
 
 
 TEDIT:
@@ -62,6 +63,7 @@ TEDIT:
 	- correct a problem in CaretNextLink for lines > 80char
 	- ability to read off pen drive as ascii hex bytes, edit and save back
 	- ability to move the carot vertically at current position not at the end of line
+	- hyperlink/bookmark to quickly jump to spots in the source code
 
 
 TTASM: 

@@ -1,6 +1,6 @@
 ;tatOS/boot/gdtidttss.s
 
-;rev August 2013
+;rev Jan 2016
 
 ;this file is included in boot2.s
 ;it contains the gdt, idt, tss and default isr's & irq's
@@ -11,7 +11,7 @@
 ;you have a "flood" of interrupts. also display interrupt counter
 ;from the shell. also irq5 and/or irq7 or irq11 may be used for ehci
 
-
+;Jan 22, 2016   irq12 ps2 mouse code is removed
 
 
 ;**********************************************************
@@ -411,7 +411,7 @@ idt:
 	db 0x8e        
 	dw 0
 
-	dw irq12        ;interrupt 44, irq12, ps2 mouse
+	dw irqd2        ;interrupt 44, irq12, ps2 mouse
 	dw 0x08
 	db 0
 	db 0x8e        
@@ -655,8 +655,35 @@ ir11:  ;Segment Not Present
 
 
 ir12: ;Stack fault
-	STDCALL 12,_stackflt,defaultISRhandler
-	jmp $
+
+	;set kernel data selectors
+	mov ax,0x10
+	mov ds,ax
+	mov es,ax
+	mov fs,ax
+	mov gs,ax
+
+	;type of interrupt
+	STDCALL FONT01,0,500,_stackflt,[KERNELTXTCOLOR],[PUTS] 
+
+	pop eax  ;error code
+	STDCALL 0,520,[KERNELTXTCOLOR],intstrERROR,[PUTEAXSTR] 
+
+	pop eax  ;EIP
+	STDCALL 0,540,[KERNELTXTCOLOR],intstrEIP,[PUTEAXSTR] 
+
+	pop eax  ;cs
+	STDCALL 0,560,[KERNELTXTCOLOR],intstrCS,[PUTEAXSTR] 
+
+	pop eax  ;eflags
+	STDCALL 0,580,[KERNELTXTCOLOR],intstrEFLAGS,[PUTEAXSTR] 
+
+	call [SWAPBUF]
+	sti  ;enable interrupts otherwise CTRL+ALT+DEL wont work
+	jmp  $
+
+
+
 
 
 ir13: ;General Protection Fault

@@ -14,10 +14,13 @@
 ;code to manage "extern" symbols with an extern symbol table
 
 ;extern symbols are symbols whos address is unknown at assembly time 
-;because the address is known/defined in another source file using the "public" directive.  
+;because the address is known/defined in another source file 
+;using the "public" directive.  
+
 ;ttasm will assemble all extern symbols with a value of 00000000 
 ;and save to the extern symbol table link list the value of the 
 ;assembly point where the symbol value has to be patched. 
+
 ;the linker (tlink) will read the public symbol table and the extern symbol table 
 ;and patch all extern symbols in memory with the correct symbol value.
 
@@ -29,27 +32,25 @@
 ;extern orange
 ;extern pear
 
-;The extern table and the public table must be properly cleared/erased at some point
-;this is done with the ttasm directive "erasepe". You will typically invoke this directive 
-;at the beginning of assembly of your projects first source file. Subsequent source 
-;file assemblies will just keep appending to these tables.
+;The extern table and the public table must be properly cleared/erased 
+;at the beginning of building a multiple source file project 
+;see tlib/make.s which takes care of this
 
 ;extern symbols are classified as either "data" or "procedure"
 
-;ttasm supports a limited usage of extern data symbols 
-;  * any instruction which uses the ProcessMemoryAndDisp and test4imm functions
-;    this includes: mov, cmp, add, sub, or, neg, not, inc, dec and some fpu instructions
-;  * mov dword imm->reg where imm is an extern symbol
-
+;most extern symbols are procedure entry point symbols
+;you can declare a procedure entry point as "public" and then call that 
+;procedure from another source file
 ;ttasm supports extern procedure symbols via the "call reldisp32" instruction only
 ;you can not do "call [extern]", this will generate an assembly error
 ;nor can you do "call reg" with an extern symbol in the reg
 
-;to assemble a project using extern and public symbols, you must do the following in order:
-;  * assemble the main source file which calls "erasepe"
-;  * assemble the secondary sources files
-;  * call tlink (Ctrl+F11)
-;now run your project
+;ttasm supports a limited usage of extern data symbols 
+;  * any instruction which uses the ProcessMemoryAndDisp and test4imm functions
+;  * mov dword imm->reg where imm is an extern symbol
+
+
+;to assemble a project using extern and public symbols, see /tlib/make.s 
 
 
 ;the extern symbol table is organized into two parts.
@@ -67,20 +68,22 @@
 ;****************************
 ;Part 2 is the memory block allocated for single link lists
 ;one single link list is generated for each extern symbol in the directory
-;one link will be generated for each useage/instance of an extern symbol in the sourcefile
+;one link will be generated for each useage/instance of an 
+;extern symbol in the sourcefile
 
 ;each link consists of (2) dwords:
 ;   * dword1  _assypoint  (tlink must overwrite value at this address)
 ;   * dword2  address of next link (pointer to next link in list)
 ;     (the last link of the list will be assigned dword2=0)
 
-;for the case of extern data, the value written to memory address dword1 by ttasm 
-;is 00000000, tlink will overwrite the 00000000 with the address of the public data label
+;for the case of extern data, the value written to memory address dword1 
+;by ttasm is 00000000, tlink will overwrite the 00000000 with the address 
+;of the public data label
 
-;for the case of an extern procedure, the value written to memory address dword1 by ttasm
-;is equal to the _assypoint less 4 (see ttasm docall code generator), tlink will read this
-;value then subtract it from the value of the public code label to arrive at reldisp32 
-;which is then written back as the value at dword1
+;for the case of an extern procedure, the value written to memory address 
+;dword1 by ttasm is equal to the _assypoint less 4 (see ttasm docall code generator), 
+;tlink will read this value then subtract it from the value of the public code 
+;label to arrive at reldisp32 which is then written back as the value at dword1
 
 
 

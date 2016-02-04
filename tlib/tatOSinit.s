@@ -126,7 +126,7 @@ tatOSinit:
 
 
 	;build 2 lookup tables 
-	;see tatos/tlib/polar.s 
+	;see tatOS/tlib/polar.s 
 	STDCALL initstr9,putscroll
 	call fillsincos
 

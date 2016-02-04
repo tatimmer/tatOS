@@ -94,7 +94,7 @@ RequestSense:
 	jnz near .error
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2)  ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	;copy request to data buffer 0xb70000
 	mov esi,RequestSenseRequest
 	mov edi,0xb70000
@@ -127,7 +127,7 @@ RequestSense:
 	jnz near .error
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2)  ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	;generate 1 usb Transfer Descriptor
 	mov eax,18  ;qty bytes to receive
 	mov ebx,1   ;PID = IN	
@@ -166,7 +166,7 @@ RequestSense:
 	jnz near .error
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2)  ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	;generate 1 usb Transfer Descriptor
 	mov eax,13 ;qty bytes to receive
 	mov ebx,1  ;PID IN

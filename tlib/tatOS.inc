@@ -120,6 +120,7 @@ LBAMAX equ 488000
 ;the vga16 colors 
 ;see palette.s for rgb values of these colors
 ;these colors are the same for the std or gray palette
+;tom how come we dont have and ORA orange color here ?????
 %define BLA   239  ;ef  black
 %define BLU   240  ;f0  blue
 %define GRE   241  ;f1  green

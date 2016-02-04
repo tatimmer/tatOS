@@ -110,7 +110,7 @@ write10:
 	mov [Write10_structTD_data],esi   ;buffer pointer
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2)  ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	mov [chainbytecount],eax
 	mov [BufferPointer],esi
 %endif
@@ -141,7 +141,7 @@ write10:
 	jnz near .WriteErrorCommandTransport
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2) ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	;copy request to data buffer 0xb70000
 	mov esi,Write10Request
 	mov edi,0xb70000
@@ -177,7 +177,7 @@ write10:
 	jnz near .WriteErrorDataTransport
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2) ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	;copy the source bytes to our usb data buffer at 0xb70000
 	mov esi,[sourceAddress]
 	mov edi,0xb70000
@@ -217,7 +217,7 @@ write10:
 	jnz near .WriteErrorStatusTransport 
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2) ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	;generate 1 usb Transfer Descriptor
 	mov eax,13 ;qty bytes to receive, every CSW is 13 bytes
 	mov ebx,1  ;PID IN

@@ -105,6 +105,7 @@ dCutCopy            dd 0
 
 filemanager:
 
+	pushad
 
 	STDCALL FMstr1,dumpstr
 
@@ -303,6 +304,7 @@ filemanager:
 	mov eax,[yorient_stor]
 	mov [YORIENT],eax
 	call ListControlDestroy
+	popad
 	ret
 
 

@@ -84,7 +84,7 @@ ReadCapacity:
 	jnz near .error
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2) ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	;copy request to data buffer 0xb70000
 	mov esi,ReadCapacityRequest
 	mov edi,0xb70000
@@ -117,7 +117,7 @@ ReadCapacity:
 	jnz near .error
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2) ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	;generate 1 usb Transfer Descriptor
 	mov eax,8   ;qty bytes to receive
 	mov ebx,1   ;PID = IN	
@@ -173,7 +173,7 @@ ReadCapacity:
 	jnz near .error
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2) ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 	;generate 1 usb Transfer Descriptor
 	mov eax,13 ;qty bytes to receive
 	mov ebx,1  ;PID IN

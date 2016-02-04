@@ -222,7 +222,9 @@ strncpy:
 ;zf is set on success and ecx=0
 ;zf is clear on error and ecx is nonzero
 ;**************************************
+
 strncmp:
+
 	push esi
 	push edi
 
@@ -252,6 +254,7 @@ strncmp:
 ;*******************************************
 
 strcat:
+
 	push eax
 	push ecx  ;save for later
 
@@ -281,7 +284,8 @@ strcat:
 ;eax=address of 0 terminated string
 
 ;returns:
-;ecx=length of string (not counting terminator)
+;kernel ecx=length of string (not counting terminator)
+;user   eax=length of string (not counting terminator)
 
 ;author: Paul Hsieh
 ;source: John Eckerdahl Assy Gems
@@ -510,9 +514,9 @@ haveneg dd 0
 _eax10buf times 15 db 0
 ;****************************************************
 
-ebx2dec:
+ebx2dec:    ;userland
 	mov eax,ebx
-eax2dec: 
+eax2dec:    ;kernel
 
 	push ebp
 	mov ebp,esp
@@ -728,7 +732,8 @@ str2eax:
 	push edi
 	push ebp
 
-	STDCALL _str2eax1,esi,dumpstrstr
+	;for debug
+	;STDCALL _str2eax1,esi,dumpstrstr
 
 	mov dword [_haveneg],0
 	

@@ -174,8 +174,21 @@ usbinitmouse:
 ;***********************************************************
 
 
+
+%if  USBCONTROLLERTYPE == 3  ;ehci only
+	;I put this code label in here to keep nasm quiet
+	;in truth you can not run a mouse on ehci only 
+	;ehci does not support low speed usb 1.0 devices like the mouse
+	;but this file needs a .resetport code label for every USBCONTROLLERTYPE
+	.resetport:
+%endif
+
+
+
+
+	;the following mouse init code is applicable to all controller types
 	;I rarely have a problem with this code
-	;the mouse seems to be more easy to init than some flash drives
+	;the mouse seems to be more easy to init than most flash drives
 
 
 	STDCALL usbmousestr11,putscroll  ;start of common code for initmouse

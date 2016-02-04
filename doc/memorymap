@@ -403,7 +403,7 @@ directory will be loaded here.
 
 
 
-0x198fb00=26.8meg Filemanager Selected Filename 
+0x198fb00=26.8meg Filemanager Selected FILENAME 
 ***************************************************************
 When you select a file and hit "ENTER" the filemanager saves the 
 11 byte filename to 0x198fb00 

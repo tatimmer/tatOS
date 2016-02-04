@@ -1,6 +1,6 @@
 
 ;Project: TCAD
-;io02  Dec 18, 2015
+;io21  Feb 04, 2016
 
 ;this file contains code and data for reading and writting tcd files
 ;a tcd file is the native graphics file for TCAD
@@ -9,13 +9,13 @@
 
 ;FileSaveTCD   (public)
 ;FileOpenTCD   (public)
-;tcd2pdf       (public)
-;Generate_PDF_graphic_stream
+;FileSavepdf   (public)
+
 
 
 ;io.exe follows seg.exe in executable memory
 ;as of Nov 2015 seg.exe ends at 0x200d09c
-org 0x200f000
+org 0x2010000
 
 ;unique number to identify this source file in the project
 source 2
@@ -25,10 +25,10 @@ source 2
 ;  EXTERN
 ;****************
 
+extern headlink
 extern InitLink1
 extern segmentread
-extern headlink
-
+extern txtread
 
 
 
@@ -48,6 +48,23 @@ equ START_PDFFILE   0x2300000
 
 ;the pdf graphic stream is all the MoveTo LineTo objects
 equ START_PDFGSTRM  0x2350000
+
+
+
+
+;******************
+;  EQUates
+;******************
+
+;object types defined in main.s
+equ TCD_SEGMENT  0
+equ TCD_CIRCLE   1
+equ TCD_ARC      2
+equ TCD_RECT     3
+equ TCD_TEXT     4
+equ TCD_DIM      5
+equ TCD_VERSION  2     ;currently supported version number
+equ SIZEOFTCDHEADER 48
 
 
 
@@ -72,19 +89,33 @@ db0 28
 
 
 
-;******************
-;  EQUates
-;******************
 
-;object types defined in main.s
-equ TCD_SEGMENT  0
-equ TCD_CIRCLE   1
-equ TCD_ARC      2
-equ TCD_RECT     3
-equ TCD_TEXT     4
-equ TCD_DIM      5
-equ TCD_VERSION  2     ;currently supported version number
-equ SIZEOFTCDHEADER 48
+;****************
+;  STRINGS
+;****************
+
+
+iostr1:
+db 'FileSavepdf',0
+iostr2:
+db '[FileSavepdf] length of graphic stream',0
+iostr3:
+db '[FileSavepdf] invalid graphic stream length',0
+iostr4:
+db '[FileSavepdf] generate graphic stream-address of first object',0
+
+
+
+;for debugging where we are in the code sometimes
+flag1:
+db '[tcd2pdf] flag1',0
+flag2:
+db '[tcd2pdf] flag2',0
+flag3:
+db '[tcd2pdf] flag3',0
+flag4:
+db '[tcd2pdf] flag4',0
+
 
 
 
@@ -128,7 +159,7 @@ color9:
 db '.66 .66 .66 RG',0xa,0 ;Lgray
 
 
-PDF_pen_color:
+public PDFpencolor
 dd color0, color1, color2, color3
 dd color4, color5, color6, color7
 dd color8, color9
@@ -140,8 +171,6 @@ dd color8, color9
 ;  STRINGS written to the PDF file
 ;***********************************
 
-str0:
-db 'tcd2pdf',0
 
 str1:
 db '%PDF-1.7',0xa,0
@@ -163,15 +192,14 @@ str7:
 db '3 0 obj',0xa,0
 
 
-;the MediaBox should specify the x and y extents 
-;this is the bounding rectangle (convex hull) of all drawing objects
-;in future we should look at xmax and ymax of all drawing objects
-;and then select the bounding box extents based on xmax,ymax
-;with an aspect ratio of 8.5x11
-;be careful if you change the size of the media box by addding
-;or substracting bytes, then you must update the xref table locators
+;the MediaBox specifies the x and y extents
+;here we use the 800x600 pixel screen as the page
+;you should zoom and pan your objects to fit the screen
+;before exporting to pdf
+;be careful if you change the numbytes defining the MediaBox
+;then you must update the xref table locators
 str8a:
-db '<</Type /Page /Parent 2 0 R /MediaBox [0 0 130 100]',0xa,0
+db '<</Type /Page /Parent 2 0 R /MediaBox [0 0 800 600]',0xa,0
 
 
 ;the Contents object number idenfies where our graphic stream
@@ -260,8 +288,7 @@ db '%%EOF',0xa,0
 ;******************
 
 
-str100:
-db '[Generate_PDF_graphic_stream] GetLayItems returned error',0
+
 str127:
 db '[tcdFileSave] Enter 11 char filename',0
 str128:
@@ -330,7 +357,6 @@ db '1 j',0xa,0
 ;offset 40  qword 0 (not used at this time)
 
 ;after the 48 byte header comes the object data
-;at this time only TCD_SEGMENT is supported (see segmentwrite)
 
 ;future version of tcd file may write layer info here
 ;for now layer info is just hardcoded into TCAD
@@ -341,6 +367,7 @@ db '1 j',0xa,0
 ;      push address of qword yorg               [ebp+8]
 
 ;      user is prompted to enter 11 char filename
+
 ;return:none
 ;*************************************************************
 
@@ -414,10 +441,10 @@ public FileSaveTCD
 
 	;in this loop esi,edi must be preserved
 
-	;get address of object write procedure
+	;get address of object->write procedure
 	mov eax, [esi+44]
 
-	;call the object write procedure
+	;call the object->write procedure
 	call eax
 	;returns eax=qty bytes written
 	;this should be an even multiple of 16 bytes
@@ -470,6 +497,13 @@ public FileSaveTCD
 
 public FileOpenTCD
 
+	push ebp
+	mov ebp,esp
+	sub esp,4
+	;[ebp-4]  qty of objects read from tcd file so far
+
+
+
 
 	;display filechooser dialog so user may pick a tcd file
 	mov eax,73  ;filechooser
@@ -477,9 +511,12 @@ public FileOpenTCD
 	jz .error3  ;user hit ESC
 
 
+
 	mov eax,72          ;fatreadfile
 	mov ebx,0x2300000   ;address to store file data
 	sysenter
+
+
 
 
 	mov esi,START_TCDFILE
@@ -506,9 +543,12 @@ public FileOpenTCD
 	mov ebx,[START_TCDFILE+4]
 	dumpebx ebx,opentcdstr1,0
 
+
+
 	;dword qty objects  offset 8
 	mov ecx,[START_TCDFILE+8]
-	mov ebx,ecx
+	mov [ebp-4],ecx            ;save for later
+	mov ebx,ecx                ;copy for dumpebx
 	dumpebx ebx,opentcdstr2,0  ;ecx is not preserved
 	mov [FileOpenStruc],ebx    ;save sizeoflinklist to return struc
 	mov ecx,ebx
@@ -538,32 +578,38 @@ public FileOpenTCD
 
 
 .1:
-
-	;in this loop ecx must be preserved
+	;in this loop
 	;and esi must point to the start of a new object in the file
 
 	;read object type
 	mov eax,[esi]
 
-	;check for line segment
 	cmp eax,TCD_SEGMENT
 	jz .readSegment
-	cmp eax,TCD_CIRCLE
-	jz .readCircle
+
 	cmp eax,TCD_TEXT
 	jz .readText
 
 	;if we got here we have some unsupported object type
-	dumpstr opentcdstr6
-	mov eax,0  ;error
-	jmp .done
+	jmp .error4
+
 
 
 .readSegment:
 	call segmentread
-.readCircle:
+	;must return esi=address of next object in tcd file
+	jmp .2
+
 .readText:
-	loop .1
+	call txtread
+	;must return esi=address of next object in tcd file
+	jmp .2
+
+
+.2:
+	sub dword [ebp-4],1  ;decrement qty objects read
+	jnz .1
+
 
 
 	;success
@@ -586,8 +632,14 @@ public FileOpenTCD
 .error3:
 	dumpstr opentcdstr5
 	mov eax,0  ;error
-	;fall thru
+	jmp .done
+.error4:        ;unsupported object type
+	dumpstr opentcdstr6
+	mov eax,0  ;error
+	jmp .done
 .done:
+	mov esp,ebp  ;deallocate locals
+	pop ebp
 	ret
 
 
@@ -598,7 +650,7 @@ public FileOpenTCD
 
 
 ;**********************************************************
-;tcd2pdf
+;FileSavepdf
 
 ;generate a pdf file of the tcad graphic objects
 ;the file is written to memory START_PDFFILE
@@ -607,19 +659,40 @@ public FileOpenTCD
 ;return: none
 ;**********************************************************
 
-public tcd2pdf
+public FileSavepdf
 
 	push ebp
 	mov ebp,esp
-	sub esp,12
+	sub esp,16
 	;[ebp-4]  = dword offset to beginning of xref
 	;[ebp-8]  = dword pdf filesize qty bytes
 	;[ebp-12] = dword size/qtybytes of graphic stream
+	;[ebp-16] = dword address of pdf file just before the
+	;graphic stream is generated, the graphic stream size
+	;numbytes will be written to this address
 
-	dumpstr str0
+
+	dumpstr iostr1
 
 
-	;set destination address for strcpy
+
+
+	;zero out the pdf file buffer from 0x2300000->0x2400000
+	cld
+	mov edi,0x2300000
+	mov al,0
+	;a value of 0x100000 in ecx will cause a page fault
+	;not sure why, works ok in dostest
+	;need more investigation
+	;mov ecx,0x100000
+	mov ecx,0xffff0
+	repstosb    ;al->[edi], edi++
+	
+
+
+
+
+	;set destination address for start of the pdf file in memory
 	mov edi,START_PDFFILE
 	
 
@@ -716,53 +789,179 @@ public tcd2pdf
 
 
 
-	;5 0 obj  (graphic stream)
+	;5 0 obj  (graphic stream object)
 	;***************************
 
+	;the pdf graphic stream consists of a length specification
+	;followed by all the MoveTo LineTo commands 
+	;along with pen color/type specs
+	;our graphic stream looks like this:
+	;5 0 obj
+	;<<Length  xxx >>     (xxx=numbytes in the stream)
+	;stream
+	;now all the bytes making up the stream
+	;endstream
+	;endobject
+
+
+	;5 0 obj
 	mov esi,str9
 	mov eax,19  ;strcpy
 	sysenter
 
 
-	;<</Length    of graphics data stream
+	;<</Length 
 	mov esi,str10a
 	mov eax,19  ;strcpy
 	sysenter
 
 
 
+	;save address in pdf file
+	;where the numbytes length of the graphic stream
+	;will be written
+	mov [ebp-16],edi
+
+
+
+
+
+
+
+
 	;object #5 data  (Graphic objects)
 	;now go thru the tcad link list
-	;and generate the PDF graphic stream
-	;this is all the MoveTo LineTo Stroke commands
-	;the stream is written to ADDRESS_PDFGRAPHICSTREAM
+	;and generate a PDF graphic stream
+	;for lines this is all the MoveTo LineTo commands
+	;the stream is written to a seperate buffer then copied
+	;to the pdf file
+	;the reason for doing this is because we must write to
+	;the pdf file the length specification of the grahic stream first
+	;then we copy the graphic stream to the pdf file 
 
-	push edi
-	call Generate_PDF_graphic_stream
-	;returns ecx=length of stream, ecx=0 on error
-	mov [ebp-12],ecx  ;save for later
-	pop edi
-	;edi=address to write next byte to PDF, must be preserved
+	;graphic stream init 
+	;write linetype, penwidth, roundcap & roundjoint
+	;later we may implement these as variables but for now
+	;all lines will be of this type
 
-
-	cmp ecx,0  ;no graphic stream generated
-	jz .error
-
-
-
-	;the actual stream length must be written to file as ascii decimal
-	;first we convert ebx to an ascii decimal string in temporary stor
-	push edi
-	mov ebx,ecx     ;ecx=length of stream
-	mov eax,55      ;ebx2dec
-	mov ecx,stor    ;ecx=address of temp dest buffer
-	mov edx,0       ;unsigned dword
-	mov esi,0       ;0 terminate
+	;set the dash pattern to solid,  [] 0 d
+	mov esi,strm1
+	mov edi,START_PDFGSTRM   ;redefine edi
+	mov eax,19  ;strcpy
 	sysenter
-	pop edi
+
+	;set the pen width to 1 unit, 1 w
+	mov esi,strm2
+	mov eax,19  ;strcpy
+	sysenter
+
+	;set round cap
+	mov esi,strm3
+	mov eax,19  ;strcpy
+	sysenter
+
+	;set round joint
+	mov esi,strm4
+	mov eax,19  ;strcpy
+	sysenter
+	
 
 
-	;copy the string length qty bytes
+
+
+
+
+
+	;loop thru the link list and 
+	;generate the pdf graphic stream
+	mov esi,[headlink]  ;esi=address of first object
+
+
+
+push esi
+mov eax,9    ;dumpebx
+mov ebx,esi  ;value to dump
+mov ecx,iostr4
+mov edx,0    ;0=reg32
+sysenter
+pop esi
+
+
+
+.1:
+	;get the object->pdfwrite proc at offset 68 in the link
+	mov ebx,[esi+68]
+
+	;all object->pdfwrite procs take as input:
+	;esi=address of object
+	;edi=destination address of pdf graphic stream
+
+	call ebx  ;call it
+
+	;esi=address of object (same)
+	;edi is incremented to hold address of next byte
+	;to be written to the pdf graphic stream
+
+	mov esi,[esi+76]     ;get address of next link
+	cmp esi,0            ;is next link address valid ?
+	jnz .1
+
+
+
+
+
+	;0 terminate the graphic stream
+	;tom we apparently need this in here, but why ?????
+	;mov byte [edi],0
+
+
+
+
+	;compute size of pdf graphic stream
+	;its just equal to the address of edi ending-starting
+	;compute the total bytes in the graphic stream
+	mov ecx,edi              ;address end-of-stream
+	sub ecx,START_PDFGSTRM   ;address start of stream
+	mov [ebp-12],ecx         ;save sizeof pdf graphic stream
+
+
+
+	;dump length of graphic stream
+	mov ebx,ecx
+	dumpebx ebx,iostr2,0
+
+
+
+	;check for valid graphic stream length
+	;if during debug or whatever you have a graphic stream length
+	;that is less than or equal to 0 this can cause all kinds of
+	;problems
+
+	cmp dword [ebp-12],0
+	jg .2
+
+
+	;if we got here we have an invalid graphic stream length
+	;we just set the length to 1 byte and proceed
+	dumpstr iostr3
+	mov dword [ebp-12],1
+	
+
+.2:
+	;convert the graphic stream length to ascii decimal
+	;and save to a temp buffer named "stor"
+	mov ebx,[ebp-12] ;length of graphic stream
+	mov ecx,stor     ;ecx=address of temp dest buffer
+	mov edx,0        ;unsigned dword
+	mov esi,0        ;0 terminate
+	mov eax,55       ;ebx2dec (edi is not preserved)
+	sysenter
+
+
+
+	;write the graphic stream length numbytes
+	;to the pdf file Length specification
+	mov edi,[ebp-16]  ;this is where the numbytes is written
 	mov esi,stor
 	mov eax,19  ;strcpy
 	sysenter
@@ -779,14 +978,17 @@ public tcd2pdf
 	sysenter
 
 
+
+
 	;copy the graphic stream to our PDF file in memory
 	;we can not use tatOS strcpy because this is limited
 	;to 300 bytes max
 	cld
 	mov esi,START_PDFGSTRM
 	;edi=destination        
-	mov ecx,[ebp-12] ;qty bytes
+	mov ecx,[ebp-12] ;sizeof pdf graphic stream
 	repmovsb
+
 
 
 
@@ -927,280 +1129,8 @@ public tcd2pdf
 	jmp .done
 
 
+
 .error:
-
-.done:
-	mov esp,ebp  ;erase locals, restore esp
-	pop ebp
-	ret
-
-
-
-
-
-;***************************************************************
-;Generate_PDF_graphic_stream
-
-;convert the tcad link list to a PDF graphic stream
-;the graphic stream buffer starts at START_PDFGSTRM
-;currently only the TCD_SEGMENT is supported
-
-;this stream includes the following commands:
-
-;[] 0 d 
-;this declares the line to be solid no dash pattern
-
-;1 w
-;this declares the line to be 1 unit wide
-
-;x y m  
-;this is a MoveTo command
-
-;x y l
-;this is a LineTo command
-
-;r g b RG
-;this declares DeviceRGB color space with pen color r g b
-
-;S
-;this is the stroke operator (draw the line)
-
-;we use ascii text here no compression
-;where x,y,r,g,b are ascii decimal floating point values
-
-;input:none
-;return:ecx=length of stream
-;       ecx=0 on error
-;***************************************************************
-
-Generate_PDF_graphic_stream:
-
-	push ebp
-	mov ebp,esp
-	sub esp,8   ;space for 2 local dwords on stack
-	;[ebp-4] = address of current object in link list
-	;[ebp-8] = current layer
-
-
-	;initialize the "current" layer
-	;0xff is not a valid layer so this will trigger a
-	;new pen color declaration immediately
-	mov dword [ebp-8],0xffff
-
-
-
-	;edi holds destination address for PDF graphic stream
-	;throughout this proc edi must be preserved and incremented
-	;with every byte written to the graphic stream buffer
-
-
-	;set the dash pattern to solid,  [] 0 d
-	mov esi,strm1
-	mov edi,START_PDFGSTRM
-	mov eax,19  ;strcpy
-	sysenter
-
-	;set the pen width to 1 unit, 1 w
-	mov esi,strm2
-	mov eax,19  ;strcpy
-	sysenter
-
-	;set round cap
-	mov esi,strm3
-	mov eax,19  ;strcpy
-	sysenter
-
-	;set round joint
-	mov esi,strm4
-	mov eax,19  ;strcpy
-	sysenter
-	
-
-	;go thru the link list
-	mov esi,[headlink]
-
-.1:
-
-
-	mov [ebp-4],esi  ;save address of object in link list
-
-
-	;so far we only work with segments
-	cmp dword [esi],TCD_SEGMENT
-	jnz .nextLink
-
-	;convert segment to PDF graphic stream
-	;[esi+80]  x1
-	;[esi+88]  y1
-	;[esi+96]  x2
-	;[esi+104] y2
-
-
-
-	;set DeviceRGB space and pen color
-	;looks like this: "r g b RG"
-	;************************************************
-
-	;ecx=object layer index
-	mov ecx,[esi+4]
-	;the value in ecx must be from 0->9
-	;since TCAD currently only supports 10 layers
-
-	;is the new layer different from the previous ?
-	cmp ecx,[ebp-8]
-	jz .2  ;skip RG
-
-	;save new layer
-	mov [ebp-8],ecx
-
-	;get address of RG string to write to pdf
-	mov esi,PDF_pen_color[ecx]
-
-	;write 'r g b RG',0xa  string
-	mov eax,19  ;strcpy
-	sysenter
-
-.2:
-
-
-	;the first line is x1 y1 m  where m=MoveTo
-	;******************************************
-
-	;convert X1 to ascii string
-	mov esi,[ebp-4]     ;esi=address of object
-	fld qword [esi+80]  ;st0=x1
-	push edi            ;save
-	mov eax,119         ;st02str
-	mov ebx,tempbuf
-	mov ecx,3           ;num decimals
-	sysenter
-	pop edi             ;restore
-	ffree st0
-
-	;write X1 to graphic stream buffer
-	mov esi,tempbuf     ;esi is corrupted
-	mov eax,19          ;strcpy  
-	sysenter
-
-	;write a space
-	mov byte [edi],0x20
-	inc edi
-
-	;convert Y1 to ascii string 
-	mov esi,[ebp-4]     ;restore address of object in link list
-	fld qword [esi+88]  ;st0=y1
-	push edi            ;save
-	mov eax,119         ;st02str
-	mov ebx,tempbuf
-	mov ecx,3           ;num decimals
-	sysenter
-	pop edi             ;restore
-	ffree st0
-
-	;write Y1 to graphic stream buffer
-	mov esi,tempbuf
-	mov eax,19  ;strcpy
-	sysenter
-
-	;write a space
-	mov byte [edi],0x20
-	inc edi
-
-	;write the "MoveTo" operator which is lower case 'm'
-	mov byte [edi],0x6d
-	inc edi
-
-	;write end of line
-	mov byte [edi],0xa
-	inc edi
-
-
-
-	;next line will be x2 y2 l  where l=LineTo
-	;*****************************************
-	
-	;convert X2 to ascii string 
-	mov esi,[ebp-4]     ;restore address of object in link list
-	fld qword [esi+96]  ;st0=x2
-	push edi            ;save
-	mov eax,119         ;st02str
-	mov ebx,tempbuf
-	mov ecx,3           ;num decimals
-	sysenter
-	pop edi             ;restore
-	ffree st0
-
-	;write X2 to graphic stream buffer
-	mov esi,tempbuf
-	mov eax,19  ;strcpy
-	sysenter
-
-	;write a space
-	mov byte [edi],0x20
-	inc edi
-
-	;convert Y2 to ascii string 
-	mov esi,[ebp-4]     ;restore address of object in link list
-	fld qword [esi+104] ;st0=y2
-	push edi            ;save
-	mov eax,119         ;st02str
-	mov ebx,tempbuf
-	mov ecx,3           ;num decimals
-	sysenter
-	pop edi             ;restore
-	ffree st0
-
-	;write Y2 to graphic stream buffer
-	mov esi,tempbuf
-	mov eax,19  ;strcpy
-	sysenter
-	
-	;write a space
-	mov byte [edi],0x20
-	inc edi
-
-	;write the "LineTo" operator which is lower case l
-	mov byte [edi],0x6c
-	inc edi
-
-	;write end of line
-	mov byte [edi],0xa
-	inc edi
-
-	;write the "Stroke" operator which is upper case S
-	mov byte [edi],0x53
-	inc edi
-
-	;write end of line
-	mov byte [edi],0xa
-	inc edi
-
-	;done writting PDF graphic stream commands for a single line segment
-
-
-.nextLink:
-
-	mov esi,[ebp-4]      ;esi=address of object
-	mov esi,[esi+76]     ;get address of next link
-	cmp esi,0            ;is next link address valid ?
-	jnz .1
-
-
-	;0 terminate the graphic stream
-	mov byte [edi],0
-
-
-	;compute the total bytes in the graphic stream
-	mov ecx,edi              ;address end-of-stream
-	sub ecx,START_PDFGSTRM   ;address start of stream
-
-	;return ecx=qty bytes in graphic stream
-	jmp .done
-
-	
-.error:
-	dumpstr str100
-	mov ecx,0    ;return value
 .done:
 	mov esp,ebp  ;deallocate locals
 	pop ebp
@@ -1208,15 +1138,29 @@ Generate_PDF_graphic_stream:
 
 
 
-
-
-
-
 ;***************** THE END ********************************
 
 
+;mov eax,9    ;dumpebx
+;mov ebx,esi  ;value to dump
+;mov ecx,iostr4
+;mov edx,0    ;0=reg32
+;sysenter
+
+
+	;go thru the link list
+;	mov esi,[headlink]
+;.loopThruLinkList:
+;	cmp dword [esi+8],1  ;is object selected ?
+;	jnz .nextLink
+;	push esi             ;preserve
+	;do something with selected object
+;	pop esi              ;retrieve
+;.nextLink:
+;	mov esi,[esi+76]     ;get address of next link
+;	cmp esi,0            ;is next link address valid ?
+;	jnz .loopThruLinkList
 
 
 
-
-                                          
+                      

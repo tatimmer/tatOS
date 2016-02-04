@@ -1,5 +1,5 @@
 
-;hersh33  Dec 27, 2015
+;hersh17  Jan 27, 2016
 
 ;Hershey Font Demo
 
@@ -20,6 +20,12 @@
 ;2do: add some code to increase line spacing in proportion
 ;to font size
 
+;note the HERSHEYGOTHIC MiscChar's are all box characters because
+;tlib/fontHershey.inc does not have any of these glyphs encoded
+;also the HERSHEYROMANSMALL glyph set does not encode any lower
+;case characters so upper case is used 
+
+
 org STARTOFEXE
 
 
@@ -27,6 +33,9 @@ org STARTOFEXE
 ;*************
 ;   DATA
 ;*************
+
+
+
 
 str1:
 db 'Hershey Font Demo',0
@@ -56,11 +65,129 @@ LeftMargin:
 dd 25
 
 
+
 Instructions:
 db 'Right/Left Arrow = move right/left',NL
 db 'Up/Down Arrow    = inc/dec font size',NL
 db 'ESC = quit',NL
 db 'Dec 27, 2015',0
+
+
+
+
+;various HERSHEYSTRUC
+;*************************
+
+hersheystruc_title:
+dd 0           ;output->graphics
+dd 100         ;XC
+dd 550         ;YC
+dd str1        ;address of string
+dd BLA         ;color
+dd 1           ;font type
+dd 0xffffffff  ;linetype
+
+
+;HERSHEYROMANLARGE
+hersheystruc_LowerCaseRL:
+dd 0           ;output->graphics
+dd 25          ;XC
+dd 50          ;YC
+dd LowerCase   ;address of string
+dd BLU         ;color
+dd 0           ;font type
+dd 0xffffffff  ;linetype
+
+
+hersheystruc_UpperCaseRL:
+dd 0           ;output->graphics
+dd 25          ;XC
+dd 100         ;YC
+dd UpperCase   ;address of string
+dd BLU         ;color
+dd 0           ;font type
+dd 0xffffffff  ;linetype
+
+
+hersheystruc_MiscCharRL:
+dd 0           ;output->graphics
+dd 25          ;XC
+dd 150         ;YC
+dd MiscChar    ;address of string
+dd BLU         ;color
+dd 0           ;font type
+dd 0xffffffff  ;linetype
+
+
+
+
+;HERSHEYGOTHIC
+hersheystruc_LowerCaseG:
+dd 0           ;output->graphics
+dd 25          ;XC
+dd 200         ;YC
+dd LowerCase   ;address of string
+dd BLU         ;color
+dd 1           ;font type
+dd 0xffffffff  ;linetype
+
+
+hersheystruc_UpperCaseG:
+dd 0           ;output->graphics
+dd 25          ;XC
+dd 250         ;YC
+dd UpperCase   ;address of string
+dd BLU         ;color
+dd 1           ;font type
+dd 0xffffffff  ;linetype
+
+
+hersheystruc_MiscCharG:
+dd 0           ;output->graphics
+dd 25          ;XC
+dd 300         ;YC
+dd MiscChar    ;address of string
+dd BLU         ;color
+dd 1           ;font type
+dd 0xffffffff  ;linetype
+
+
+
+;HERSHEYROMANSMALL
+hersheystruc_LowerCaseRS:
+dd 0           ;output->graphics
+dd 25          ;XC
+dd 350         ;YC
+dd LowerCase   ;address of string
+dd BLU         ;color
+dd 2           ;font type
+dd 0xffffffff  ;linetype
+
+
+hersheystruc_UpperCaseRS:
+dd 0           ;output->graphics
+dd 25          ;XC
+dd 400         ;YC
+dd UpperCase   ;address of string
+dd BLU         ;color
+dd 2           ;font type
+dd 0xffffffff  ;linetype
+
+
+hersheystruc_MiscCharRS:
+dd 0           ;output->graphics
+dd 25          ;XC
+dd 450         ;YC
+dd MiscChar    ;address of string
+dd BLU         ;color
+dd 2           ;font type
+dd 0xffffffff  ;linetype
+
+
+
+
+
+
 
 
 ;*************
@@ -80,11 +207,7 @@ db 'Dec 27, 2015',0
 	;title: "HERSHEY FONT DEMO" appears at bottom
 	;***********************************************
 	mov eax,48   ;putsHershey
-	mov ebx,100  ;x
-	mov ecx,550  ;y
-	mov edx,str1 ;address of string
-	mov esi,BLA  ;color
-	mov edi,1    ;fontID
+	mov edi,hersheystruc_title
 	fld qword [One] ;scale factor
 	sysenter
 	ffree st0     ;free scale factor
@@ -116,10 +239,8 @@ db 'Dec 27, 2015',0
 
 
 
-	;draw a vertical line at LeftMargin
+	;draw a vertical RED line at LeftMargin
 	;and to show the Y-axis of the first Hershey char
-	;if user shifts text with LEFT or RIGHT arrow then the
-	;Y-axis will be off because it does not move
 	mov eax,102           ;vline
 	mov ebx,[LeftMargin]  ;X
 	mov ecx,50            ;Y
@@ -202,33 +323,25 @@ db 'Dec 27, 2015',0
 	;HERSHEYROMANLARGE
 	;******************
 
-	;draw the string
+	;draw the LowerCase string
 	mov eax,48   ;putsHershey
-	mov ebx,[LeftMargin]  ;x
-	mov ecx,50   ;y
-	mov edx,LowerCase ;address of string
-	mov esi,BLU  ;color
-	mov edi,0    ;fontID
+	mov edi,hersheystruc_LowerCaseRL
 	fld qword [Scale] ;scale factor
 	sysenter
 	ffree st0     ;free scale factor
 
+
+	;draw the UpperCase string
 	mov eax,48   ;putsHershey
-	mov ebx,[LeftMargin]  ;x
-	mov ecx,100
-	mov edx,UpperCase
-	mov esi,BLU
-	mov edi,0
+	mov edi,hersheystruc_UpperCaseRL
 	fld qword [Scale] ;scale factor
 	sysenter
 	ffree st0     ;free scale factor
 
+
+	;draw the MiscChar string
 	mov eax,48   ;putsHershey
-	mov ebx,[LeftMargin]  ;x
-	mov ecx,150
-	mov edx,MiscChar
-	mov esi,BLU
-	mov edi,0
+	mov edi,hersheystruc_MiscCharRL
 	fld qword [Scale] ;scale factor
 	sysenter
 	ffree st0     ;free scale factor
@@ -240,31 +353,19 @@ db 'Dec 27, 2015',0
 	;**************
 
 	mov eax,48   ;putsHershey
-	mov ebx,[LeftMargin]  ;x
-	mov ecx,200
-	mov edx,LowerCase
-	mov esi,BLU
-	mov edi,1
+	mov edi,hersheystruc_LowerCaseG
 	fld qword [Scale] ;scale factor
 	sysenter
 	ffree st0     ;free scale factor
 
 	mov eax,48   ;putsHershey
-	mov ebx,[LeftMargin]  ;x
-	mov ecx,250
-	mov edx,UpperCase
-	mov esi,BLU
-	mov edi,1
+	mov edi,hersheystruc_UpperCaseG
 	fld qword [Scale] ;scale factor
 	sysenter
 	ffree st0     ;free scale factor
 
 	mov eax,48   ;putsHershey
-	mov ebx,[LeftMargin]  ;x
-	mov ecx,300
-	mov edx,MiscChar
-	mov esi,BLU
-	mov edi,1
+	mov edi,hersheystruc_MiscCharG
 	fld qword [Scale] ;scale factor
 	sysenter
 	ffree st0     ;free scale factor
@@ -276,34 +377,50 @@ db 'Dec 27, 2015',0
 	;*******************
 
 	mov eax,48   ;putsHershey
-	mov ebx,[LeftMargin]  ;x
-	mov ecx,350
-	mov edx,LowerCase
-	mov esi,BLU
-	mov edi,2
+	mov edi,hersheystruc_LowerCaseRS
+	fld qword [Scale] ;scale factor
+	sysenter
+	ffree st0     ;free scale factor
+	;returns eax=xloc of last glyph drawn
+	push eax
+
+
+	;add a small vertical line at the center of the last glyph
+	;to show the extents
+	mov eax,102   ;vline
+	pop ebx       ;xloc
+	mov ecx,350   ;y
+	mov edx,30    ;length
+	mov esi,GRE   ;color
+	sysenter
+
+
+	mov eax,48   ;putsHershey
+	mov edi,hersheystruc_UpperCaseRS
 	fld qword [Scale] ;scale factor
 	sysenter
 	ffree st0     ;free scale factor
 
-	mov eax,48   ;putsHershey
-	mov ebx,[LeftMargin]  ;x
-	mov ecx,400
-	mov edx,UpperCase
-	mov esi,BLU
-	mov edi,2
-	fld qword [Scale] ;scale factor
-	sysenter
-	ffree st0     ;free scale factor
 
 	mov eax,48   ;putsHershey
-	mov ebx,[LeftMargin]  ;x
-	mov ecx,450
-	mov edx,MiscChar
-	mov esi,BLU
-	mov edi,2
+	mov edi,hersheystruc_MiscCharRS
 	fld qword [Scale] ;scale factor
 	sysenter
 	ffree st0     ;free scale factor
+	;returns eax=xloc of last glyph drawn
+	push eax
+
+
+	;add a small vertical line at the center of the last glyph
+	;to show the extents
+	mov eax,102   ;vline
+	pop ebx       ;xloc
+	mov ecx,450   ;y
+	mov edx,30    ;length
+	mov esi,GRE   ;color
+	sysenter
+
+
 
 
 
@@ -322,27 +439,55 @@ db 'Dec 27, 2015',0
 
 	jmp .done
 
-.increaseScale:
 
+.increaseScale:
 	fld  qword [Scale]
 	fadd qword [ScaleInc]
 	fstp qword [Scale]
 	jmp .1
 
-.decreaseScale:
 
+.decreaseScale:
 	fld  qword [Scale]
 	fsub qword [ScaleInc]
 	fstp qword [Scale]
 	jmp .1
 
+
 .MoveRight:
-	add dword [LeftMargin],10
+	;the xlocation of the first glyph of the string
+	;is at offset 4 in each HERSHEYSTRUC
+	;we add 10 pixels to each value to move right
+	mov eax,[LeftMargin]
+	add eax,10
+	mov [hersheystruc_LowerCaseRL+4],eax
+	mov [hersheystruc_UpperCaseRL+4],eax
+	mov [hersheystruc_MiscCharRL+4],eax
+	mov [hersheystruc_LowerCaseG+4],eax
+	mov [hersheystruc_UpperCaseG+4],eax
+	mov [hersheystruc_MiscCharG+4],eax
+	mov [hersheystruc_LowerCaseRS+4],eax
+	mov [hersheystruc_UpperCaseRS+4],eax
+	mov [hersheystruc_MiscCharRS+4],eax
+	mov [LeftMargin],eax 
 	jmp .1
 
+
 .MoveLeft:
-	sub dword [LeftMargin],10
+	mov eax,[LeftMargin]
+	sub eax,10
+	mov [hersheystruc_LowerCaseRL+4],eax
+	mov [hersheystruc_UpperCaseRL+4],eax
+	mov [hersheystruc_MiscCharRL+4],eax
+	mov [hersheystruc_LowerCaseG+4],eax
+	mov [hersheystruc_UpperCaseG+4],eax
+	mov [hersheystruc_MiscCharG+4],eax
+	mov [hersheystruc_LowerCaseRS+4],eax
+	mov [hersheystruc_UpperCaseRS+4],eax
+	mov [hersheystruc_MiscCharRS+4],eax
+	mov [LeftMargin],eax 
 	jmp .1
+
 
 .done:
 	exit
@@ -357,3 +502,4 @@ db 'Dec 27, 2015',0
 
 
   
+      

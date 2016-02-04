@@ -43,14 +43,10 @@
 ;the +Y axis of the character points down
 ;see picture below showing xaxis, yaxis, xmin, xmax
 
-;this font will look upright when you define YORIENT=1 which is by default
-;in this orientation y=0 is at the top of the screen and y=599 at bottom
-;if you set YORIENT=-1 then y=0 is at the bottom of the screen 
-;and this will draw the Hershey glyph upside down
+;the Hershey font will be drawn upright regardless of the value of YORIENT
 
 ;the Hershey font set does not strictly follow ascii, it has some special
 ;chars, there are holes in this table and some glyphs I made on my own
-
 
 ;for making new Hershey glyphs you need these handy numbers
 ;the ascii char is followed by its numerical value then the Hershey coordinate
@@ -114,6 +110,7 @@
 ;if you want to see what all the hershey fonts look like,
 ;there is a good Linux or Windows app at:
 ;http://www.efg2.com/Lab/OtherProjects/Hershey.htm
+;see also tatOS/apps/HERSHEY
 
 
 
@@ -193,7 +190,7 @@ dd box03
 
 
 
-;these are the upper case letters A-z  hershey 501-527
+;these are the upper case letters A-Z  hershey 501-527
 ;*******************************************************
 
 A03:

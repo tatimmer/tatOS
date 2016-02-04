@@ -138,13 +138,13 @@ first there should be an org directive
 see discussion about 'org' and _assypoint above
 if the project has multiple source files, 2ndary files will use a differant org value
 chosen so as not to over write existing executable code
-multi-project files should include at this point the following:
-   * 'erasepe' directive to erase the public and extern symbol tables (main.s only)
+multi-source file projects should be assembled using the "make" utility
+each file in a multi-source file project should include the following:
    * 'source' directive  to identify the source file being assembled
    * extern symbols should be declared next
-then follows the global data: db, dw, dd, dq, etc...
-then should follow a '..start' directive (main.s only)
-then follows the code
+   * then follows the global data: db, dw, dd, dq, etc...
+   * then should follow a '..start' directive (main.s only)
+   * then follows the code
 from this asm source, ttasm will generate an executable with the following format:
 16 bytes starting at 0x2000000 are reserved for a header
 0x2000000 stores the user EIP return address after a call to sysenter
@@ -155,6 +155,15 @@ from this asm source, ttasm will generate an executable with the following forma
           after global data comes the executable code
 0x2400000 inital value of ESP when user code is executed
 see tlibentry.s and tedit.s when F10 is pressed to run the users code
+
+
+Make & tlink
+**************
+projects with multiple source files should be assembled using "make" (F10 from tedit)
+make will allow you to enter interactively the filenames to be assembled.
+make will then erase the public & extern symbol tables and then assemble each
+source file, and finally call tlink.
+
 
 
 Nasm

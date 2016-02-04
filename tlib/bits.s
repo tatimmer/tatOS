@@ -444,13 +444,20 @@ putscriptT:
 ;BitmapViewer
 ;a program to view a tatOS BTS bitmap file 
 ;or to convert to other bitmap formats
-;this is an interactive program with menu
+;this is an interactive program with menu called from the shell
+
+;note after displaying a bitmap or bts file to get back to this 
+;program menu you have to press the "menu" key on your keyboard
+
 ;input:none
 ;return:none
 ;*****************************************************************
 
 ViewBitsMenu:
-db 'Bitmap Viewer/Converter for tatOS',NL
+db 'Bitmap Viewer and  Converter',NL
+db '*****************************',NL
+db 'to return to this menu after displaying a bitmap or bts press the "menu" key',NL
+db NL
 db 'F1=Display unformatted bits array using std palette, user gives width,height',NL
 db 'F2=Display a BTS file',NL
 db 'F3=Convert a Windows 8 bit 256 color bmp to BTS',NL

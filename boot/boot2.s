@@ -1,7 +1,12 @@
 ;tatOS/boot/boot2.s  
 
+;rev Jan 2016
+;%include "boot/mouse.s" irq12  ps2 mouse driver code has been removed
+;%include "boot/ps2init.s"  code has been removed  (ps2 keyboard will still work)
+
+
 ;loads tatOS, switches to pmode, sets video mode
-;includes irq drivers (keyboard, mouse)
+;includes irq drivers (ps2 keyboard)
 
 ;note all tlib function calls are indirect because
 ;boot2.s is not included in tlib
@@ -613,10 +618,7 @@ do_pmode:
 
 
 
-	;the placement of this code is fussy so dont move it around
-	;this is for the ps2 keyboard
 	call [DUMPRESET] ;first use of the dump in tatOS 
-	%include "boot/ps2init.s"
 
 
 
@@ -707,7 +709,6 @@ lba dw SIZEOFBOOT2+1   ;lba_initial = sizeof(boot2) + 1  in sectors
 
 
 %include "boot/keyboard.s"    ;irq1   ps2 keyboard driver
-%include "boot/mouse.s"       ;irq12  ps2 mouse driver
 %include "boot/gdtidttss.s"   ;descriptor tables, tss, all other irq's and isr's
 
 

@@ -1,11 +1,6 @@
 ;tatOS/tlib/tablesym.s
 ;rev June 2013
 
-;this is the ttasm symbol table
-;functions developed for ttasm to store and retrieve hashed strings 
-;and their value using a symbol table
-;these are local/global symbols within 1 source file
-
 ;hash
 ;TableIndex
 ;symadd
@@ -13,6 +8,17 @@
 ;symtableclear
 ;symtableload
 
+
+
+;this is the ttasm symbol table
+;functions developed for ttasm to store and retrieve hashed strings 
+;and their value using a symbol table
+;these are local/global symbols within 1 source file
+
+;see /tlib/calc.s  which also uses this symbol table code for example usage
+
+;before calling symtableload to load a new symbol table
+;you must call symtableclear to erase any previous symbol table
 
 
 ;note:

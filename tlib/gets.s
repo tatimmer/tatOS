@@ -51,6 +51,11 @@
 ;usually what happens is the code works correctly only the
 ;first time then after that you get interrupt invalid opcode.
 
+;colors:     caret color   background color   text color
+;0x00fbffef  light red     transparent        black 
+;0x00fbfeef  light red     white              black 
+;0x00fbfdef  light red     yellow             black (same as comprompt)
+
 ;locals
 _startaddress dd 0  ;starting address of string buffer
 _endaddress dd 0    ;startaddress+maxnumchars-1 

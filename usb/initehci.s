@@ -7,7 +7,7 @@
 
 
 
-;code to setup the ehci usb controller for flash drive transactions under tatos
+;code to setup the ehci usb controller for flash drive transactions under tatOS
 
 ;the ehci is a high speed usb controller for flash drive
 ;but it can not handle the low speed mouse directly
@@ -84,6 +84,9 @@ usbinitstr46 db 'no low speed device found-no release port ownership-no init uhc
 usbinitstr47 db 'init ehci with root hub',0
 usbinitstr48 db 'resetting upstream port of ehci with root hub',0
 usbinitstr49 db '[init_EHCI_base] error ehci still running-attempting to continue',0
+usbinitstr50 db 'init ehci only no usb 1.0 support',0
+usbinitstr51 db 'bios currently owns this ehci',0
+usbinitstr52 db 'tatOS now owns this ehci',0
 
 usbcompstr1 db 'bus:dev:fun of UHCI Companion is invalid pci device',0
 usbcompstr2 db 'found valid bus:dev:fun for UHCI companion',0
@@ -100,6 +103,7 @@ usbcompstr4 db 'failed to find valid UHCI companion',0
 ;this code should work for both
 ;ehci+companion controllers and 
 ;ehci+root hub
+;or just plain ehci no usb 1.0 support
 ;input: 
 ;the pci config address [EHCIBUSDEVFUN] must already be stored
 ;return:none
@@ -223,6 +227,9 @@ init_EHCI_base:
 	bt eax,16  ;if bit16 is set then bios owns ehci 
 	jnc .doneUSBLEGSUP
 
+	;if we got here bios currently owns this ehci
+	STDCALL usbinitstr51,putscroll
+
 	;set bit24 to tell bios that the OS wants control of ehci
 	or eax,0x1000000
 
@@ -238,6 +245,7 @@ init_EHCI_base:
 .doneUSBLEGSUP:
 
 
+	STDCALL usbinitstr52,putscroll  ;tatOS owns this ehci
 
 
 
@@ -924,6 +932,8 @@ init_EHCI_with_companion:
 ;each controller has 1 upstream port and
 ;may have up to 8 down stream ports although
 ;my laptop has only a total of 3 usb ports
+;code also works on Lenovo desktop 
+;on both above machines bus:dev:fun 00:1d:00
 ;input:none
 ;return:
 ;*****************************************************
@@ -950,14 +960,45 @@ init_EHCI_with_roothub:
 	call ehci_portreset
 
 
-
 	;now we need usb hub class commands to configure the hub
 	;and get status of the downstream ports
 
 	call inithub
 
+.done:
+	STDCALL usbinitstr40,putscroll  
+	STDCALL pressanykeytocontinue,putscroll  
+	call getc
+	ret
 
-	
+
+
+
+
+;******************************************************
+;init_EHCI_only
+
+;init EHCI with no usb 1.0 support
+;this was developed to run on my sons mac using vmware
+;this has ehci and ohci (which tatOS doesnt support)
+;so we can only run a flash drive
+
+;input:none
+;return:
+;*****************************************************
+
+init_EHCI_only:
+
+	STDCALL usbinitstr50,putscroll 
+
+	;tatOS.config must contain these defines EHCI_WITH...
+	mov bl,EHCIONLY_BUS
+	mov cl,EHCIONLY_DEV
+	mov dl,EHCIONLY_FUN
+	call build_pci_config_address  ;return value in eax
+	mov [EHCIBUSDEVFUN],eax
+
+	call init_EHCI_base
 
 
 .done:

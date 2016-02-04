@@ -1,5 +1,6 @@
 ;tatOS/tlib/ttasm.s      
-;rev November 2015
+
+;rev Jan 2016
 
 
 ;ttasm is Tom Timmermann's Assembler
@@ -12,15 +13,14 @@
 ;expects an array of 0 terminated ascii bytes representing the
 ;assembler source code starting at address 0x1990000
 
-;output
-;executable code directly written directly to "org" (Assemble & Go)
-;verbose text output written to the "dump", see tlib/dump.s
-;all messages to the dump are erased after the first pass unless you 
-;elect VERBOSEDUMP from tatOS.config
-
 ;return
-;will print a success/failure message to the bottom of the screen
-;see the "postprocess" procedure, you must press any key to exit 
+; 1) executable code directly written directly to "org" (Assemble & Go)
+; 2) verbose text output written to the "dump", see tlib/dump.s
+;    all messages to the dump are erased after the first pass unless you 
+;    elect VERBOSEDUMP from tatOS.config
+; 3) eax=address of string describing results of the assemble
+;    ebx=dword [_errorcode]  (0 if successful assemble)
+
 
 ;see /doc/ttasm-help for more info
 ;see also tlink.s which works in concert with ttasm
@@ -55,13 +55,21 @@
 ;SAVEGLOBALSYM
 ;PUBLIC
 ;EXTERN
-;ERASEPE
 ;SOURCEfilenum
 
 
 
 
 ttasm:
+
+	;now that ttasm is called within a "make" loop
+	;we need to preserve some registers
+	;ttasm returns values in eax & ebx
+	push ecx
+	push edx
+	push esi
+	push edi
+	push ebp
 
 	call dumpreset
 	mov dword [_onpass2],0    ;0=first pass, 1=2nd pass
@@ -396,14 +404,24 @@ ttasm:
 
 .done:
 	call postprocess
-	call swapbuf    ;make it show up
-	call getc       ;press any key to continue
+
+	pop ebp
+	pop edi
+	pop esi
+	pop edx
+	pop ecx
+
+	;ttasm return values 
+	mov eax,_ttasmreturnstring  ;address of string giving results of assemble
+	mov ebx,[_errorcode]
+
 	ret
 
 
 
 
 ;***************END OF TTASM*************************************
+
 
 
 ;these WriteExe... routines had checks to make sure
@@ -664,7 +682,8 @@ movimm2reg:
 .2:
 	;WORD reg
 	;write 1101wreg for word [_wbit]=2 
-	mov al,0x66  ;need 66h prefix to indicate word register when processor in 32bit mode
+	;need 66h prefix to indicate word register when processor in 32bit mode
+	mov al,0x66  
 	call WriteExeByte
 	mov al,0xb8        ;1101w000 with w=1
 	or al,[_destvalu]  ;regnum = _destvalue
@@ -681,16 +700,46 @@ movimm2reg:
 
 
 .4:
+	;save the assy point for extern_add_link
+	;in case the immediate value is extern and needs to be patched by tlink
+	mov eax,[_assypoint] 
+	mov [_extern_address],eax  
+
 	;write the immediate data
 	mov eax,[_sourcevalu] 
 	call ProcessImmediateData
+
+
+	;if the imm data is an extern symbol...
+
+	;add a link for every instance/usage of an extern symbol 
+	;test4imm determines if we have an extern symbol
+	;test4imm also saves the extern symbol to _externbuffer
+	;we only add extern symbols to extern symbol table on pass 1
+	cmp dword [_onpass2],1  ;are we on pass=2 ?
+	jz .done  
+	cmp dword [_havextern],1
+	jnz .done
+
+	call dumpnl
+	STDCALL str290,dumpstr
+	push dword _externbuffer
+	push dword [_extern_address] 
+	call extern_add_link
+	jz .error1
 	jmp .done
 
-
+.error1:
+	mov dword [_errorcode],ERROREXTRNLINKADD 
+	jmp .done
 .error:
 	mov dword [_errorcode],ERRORWBIT
 .done:
 	ret
+
+
+
+
 
 
 
@@ -2075,6 +2124,12 @@ doloop:
 
 ;load effective address
 ;lea ebx,[esi+0x1234] or lea edx,[apple+0x1234]
+;lea does address calculations
+;lea does NOT read memory
+;so for example if you put an address on the stack 
+;this will not work: "lea eax,[ebp+8]"
+;you must first move the address from stack into a register then use lea
+;on that register
 
 dolea:
 
@@ -2127,38 +2182,8 @@ dolea:
 
 
 
-;*******************************
-;          ERASEP&E
-;*******************************
-
-;erasep&e
-;assy directive to erase the public and extern symbol tables
-;for an explanation of what the extern and public tables are for
-;see tablepub.s, tableext.s and /doc/ttasm-help 
-
-doerasepe:
-
-	;we must only do this on the 1st pass before any symbols are added
-	;since all symbols are added on pass 1 we dont want to wipe them out
-	;before doing pass 2
-	cmp dword [_onpass2],1  ;are we on pass=2 ?
-	jz .skip                ;yes then we are done
-
-	STDCALL str277,dumpstr
-
-	;erase the public symbol table
-	call public_table_clear
-
-	;erase the extern symbol table and links
-	call extern_table_clear  
-	jmp .done
-
-.skip:
-	STDCALL str288,dumpstr
-.done:
-	ret
-
-
+;note to self Jan 03, 2016 erasepe has been removed
+;since this function is now performed by make
 
 ;*******************************
 ;          SOURCEfilenum
@@ -4355,17 +4380,30 @@ dodec:
 ;          SHL
 ;*************************
 
-
+;shl reg32,imm8
+;shl reg32,cl
 doshl:
+
 	STDCALL str87,dumpstr
 	call getoperation
 	
-	;we only support dest=reg and src=imm
+	;the destination must be reg32
 	cmp dword [_desttype],3  ;reg 
 	jnz .errordest
-	cmp dword [_sourcetype],6  ;imm 
-	jnz .errorsrc
 
+	;test for source imm8
+	cmp dword [_sourcetype],6 
+	jz .1
+
+	;test for source reg
+	cmp dword [_sourcetype],5
+	jz .2
+
+	;if we got here we have an incorrect source
+	jmp .errorsrc
+
+.1:
+	;shl reg32,imm8
 	mov al,0xc0
 	or eax,[_wbit]
 	call WriteExeByte
@@ -4376,11 +4414,26 @@ doshl:
 	call WriteExeByte
 	jmp .done
 
+	
+.2:
+	;shl reg32,cl
+	;dest must be reg32, source must be cl  no exceptions !!
+	;test for _sourcevalu = 1  which is the cl register
+	cmp dword [_sourcevalu],1  
+	jnz .errorsrc
+
+	mov al,0xd3  ;this is (d2 || wbit), and dest must be reg32
+	call WriteExeByte
+	mov al,0xe0
+	or eax,[_destvalu]  ;reg32
+	call WriteExeByte
+	jmp .done
+
 .errordest:
-	mov dword [_errorcode],2
+	mov dword [_errorcode],ERRORINVALDEST
 	jmp .done
 .errorsrc:
-	mov dword [_errorcode],3
+	mov dword [_errorcode],ERRORINVALSOURCE
 .done:
 	ret
 
@@ -6567,6 +6620,7 @@ dodumpstr:
 	ret
 
 
+
 ;*************************
 ;          DUMPEBX
 ;*************************
@@ -6587,22 +6641,25 @@ dodumpebx:
 
 
 ;*************************
-;          DUMPST0
+;          DUMPREG
 ;*************************
 
-;dumpst0
+;dumpreg
 ;equivalent code:
-;mov eax,36
+;mov eax,3
 ;sysenter
 
-dodumpst0:
-	STDCALL str267,dumpstr
+dodumpreg:
+	STDCALL str291,dumpstr
 	mov al,0xb8         ;mov eax
 	call WriteExeByte
-	mov eax,36          ;dword 36
+	mov eax,3           ;dword 3
 	call WriteExeDword
 	call dosysenter
 	ret
+
+
+
 
 
 
@@ -6656,7 +6713,8 @@ dosysenter:
 	;save userland EIP return address
 	;mov dword [0x2000000],[_assypoint+6]  c7 05 00 00 00 02 UserLandAddress
 	;[0x2000000] is the global address to save userland EIP return address
-	;[_assypoint+6] is the user land address where the kernel returns to after sysexit
+	;[_assypoint+6] is the user land address where the kernel returns to 
+	;after sysexit
 	;we want to jump back into user land code immediately after sysenter
 	;the reason for all this is as the Intel manual states for sysenter: 
 	;"the processor does not save a return EIP..."
@@ -7506,12 +7564,13 @@ getoperation:
 ;********************************************
 ;POSTPROCESS
 ;postprocess
-;print error message or "0=successful assemble'
-;print return values and line number
-;sum beginning/end/sizeof executable code
-;dump the string table
-;hang with GETC till user presses a key
-;edi=address within "buf" to write next char
+; * dump warning messages about org, ..start, exit
+; * prepare a string describing the result of the assemble
+; * dump sizeof/start/end of executable code
+; * dump the string table
+
+;input:none
+;return: "_ttasmreturnstring" string is written
 ;********************************************
 
 postprocess:
@@ -7560,23 +7619,20 @@ postprocess:
 	call dumpnl
 
 
-	;prepare a string that will be displayed at the bottom of the tedit screen
+	;prepare a string that will be passed to tedit
+	;and displayed at the bottom of the tedit screen
 	;this string will display the results of the assemble
-	;the string is written to _buf
+	;*****************************************************
 
-	;background for _buf string
-	STDCALL 0,585,800,15,WHI,fillrect
-
-
-	;fill _buf with all spaces
-	mov edi,_buf
+	;fill the ttasmreturnstring buffer with all spaces
+	mov edi,_ttasmreturnstring
 	mov ecx,100
 	mov al,SPACE
 	call memset 
 	
 
-	;_buf linenum
-	mov edi,_buf
+	;linenum
+	mov edi,_ttasmreturnstring
 	mov esi,str5
 	call strcpy  
 	mov eax,[_linecount] 
@@ -7584,7 +7640,7 @@ postprocess:
 	STDCALL edi,0,0,eax2dec
 
 
-	;_buf error string
+	;error string
 	mov byte [edi],SPACE  ;overwrite 0 terminator
 	add edi,2             ;create some space
 	mov eax,[_errorcode]
@@ -7592,18 +7648,8 @@ postprocess:
 	call strcpy
 	
 	
-	;terminate _buf
+	;terminate 
 	mov byte [edi],0 
-
-
-	;display _buf string
-	;this string appears at the bottom of the screen controlled by tedit
-	;e.g. "linenum 24 8=error symbol not in table"
-	;e.g. "linenum 49 0=successful assemble"
-	;the string is persistant because ttasm ends with a call to getc
-	;so just strike any key to exit ttasm and make the string go away
-
-	STDCALL FONT01,0,585,_buf,0xf3fe,puts
 
 
 	;determine qtyexebytes = final[_assypoint] - [_exeAddressStart]
@@ -7669,6 +7715,7 @@ postprocess:
 
 
 .done:
+	STDCALL str289,dumpstr   ;************ END TTASM **********************
 	ret
 
 
@@ -8373,7 +8420,8 @@ test4imm:
 	rep stosb
 
 	;copy the extern symbol to the buffer
-	;docall & ProcessMemoryAndDisplacement will use this to add a link to the extern table
+	;docall & ProcessMemoryAndDisplacement will use this 
+	;to add a link to the extern table
 	;esi=address of extern symbol
 	mov edi,_externbuffer
 	call strcpy80
@@ -8909,6 +8957,7 @@ _globalsym  times 100 db 0
 _stor       times 100 db 0
 _stormem    times 20  db 0  ;for test4mem only !!!
 _externbuffer times 12 db 0 ;stores the 11 byte extern symbol
+_ttasmreturnstring times 100 db 0
 
 
 
@@ -9265,7 +9314,6 @@ str263 db 'doing puttransbits',0
 str264 db 'doing putebxdec',0
 str265 db 'doing popfd',0
 str266 db 'doing repstosd',0
-str267 db 'doing dumpst0',0
 str268 db 'doing org',0
 str269 db 'new _assypoint',0
 str270 db 'size of executable, bytes',0
@@ -9289,7 +9337,9 @@ str285 db 'ProcessMemoryAndDisp: usage of extern symbol, adding link',0
 str286 db 'call reldisp32 extern symbol',0
 str287 db 'mov imm->reg: usage of extern symbol, adding link',0
 str288 db 'skipping erasepe on pass=2',0
-
+str289 db '************************* END TTASM ****************************',0
+str290 db '[ttasm] calling extern_add_link',0
+str291 db 'doing dumpreg',0
 
 
 
@@ -9662,8 +9712,6 @@ db '..start',0   ;note you must preceed the word start with dot dot
 dd dostart,5
 db 'sysenter',0
 dd dosysenter,5
-db 'erasepe',0
-dd doerasepe,5
 db 'source',0
 dd dosourcefilenum,5
 db 'extern',0
@@ -9790,8 +9838,8 @@ db 'dumpstr',0
 dd dodumpstr,5
 db 'dumpebx',0
 dd dodumpebx,5
-db 'dumpst0',0
-dd dodumpst0,5
+db 'dumpreg',0
+dd dodumpreg,5
 db 'strcpy2',0
 dd dostrcpy2,5
 db 'ebxstr',0

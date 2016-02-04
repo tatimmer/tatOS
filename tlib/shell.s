@@ -11,7 +11,7 @@
 ;Shell Instruction String:
 shellstr0:  
 ;"Welcome to tatOS" is done using hershey font now
-db 'November 2015',NL
+db 'January 2016',NL
 db 'UP/DN to move selection bar & scroll the list',NL
 db 'ENTER to execute the program',NL
 db 'To shutdown push your power button',NL
@@ -65,6 +65,17 @@ dd ShellBitmapViewer
 
 
 
+;HERSHEYSTRUC  for "Welcome to tatOS"
+tatOS_welcome:
+dd 0              ;output device = screen
+dd 100            ;XC start
+dd 50             ;YC start
+dd shellstr7      ;address of string
+dd RED            ;color
+dd HERSHEYGOTHIC  ;font
+dd 0xffffffff     ;solid line 
+
+
 
 ;misc strings
 shellstr1 db 'DateTime',0
@@ -88,16 +99,11 @@ shell:
 
 
 	;"Welcome to tatOS" string using Hershey Gothic
-	;STDCALL 100,50,shellstr7,RED,HERSHEYGOTHIC,2,putsHershey
-	push 100            ;XC start
-	push 50             ;YC start
-	push shellstr7      ;address of string
-	push RED            ;color
-	push HERSHEYGOTHIC  ;font
-	push 0              ;not used
+	mov edi,tatOS_welcome
 	fld qword [two]     ;st0=2.0 scale factor
-	call putsHershey
+	call putshershey
 	ffree st0           ;must free the scale factor
+
 
 	;Instruction string
 	STDCALL FONT01,0,100,shellstr0,0xefff,putsml

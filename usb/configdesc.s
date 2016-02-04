@@ -174,7 +174,7 @@ FlashGetConfigDescriptor:
 	jnz near .error
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2) ;ehci
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3) ;ehci
 	;copy request to data buffer 0xb70000
 	mov esi,ConfigDescriptorRequest
 	mov edi,0xb70000
@@ -208,7 +208,9 @@ FlashGetConfigDescriptor:
 	jnz near .error
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2) ;ehci
+
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3) ;ehci
+
 	;generate 1 usb Transfer Descriptor
 	mov eax,[qtyconfigdata]  ;qty bytes to transfer
 	mov ebx,1                ;PID = IN	
@@ -283,7 +285,8 @@ FlashGetConfigDescriptor:
 	jnz .error
 %endif
 
-%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2) ;ehci
+
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3) ;ehci
 	;generate 1 usb Transfer Descriptor
 	mov eax,0  ;qty bytes to transfer
 	mov ebx,0  ;PID_OUT	

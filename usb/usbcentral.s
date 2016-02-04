@@ -1,6 +1,10 @@
 ;tatOS/usb/usbcentral.s
 
+;rev: Dec 29, 2015
+
 ;a utility executed from the shell
+
+; * init ehci only with no usb 1.0 support
 ; * init ehci with uhci companion controllers
 ; * init ehci with root hub
 ; * init usb flash drive
@@ -14,7 +18,7 @@
 ;there are 3 differant hdwre approaches to using the usb flash drive and mouse
 ;1) Via pci addon card with EHCI and UHCI companion controllers
 ;2) old computer Intel UHCI with only 2 ports on the machine
-;3) new laptop Asus with EHCI and root hub
+;3) new laptop Acer with EHCI and root hub
 ;you must set USBCONTROLLERTYPE in tatOS.config and reassemble
 
 
@@ -23,10 +27,11 @@ db 'USB CENTRAL',NL
 db '***********',NL
 db NL
 
-;conditional assembly will present to the user only 1 of 3 options for controlling
+;conditional assembly will present to the user only 1 of 4 options for controlling
 ;the flash drive and mouse, the USBCONTROLLERTYPE is set in tatOS.config
+
 %if USBCONTROLLERTYPE == 0
-db 'UHCI primary: INTEL-DID=7112, VID=8086',NL
+db 'UHCI primary: INTEL 8086 did=7112 bus:dev:fun 00:07:02',NL
 db NL
 db 'F1=init UHCI',NL
 db 'F2=init Flash',NL
@@ -35,7 +40,10 @@ db 'F9=Show UHCI Primary Controller Registers',NL
 %endif
 
 %if USBCONTROLLERTYPE == 1
-db 'EHCI with UHCI companion controllers: VIA-DID=3038, VID=1106',NL
+db 'EHCI with UHCI companion controllers: VIA pci card vid=1106',NL
+db 'ehci    bus:dev:fun 00:10:02',NL
+db 'uhci #1 bus:dev:fun 00:10:00',NL
+db 'uhci #2 bus:dev:fun 00:10:01',NL
 db NL
 db 'F1=init EHCI & UHCI companions',NL
 db 'F2=init Flash',NL
@@ -46,7 +54,7 @@ db 'F11=Show UHCI Companion Controller #2 Registers',NL
 %endif
 
 %if USBCONTROLLERTYPE == 2
-db 'EHCI with root hub: INTEL-DID=1e2d/1e26, VID=8086',NL
+db 'EHCI with root hub: INTEL 8086 bus:dev:fun 00:1d:00',NL
 db NL
 db 'F1=init EHCI & root hub',NL
 db 'F2=init Flash',NL
@@ -55,11 +63,17 @@ db 'F4=hub downstream port status wPortStatus',NL
 db 'F8=Show EHCI Controller Registers',NL
 %endif
 
+%if USBCONTROLLERTYPE == 3
+db 'EHCI only no usb 1.0 support',NL
+db NL
+db 'F1=init EHCI only',NL
+db 'F2=init Flash',NL
+db 'F8=Show EHCI Controller Registers',NL
+%endif
+
 db NL
 db 'F6=Format Flash Drive with tatOS FAT16 no partition',NL
 db 'F7=Show Mouse Report',NL
-
-
 db 'F12=Scan PCI bus for all usb controllers',NL
 db NL
 db 'ESC=quit',NL
@@ -67,6 +81,9 @@ db NL
 db 'Init usb controller then your flash drive',NL
 db 'If init flash fails, re-init controller & flash',NL
 db 0
+
+
+
 
 usbcen1 db 'UHCI Primary USB controller pci config address',0
 usbcen2 db 'EHCI USB controller pci config address',0
@@ -93,8 +110,8 @@ UsbCentral:
 	;display our menu
 	STDCALL FONT01,LEFTMARGIN,50,usbcen_menu,0xefff,putsml
 
-	;display some flash drive parameters like LBAmax, max cluster, bytesperblock, capacity
-	;LBAmax
+	;display some flash drive parameters like 
+	;LBAmax, max cluster, bytesperblock, capacity
 	STDCALL FONT01,LEFTMARGIN,400,usbcen7,0xefff,puts
 	mov eax,[flashdriveLBAmax]  ;scsi ReadCapacity gives us this value
 	push eax
@@ -161,7 +178,7 @@ UsbCentral:
 
 .F1:  ;init usb controller
 
-	%if USBCONTROLLERTYPE == 0 
+	%if USBCONTROLLERTYPE == 0   ;uhci only
 	mov bl,UHCI_BUS
 	mov cl,UHCI_DEV
 	mov dl,UHCI_FUN
@@ -179,6 +196,11 @@ UsbCentral:
 	%if USBCONTROLLERTYPE == 2 
 	call init_EHCI_with_roothub
 	%endif
+
+	%if USBCONTROLLERTYPE == 3  
+	call init_EHCI_only
+	%endif
+
 
 	jmp UsbCentral
 
