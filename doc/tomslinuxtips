@@ -1708,8 +1708,8 @@ now edit file.bin.hex as desired
 [xxd -r -p file.bin.hex file2.bin] convert back to binary
 
 
-zip -r subdir subdir
-will make a windows style zip file of all files in subdir 
-to zip the tatos I just use <zip -r tatos tatos> and I get tatos.zip
+zip -r zipname .   (yes you need dot at the end)
+will make a windows style zip file of all files in the cwd with recursive decent 
+to zip tatOS:  <zip -r tatOS .> and I get tatOS.zip
 
 

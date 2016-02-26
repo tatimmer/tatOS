@@ -154,12 +154,6 @@ tatOSinit:
 	mov dword [0x528],0
 
 
-	;from usb central the user will first 
-	;init ehci with uhci companion controlers (type=1)
-	;or init ehci with root hub (type=2)
-	mov dword [ehciType],0
-
-
 
 	;init some globals to keep tract of button down status
 	mov dword [LBUTTONDOWN],0

@@ -1,6 +1,6 @@
 *************************
 tatOS Memory Map 
-Oct 2015 
+Feb 2016 
 *************************
 
 This file describes the location of tatOS kernel memory usage. 
@@ -9,7 +9,7 @@ For a discussion of how memory is divided between kernel and userland see tlib/p
 All memory is divided into 4mb pages and assigned to the kernel
 except for 2 pages starting at 0x2000000 which belong to userland
 
-As of Sept 2011 tatos has an alloc function.
+As of Sept 2011 tatOS has an alloc function.
 But there are many global variables used by functions in tatOS.
 Some globals are defined here.
 Others are in various files of /tlib or /usb
@@ -43,10 +43,12 @@ global bytes, words and dwords.
 0x528 dword   Is flash drive ready ? 1=yes, 0=no
 0x52c dword   UHCI USBBA USB I/O Space Base Address Register
 0x530 word    UHCIBASEADD is bits15-5 of USBBA
-0x532 byte    BULKEPIN,  Flash drive IN endpoint number
-0x533 byte    BULKEPOUT, Flash Drive OUT endpoint number
-0x534 byte    MOUSEPIN,  usb mouse   IN endpoint number
-0x535 byte    HUBEPIN,   usb hub     IN endpoint number
+0x532 byte    BULKINENDPOINT,     Flash drive IN endpoint number
+0x533 byte    BULKOUTENDPOINT,    Flash Drive OUT endpoint number
+0x534 byte    MOUSINENDPOINT,     usb mouse   IN endpoint number
+0x535 byte    HUBINENDPOINT,      usb hub     IN endpoint number
+0x536 byte    KEYBOARDINENDPOINT, usb keyboard IN endpoint number
+
 0x538 dword   BytesPerScanLine (BPSL)
 0x53c dword   BytesPerScanLine * 600/64 for dbl buffer (BPSL64)
 0x540 dword   BytesPerScanLine * 600/4  for dbl buffer (BPSL4) 
@@ -144,8 +146,8 @@ The remaining substrings start at 0x4000+0x40*n
 ******************************************************
 We store here the results of usb Control transactions 
 this is all data returned by the device
-for the pen drive we assume
-1 configuration and 1 interface and multiple endpoints
+for the pen drive we assume 1 configuration and 1 interface and multiple endpoints
+
 *******USB Pen/Flash Drive Enumeration starting at 0x5000********
 0x5000  18 byte DeviceDescriptor 
 0x5020  9 byte ConfigurationDescriptor
@@ -157,21 +159,32 @@ The  7 byte 3rd EndpointDescriptor  optional not all devices have 3
 0x5200 SCSI Inquiry      returns 36 bytes
 0x5300 SCSI ModeSense    returns  4 bytes
 0x5400 SCSI RequestSense returns 18 bytes
-********Low Speed USB Mouse Enumeration starting at 0x5500*******
+
+******** MOUSE - USB Device Descriptors starting at 0x5500*******
 0x5500 18 byte Device Descriptor
 0x5520  9 byte Configuration Descriptor
 0x5529  9 byte Interface Descriptor
 0x5532  9 byte HID Descriptor 
 0x553b  7 byte 1st Endpoint Descriptor
+0x5600 The ReportDescriptor
 We are assuming that all Config/Interface/HID descriptors are 9 bytes
 The first byte of each descriptor is the length so we could read this and check
-0x5600 The ReportDescriptor
+
 *******USB HUB Enumeration results starting at 0x6000 *******
 0x6000  18 byte Device Descriptor 
 0x6020  9 byte Configuration Descriptor
 0x6029  9 byte Interface Descriptor 
 0x6032  7 byte Endpoint Descriptor
 0x6040  8 byte Hub Descriptor
+
+******** KEYBOARD - USB Device Descriptors starting at 0x6500*******
+0x6500 18 byte Device Descriptor
+0x6520  9 byte Configuration Descriptor
+0x6529  9 byte Interface Descriptor
+0x6532  9 byte HID Descriptor 
+0x653b  7 byte 1st Endpoint Descriptor
+0x6600 The ReportDescriptor
+
 
 
 
@@ -287,6 +300,11 @@ this is for ehci with integral root hub like our Acer laptop
 note the low 12 bits of this address must be 0
 
 
+0x1003300  keyboard interrupt TD
+*************************************
+we reserve 100 bytes here to generate a single TD for the usb keyboard
+for uhci or ehci
+
 
 0x1003500  mouse interrupt TD
 ******************************
@@ -301,10 +319,11 @@ only need 6 bytes for the manhattan mouse and 4 for microsoft
 but must be page aligned 
 
 
+
 0x1005000=16.8meg  USB Queue Head QH
 *****************************************
 The UHCI and EHCI usb controllers use queue heads in a list
-a queue head is just some data in memory used by the usb controller
+a queue head is just a structure of data in memory used by the usb controller
 to conduct usb transactions. you attach a chain of TD's to a queue head.
 
 For UHCI:
@@ -318,19 +337,36 @@ We reserve the second QH for bulk/pendrive transactions.
 All entries in the frame list point to the first QH.  
 We reserve 0x1005000 for the 1st QH for mouse interrupt transactions 
 We reserve 0x1005100 for the 2nd QH for mouse control, bulk control and bulk xfer
+We reserve 0x1005200 for the 3rd QH for keyboard interrupt transactions 
 
 For EHCI:
 each queue head is 68 bytes and must be aligned on 32 byte boundary
-QH is used in asynchronous circular link list for control/bulk xfer
 the ehci QH contains endpoint/speed/xferType specific data 
-We reserve QH 0x1005300 for hub control transfers
-We reserve QH 0x1005400 for flash control transfers
-We reserve QH 0x1005500 for mouse control transfer
-We reserve QH 0x1005600 for flash bulk-in
-We reserve QH 0x1005700 for flash bulk-out
-0x1005300-->0x1005400-->0x1005500-->0x1005600->0x1005700->0x1005300
-We reserve 0x1006000 for the QH for mouse interrupt transfers in the periodic list
 
+Asynchronous Circular List (control/bulk transfer)
+0x1005300  QH for hub control transfer
+0x1005400  QH for flash control transfer
+0x1005500  QH for mouse control transfer
+0x1005600  QH for flash bulk-in
+0x1005700  QH for flash bulk-out
+0x1005800  QH for keyboard control transfer
+0x1005300-->0x1005400-->0x1005500-->0x1005600-->0x1005700-->0x1005800-->0x1005300
+
+Periodic List  (interrupt transfer)
+0x1006000  QH for mouse interrupt transfer
+0x1006100  QH for keyboard interrupt transfer
+
+
+
+
+0x1009000  keyboard report buffer 
+*****************************************
+for keyboard interrupt IN transaction's this is where the keyboard report 
+is written to, only need 8 bytes for the report, page aligned
+for ehci or uhci
+
+
+0x1009010->0x1100000  free for kernel use
 
 
 

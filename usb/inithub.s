@@ -1,6 +1,6 @@
 ;tatOS/usb/inithub.s
 
-;code to communicate and configure the usb hub
+;code to communicate with and configure the usb hub
 ;hubs can be internal "root" hubs or external devices
 ;these typically have 1 upstream port and multiple down stream ports
 ;the downstream ports allow you to plug in multiple usb devices
@@ -15,28 +15,30 @@
 ;using hub class commands (not ehci register memory maps)
 
 
+;                                        ------> Keyboard
+;  ************       **************   |     
+;  *   ehci   * ----> *  ROOT HUB  * --------> Flash
+;  ************       **************   |     
+;                                        ------> Mouse
+
 
 hubstr0 db 'INIT ROOT HUB',0
-hubstr1 db 'hub get Device descriptor',0
-hubstr2 db 'hub get Configuration descriptor',0
-hubstr3 db 'hub get Config/Interface/Endpoint descriptors',0
+hubstr1 db 'hub-GetDeviceDescriptor',0
+hubstr2 db 'hub-GetConfigDescriptor 9 bytes',0
+hubstr3 db 'hub-GetConfigDescriptor full',0
 hubstr4 db 'error hub bInterfaceClass is not HUB_CLASSCODE',0
 hubstr5 db 'hub IN endpoint #',0
-hubstr6 db 'hub get Hub descriptor',0
-hubstr7 db 'hub Set Address',0
-hubstr8 db 'hub failed usb control transfer during init',0
-hubstr9 db 'hub Set Configuration',0
-hubstr10 db 'hub getting status of all ports, save flash & mouse port#',0
-hubstr11 db 'hub putting power to all ports',0
-hubstr12 db 'hub resetting all ports',0
-hubstr13 db 'flash hub portnum',0
-hubstr14 db 'mouse hub portnum',0
-hubstr15 db 'failed to find valid portnum for flash',0
-hubstr16 db 'failed to find valid portnum for mouse',0
+hubstr6 db 'hub-GetHubDescriptor',0
+hubstr7 db 'hub-SetAddress',0
+hubstr8 db 'inithub-failed usb transaction',0
+hubstr9 db 'hub-SetConfiguration',0
+hubstr10 db 'hub putting power to all ports',0
 
 
 
 inithub:
+
+	;this function take no inputs and returns no values
 
 	STDCALL hubstr0,dumpstr
 
@@ -48,15 +50,13 @@ inithub:
 	;at the end of initehci with hub we did a port reset of the hub "upstream" port
 
 
-
-	;Device Descriptor
+	;hub Device Descriptor
 	STDCALL hubstr1,putscroll  
 	call HubGetDeviceDescriptor
 
 
 
-
-	;Configuration Descriptor
+	;hub Configuration Descriptor  9 bytes
 	;first we request the 9 byte Configuration Descriptor
 	;this will give us the BNUMINTERFACES and WTOTALLENGTH
 	STDCALL hubstr2,putscroll  
@@ -66,6 +66,7 @@ inithub:
 	jz near .error  ;or tom reset upstream port
 
 
+	;hub Configuration Descriptor  full
 	;now we get the configuration, interface and
 	;endpoint descriptors all in one shot
 	;the value of HUB_WTOTALLENGTH was determined
@@ -100,9 +101,12 @@ inithub:
 	;assign a unique address to the hub	
 	;HUBADDRESS is defined in usb.s
 	STDCALL hubstr7,putscroll
+	STDCALL devstr4,dumpstr  ;HUB
+
 	mov eax,HUBADDRESS
 	mov dword [qh_next_td_ptr], HUB_CONTROL_QH_NEXT_TD_PTR
 	call SetAddress
+
 	cmp eax,1  ;check for error
 	jz near .error  ;or tom reset upstream port
 
@@ -119,9 +123,12 @@ inithub:
 
 	;set hub configuration
 	STDCALL hubstr9,putscroll
+	STDCALL devstr4,dumpstr  ;HUB
+	
 	mov ax,[HUB_BCONFIGVALUE]
 	mov dword [qh_next_td_ptr], HUB_CONTROL_QH_NEXT_TD_PTR
 	call SetConfiguration
+
 	cmp eax,1  ;check for error
 	jz near .error
 
@@ -129,8 +136,7 @@ inithub:
 	;at this point the hub is configured but the ports have NO power
 
 
-
-	;get the hub descriptor
+	;get the HUB descriptor
 	;this gives us the number of downstream ports on the device
 	;my asus laptop reports 6 ports but there are only 3 external physical
 	STDCALL hubstr6,putscroll
@@ -140,8 +146,8 @@ inithub:
 	;if you attempt HUbGetPortStatus at this point all you will get is 00 00 00 00
 	
 
-	;apply power to ports 
-	STDCALL hubstr11,putscroll
+	;apply power to all ports 
+	STDCALL hubstr10,putscroll
 	movzx ecx,byte [HUB_BQTYDOWNSTREAMPORTS]
 .1:
 	mov eax,ecx
@@ -150,91 +156,8 @@ inithub:
 
 
 
-	;reset all the ports 
-	STDCALL hubstr12,putscroll
-	movzx ecx,byte [HUB_BQTYDOWNSTREAMPORTS]
-.2:
-	mov eax,ecx
-	call HubPortReset
-	loop .2
-
-
-	
-	;dump the status of each hub port
-	;you can get this information by pressing ALT+F4 from usbcentral
-	;also save port number of flash drive and mouse
-	;at this point we can determine which port the flash and mouse are plugged into
-	;wPortStatus = 0x0503 =  flash
-	;device present, port enabled, port has power, hi speed device attached (flash)
-	;wPortStatus = 0x0303 =  mouse
-	;device present, port enabled, port has power, low speed device attached (mouse)
-	;wPortStatus = 0x100  nothing connected
-
-	STDCALL hubstr10,putscroll
-	mov dword [mouse_hubportnum],0xff  ;init to something invalid
-	mov dword [flash_hubportnum],0xff
-
-	movzx ecx,byte [HUB_BQTYDOWNSTREAMPORTS]
-.3:
-	mov eax,ecx  ;ecx=port number
-	call HubGetPortStatus  ;returns ebx=wPortChangewPortStatus
-
-	cmp ebx,0x110503
-	jz .foundflash
-	cmp ebx,0x110303
-	jz .foundmouse
-	jmp .loop
-
-.foundflash:
-	mov [flash_hubportnum],ecx  ;save flash port number
-	jmp .loop 
-.foundmouse:
-	mov [mouse_hubportnum],ecx  ;save mouse port number
-.loop:
-	loop .3
-
-
-	;dump the flash and mouse port numbers we found
-	;we need these portnums for port reset
-	;and the mouse control QH has the portnum written into it
-	mov eax,[flash_hubportnum]
-	STDCALL hubstr13,0,dumpeax
-
-	cmp eax,0xff
-	jnz .doneflashwarning
-	;warn user that we failed to find a valid hubportnum for flash
-	;sometimes just rebooting will solve the problem
-	STDCALL hubstr15,putscroll
-.doneflashwarning:
-
-	;mouse hub port num
-	mov eax,[mouse_hubportnum]
-	STDCALL hubstr14,0,dumpeax
-
-	cmp eax,0xff
-	jnz .donemousewarning
-	STDCALL hubstr16,putscroll
-.donemousewarning:
-
-
-
-	;write the port number of the mouse into MOUSE_CONTROL_QH (see initehci.s)
-	;this must go in bits29:23 of dword3 endpoint capabilities
-	;eax=mouse_hubportnum from above
-	mov ebx,[MOUSE_CONTROL_QH+8]  ;get dword3
-	shl eax,23                    ;shift the mouse portnum into position
-	or ebx,eax                    ;set the Port Number bits
-	mov [MOUSE_CONTROL_QH+8],ebx  ;save dword3 endpoint capabilities
-
-
-
-
-	;just trying out this function never used before
-	;to make sure we have indeed set the configuration properly
-	;mov dword [qh_next_td_ptr], HUB_CONTROL_QH_NEXT_TD_PTR
-	;call GetConfiguration
-
-
+	;done inithub
+	;see initdevices with USBCONTROLLERTYPE == 2 for code continuation
 
 	jmp .success
 

@@ -1,14 +1,18 @@
 ;tatOS/usb/prepareTD.s
 
 
-;functions to prepare usb transfer descriptor TD chains for UHCI:
-
-;as of Sept 2012 I would not use this code for the flash drive
-;I spend all my time trying to improve the ehci driver 
-;so this code should only be used for the usb mouse
 
 ;uhci_prepareTDchain
 ;uhci_prepareInterruptTD
+;uhci_prepareInterruptTD_keyboard
+
+
+
+;functions to prepare usb transfer descriptor TD chains for UHCI
+;a TD is a data structure that is read by the usb controller
+;the TD instructs the controller how to transfer data between controller & device
+
+
 
 
 ;***********************************************************************************
@@ -400,6 +404,90 @@ uhci_prepareInterruptTD:
 	ret 
 
 
+
+
+
+
+;***********************************************************************************
+;uhci_prepareInterruptTD_keyboard
+
+;this function builds a single 32 byte TD for usb keyboard using uhci
+;the TD is written to 0x1003300
+
+;input:none
+;return:none
+;***************************************************************************
+
+uhci_prepareInterruptTD_keyboard:
+
+	pushad
+
+	;init edi to address where TD will be written
+	mov edi,0x1003300
+
+
+	;1st dword of TD (LinkPointer)
+	;******************************
+	mov dword [edi],1  ;terminate, no more TD's
+
+
+
+	;2nd dword of TD (Control/Status)
+	;***********************************
+	;bit26 = low speed
+	;bit24 = issue IOC interrupt on complete (irq11 is programmed, see inituhci)
+	;bit23 = active
+	;mov dword [edi+4],0x5800000   ;low speed, active, IOC
+	mov dword [edi+4],0x4800000    ;low speed, active
+
+
+
+	;3rd dword of td  (USB PacketHeader)
+	;**********************************
+
+	;bit[31:21] MaxLen
+	;we ask for 8 bytes, the keyboard gives an 8 byte report
+	mov eax,7    ;n-1
+	shl eax,21
+	
+	;data toggle  (1,0,1,0...)
+	;see Toggle.info for details
+	mov ecx,[keyboardtogglein]    ;get value of toggle
+	shl ecx,19
+	or eax,ecx
+	;now toggle the global variable
+	not dword [keyboardtogglein]   ;flip all the bits
+	and dword [keyboardtogglein],1 ;mask off bit0
+	
+	;endpoint 
+	;must read device endpoint descriptor to get this one
+	mov ecx,[KEYBOARDINENDPOINT]  
+	shl ecx,15
+	or eax,ecx
+	
+	;device address on the usb bus
+	;0 for control else 2 or 3
+	mov ebx,KEYBOARDADDRESS
+	shl ebx,8
+	or eax,ebx
+	
+	;PID: IN=0x69, OUT=0xe1, SETUP=0x2d for low speed uhci
+	mov al,0x69  ;interrupt-IN
+
+	;finally write the 3rd dword of TD
+	mov [edi+8],eax
+	
+
+
+
+	;4th dword of TD  (BufferPointer)
+	;************************************
+	mov dword [edi+12], KEYBOARD_REPORT_BUF
+
+
+.done:
+	popad
+	ret 
 
 
 

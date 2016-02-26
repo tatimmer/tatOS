@@ -31,55 +31,49 @@ db NL
 ;the flash drive and mouse, the USBCONTROLLERTYPE is set in tatOS.config
 
 %if USBCONTROLLERTYPE == 0
+db 'USBCONTROLLERTYPE == 0',NL
 db 'UHCI primary: INTEL 8086 did=7112 bus:dev:fun 00:07:02',NL
 db NL
 db 'F1=init UHCI',NL
-db 'F2=init Flash',NL
-db 'F3=init Mouse',NL
 db 'F9=Show UHCI Primary Controller Registers',NL
 %endif
 
 %if USBCONTROLLERTYPE == 1
+db 'USBCONTROLLERTYPE == 1',NL
 db 'EHCI with UHCI companion controllers: VIA pci card vid=1106',NL
 db 'ehci    bus:dev:fun 00:10:02',NL
 db 'uhci #1 bus:dev:fun 00:10:00',NL
 db 'uhci #2 bus:dev:fun 00:10:01',NL
 db NL
 db 'F1=init EHCI & UHCI companions',NL
-db 'F2=init Flash',NL
-db 'F3=init Mouse',NL
 db 'F8=Show EHCI Controller Registers',NL
 db 'F10=Show UHCI Companion Controller #1 Registers',NL
 db 'F11=Show UHCI Companion Controller #2 Registers',NL
 %endif
 
 %if USBCONTROLLERTYPE == 2
+db 'USBCONTROLLERTYPE == 2',NL
 db 'EHCI with root hub: INTEL 8086 bus:dev:fun 00:1d:00',NL
 db NL
 db 'F1=init EHCI & root hub',NL
-db 'F2=init Flash',NL
-db 'F3=init Mouse',NL
 db 'F4=hub downstream port status wPortStatus',NL
 db 'F8=Show EHCI Controller Registers',NL
 %endif
 
 %if USBCONTROLLERTYPE == 3
+db 'USBCONTROLLERTYPE == 3',NL
 db 'EHCI only no usb 1.0 support',NL
 db NL
 db 'F1=init EHCI only',NL
-db 'F2=init Flash',NL
 db 'F8=Show EHCI Controller Registers',NL
 %endif
 
-db NL
-db 'F6=Format Flash Drive with tatOS FAT16 no partition',NL
-db 'F7=Show Mouse Report',NL
-db 'F12=Scan PCI bus for all usb controllers',NL
-db NL
-db 'ESC=quit',NL
-db NL
-db 'Init usb controller then your flash drive',NL
-db 'If init flash fails, re-init controller & flash',NL
+db 'F2      = init usb devices: flash, keyboard, mouse',NL
+db 'F6      = Format Flash Drive with tatOS FAT16 no partition',NL
+db 'F7      = Show usb mouse report',NL
+db 'Ctrl+F7 = Show usb keyboard report',NL
+db 'F12     = Scan PCI bus for all usb controllers',NL
+db 'ESC     = quit',NL
 db 0
 
 
@@ -150,12 +144,8 @@ UsbCentral:
 	jz near .F1
 	cmp al,F2
 	jz near .F2
-	cmp al,F3
-	jz near .F3
 	cmp al,F4
 	jz near .F4
-	;cmp al,F5
-	;jz near .F5
 	cmp al,F6
 	jz near .F6
 	cmp al,F7
@@ -208,15 +198,10 @@ UsbCentral:
 
 
 
-.F2:  ;init flash drive 
-	call initflash
+.F2:  ;init flash drive, keyboard & mouse
+	call initdevices
 	jmp UsbCentral
 
-
-
-.F3:  ;init mouse 
-	call usbinitmouse
-	jmp UsbCentral
 
 
 .F4:
@@ -225,13 +210,20 @@ UsbCentral:
 	jmp UsbCentral
 
 
+
 .F6:  ;format flash drive
 	call fatformatdrive
 	jmp UsbCentral
 
 .F7:
+	cmp byte [CTRLKEYSTATE],1
+	jz .showkeyboardreport
 	call usbShowMouseReport
 	jmp UsbCentral
+.showkeyboardreport:
+	call usbShowKeyboardReport
+	jmp UsbCentral
+
 
 .F8:
 	call show_ehci_reg

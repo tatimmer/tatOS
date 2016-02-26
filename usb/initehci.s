@@ -7,14 +7,14 @@
 
 
 
-;code to setup the ehci usb controller for flash drive transactions under tatOS
+;code to setup the ehci usb controller for flash drive, mouse and keyboard
+;transactions under tatOS
 
 ;the ehci is a high speed usb controller for flash drive
-;but it can not handle the low speed mouse directly
-;the hardware vendors handle the low speed mouse two ways:
-;  1) ehci + companion controllers (usually uhci)
-;  2) ehci + root hub
-;the companion controllers or the root hub will service the low speed mouse
+;but it can not handle the low speed keyboard or mouse directly
+;the hardware vendors handle the low speed devices at least two ways:
+;  * ehci + companion controllers (usually uhci)
+;  * ehci + root hub
 
 
 ;we note here a few differances between EHCI and UHCI
@@ -36,15 +36,10 @@
 ;Also resets the usb controller and sets up the frame list and 
 ;queue heads for usbmass/bulk and usbmouse/interrupt transactions
 
-;Problems:
-;if you have problems with this code try the following:
-;* disconnect all attached usb devices especially low speed (mouse)
-;* after bootup remove the boot flash drive before ehci controller init
-;* use usb ports on the back of your desktop not the front
-;  ports on the front are connected to the controller thru a "hub" which is unsupported
-;* some ports may be hardwired to ohci controllers which are unsupported so try others
-;* consult your datasheet, some devices have specific pci config registers
-;* use hardware that provides datasheets like Intel,AMD,Via, not nVidia
+;Problems
+; * some ports may be hardwired to ohci controllers which are unsupported 
+; * consult your datasheet, some devices have specific pci config registers
+; * use hardware that provides datasheets like Intel,AMD,Via (not nVidia)
 
 ;the bus:dev:fun pci config address (dword) of the usb controllers is stored at:
 ;0x5d8, UHCI companion #1  (UHCIBUSDEVFUNCOM1)
@@ -79,7 +74,7 @@ usbinitstr41 db 'testing port0 for low speed device',0
 usbinitstr42 db 'testing port1 for low speed device',0
 usbinitstr43 db 'testing port2 for low speed device',0
 usbinitstr44 db 'testing port3 for low speed device',0
-usbinitstr45 db 'releasing ownership of ehci port to companion controller',0
+usbinitstr45 db 'ehci-release ownership of port',0
 usbinitstr46 db 'no low speed device found-no release port ownership-no init uhci',0
 usbinitstr47 db 'init ehci with root hub',0
 usbinitstr48 db 'resetting upstream port of ehci with root hub',0
@@ -370,7 +365,9 @@ init_EHCI_base:
 	;PERIODIC Frame List 
 	;*********************
 	;setup the periodic frame list
-	;generate one QH to conduct mouse interrupt tranfers using this frame list
+	;0x1006000  QH for mouse    interrupt tranfer
+	;0x1006100  QH for keyboard interrupt tranfer
+	;the mouse QH points to the keyboard QH in the "horizontal" list
 
 	;Smask = 01
 	;a non-zero Smask value is required for interrupt transfers
@@ -384,7 +381,8 @@ init_EHCI_base:
 	;Cmask = 0x1c
 	;page 94 of the usb 2.0 spec suggests this value for case=1 of fig 4-17
 	;dont know any more, it works
-	;frankly I think the ehci authors should have hid Smask & Cmask all in the hardware
+	;frankly I think the ehci authors should have hid Smask & Cmask 
+	;all in the hardware
 	;uhci was alot easier to deal with
 	;the so called "universal" series bus could hide more functionality in the hdwre
 	;and be a little less universal 
@@ -402,8 +400,13 @@ init_EHCI_base:
 
 	STDCALL usbinitstr33,putscroll  
 
+
+
+	;MOUSE interrupt QH
+	;********************
+
 	;QH 1st dword-Horiz Link Pointer
-	mov dword [0x1006000],1    ;QH horiz link ptr is invalid
+	mov dword [0x1006000],0x1006102  ;QH horiz link pointer (-->keyboardQH)
 
 	;QH 2nd dword-Endpoint Characteristics
 	;bit31:28  NAK reload counter (we seem to like the value 5 here)
@@ -416,15 +419,14 @@ init_EHCI_base:
 	;bit7      inactive on next transaction (init to 0)
 	;bit6:0    Device Address (hardcode to MOUSEADDRESS=3 see usb.s)
 	mov dword [0x1006004],0x50005003  
-	;mov dword [0x1006004],0x50065103 ;hard code maxpacket=06, endpointnum=1, mouseaddress=3
 
 	;QH 3rd dword - Endpoint Capabilities
-	;bits31:30 hi bandwidth Pipe Multiplier (we use 1.0, Linux #define QH_MULT 0xc0000000)
-	;bits29:23 port number where mouse is plugged in (set to mouse_hubportnum in initmouse)
+	;bits31:30 hi bandwidth Pipe Multiplier MULT (use 3)
+	;bits29:23 port number where mouse is plugged in 
+	;(set to mouse_hubportnum in initmouse)
 	;bits22:16 HUBADDRESS is hard coded here as 4 see usb.s
 	;bits15:8  Split Transaction Mask  Cmask (see notes above, we use 0x1c)
 	;bits7:0   Interrupt Schedule Mask Smask (see notes above, we use 0x01)
-;	mov dword [0x1006008],0x40041c01    ;MULT=1
 	mov dword [0x1006008],0xc0041c01    ;MULT=3
 	
 	;QH overlay 4th, 5th, 6th, 7th, 8th, 9th, 10th, 11th, 12th dwords
@@ -450,11 +452,36 @@ init_EHCI_base:
 
 
 
+
+	;KEYBOARD interrupt QH
+	;*************************
+	mov dword [0x1006100],1          ;dword1 QH horiz link ptr is invalid
+	mov dword [0x1006104],0x50005005 ;dword2  KEYBOARDADDRESS=5
+	mov dword [0x1006108],0xc0041c01 ;dword3
+	mov dword [0x100610c],0          ;dword4
+	mov dword [0x1006110],1          ;dword5
+	mov dword [0x1006114],0  
+	mov dword [0x1006118],0
+	mov dword [0x100611c],0
+	mov dword [0x1006120],0
+	mov dword [0x1006124],0
+	mov dword [0x1006128],0
+	mov dword [0x100612c],0
+	mov dword [0x1006130],0  ;Extended Buffer Pointer Page 0
+	mov dword [0x1006134],0
+	mov dword [0x1006138],0
+	mov dword [0x100613c],0
+	mov dword [0x1006140],0  ;Extended Buffer Pointer Page 4
+
+
+
+
 	;generate a Periodic frame list of 1024 QH addresses 
 	;this periodic list setup is similar to what we did for uhci
 	;every address in this list is 0x1006002 our mouse interrupt QH
 	;this gives us maximum response time for the mouse
-	;tatOS does not support usb sound so we dont need the periodic list for anything else
+	;tatOS does not support usb sound so we dont need the periodic list 
+	;for anything else
 	;we reserve 0x1000 bytes starting at 0x1002000 for this periodic list
 	;you can also mark every item in this list as 01 for invalid
 	;you can mark every item in the list as 01 except the first item
@@ -484,7 +511,6 @@ init_EHCI_base:
 
 	;ASYNCLISTADDR asynchronous list
 	;***********************************
-	;set up our asynchronous list of queue heads for flash drive 
 	;the asynchronous list is a circular link list of queue heads (QH) 
 	;for control and bulk xfers
 	;you need one QH for each endpoint
@@ -501,11 +527,12 @@ init_EHCI_base:
 	;I am trying to avoid the complexity of this
 
 	;this list has 5 Qh's now
-	;QH1 = hub control xfer
+	;QH1 = Hub control xfer
 	;QH2 = Flash control xfer
 	;QH3 = Mouse control xfer
 	;QH4 = Flash bulk IN
 	;QH5 = Flash bulk OUT
+	;QH6 = Keyboard control xfer
 
 
 
@@ -523,7 +550,7 @@ init_EHCI_base:
 	;**************************************************************
 
 	;QH 1st dword-Horiz Link Pointer
-	mov dword [0x1005300],0x1005402  ;points to 0x1005400, QH, valid pointer
+	mov dword [0x1005300],0x1005402  ;points to Flash controlQH
 
 	;QH 2nd dword-Endpoint Characteristics
 	;bit31:28  NAK reload counter (0xf gives us the max qty of retries on nak)
@@ -541,7 +568,8 @@ init_EHCI_base:
 	;bit31:30  Hi Bandwidth Pipe Multiplier Mult (1 transaction per microframe)
 	;bits29:23 PortNum (low speed device id on usb hub, use 0 for flash )
 	;bits22:16 HubAddr (usb hub address if low speed device attached, use 0 for flash)
-	;bits15:8  C-Mask (low speed device split transaction periodic list, use 0 for flash)
+	;bits15:8  C-Mask 
+	;(low speed device split transaction periodic list, use 0 for flash)
 	;bits0:7   S-Mask (use 0 for asynchronous list)
 	mov dword [0x1005308],0x40000000
 	
@@ -571,11 +599,8 @@ init_EHCI_base:
 	;QH(2)  Flash control transfers  FLASH_CONTROL_QH = 0x1005400
 	;**************************************************************
 
-	;tom note this code is also repeated in part in initflashehci_common.s
-	;so if you make changes here you must also make changes their !!!
-
 	;QH 1st dword-Horiz Link Pointer
-	mov dword [0x1005400],0x1005502  ;points to 0x1005500, QH, valid pointer
+	mov dword [0x1005400],0x1005502  ;points to mouse controlQH
 
 	;QH 2nd dword-Endpoint Characteristics
 	;bit31:28  NAK reload counter (0xf gives us the max qty of retries on nak)
@@ -593,7 +618,8 @@ init_EHCI_base:
 	;bit31:30  Hi Bandwidth Pipe Multiplier Mult (1 transaction per microframe)
 	;bits29:23 PortNum (low speed device id on usb hub, use 0 for flash )
 	;bits22:16 HubAddr (usb hub address if low speed device attached, use 0 for flash)
-	;bits15:8  C-Mask (low speed device split transaction periodic list, use 0 for flash)
+	;bits15:8  C-Mask 
+	;(low speed device split transaction periodic list, use 0 for flash)
 	;bits0:7   S-Mask (use 0 for asynchronous list)
 	mov dword [0x1005408],0x40000000
 	
@@ -625,12 +651,12 @@ init_EHCI_base:
 	;QH(3)  Mouse control transfers MOUSE_CONTROL_QH = 0x1005500
 	;********************************************************************
 	;QH 1st dword-Horiz Link Pointer
-	mov dword [0x1005500],0x1005602  ;points to 0x1005500, QH, valid pointer
+	mov dword [0x1005500],0x1005602  ;points to Flash bulkinQH
 
 	;QH 2nd dword-Endpoint Characteristics
 	;bit31:28  NAK reload counter (0xf gives us the max qty of retries on nak)
 	;bit27     Control Endpoint Flag (set to 1 for lo speed device control xfer)
-	;bit26:16  MaxPacketLength  (0x08 for mouse control transfer, note 0x40 is wrong!)
+	;bit26:16  MaxPacketLength  (0x08 for mouse control transfer)
 	;bit15     Head of Reclaim list  (0=this QH is not head of list)
 	;bit14     Data Toggle (1=initial data toggle comes from incoming qTD)
 	;bit13:12  endpoint speed EPS (1=lo speed  endpoint)
@@ -641,7 +667,7 @@ init_EHCI_base:
 
 	;QH 3rd dword - Endpoint Capabilities
 	;bit31:30  Hi Bandwidth Pipe Multiplier Mult (1 transaction per microframe)
-	;bits29:23 PortNum (inithub.s writes value here)
+	;bits29:23 PortNum (other code must write value here)
 	;bits22:16 HubAddr (our HUBADDRESS=4)
 	;bits15:8  C-Mask (used for mouse interrupt in periodic list)
 	;bits0:7   S-Mask (used for mouse interrupt in periodic list)
@@ -676,7 +702,7 @@ init_EHCI_base:
 	;*****************************************************************
 
 	;QH 1st dword-Horiz Link Pointer
-	mov dword [0x1005600],0x1005702  ;points to 0x1005500, QH, valid pointer
+	mov dword [0x1005600],0x1005702  ;points to Flash bulkoutQH
 
 	;QH 2nd dword-Endpoint Characteristics
 	;bit31:28  NAK reload counter (0xf gives us the max qty of retries on nak)
@@ -687,7 +713,8 @@ init_EHCI_base:
 	;bit13:12  endpoint speed (2=hi speed  endpoint)
 	;bit11:8   endpoint number (initflash writes BULKEPIN to this QH after SetAddress)
 	;bit7      inactive on next transaction (set for periodic schedule only)
-	;bit6:0    Device Address (initflash writes BULKADDRESS to this QH after SetAddress)
+	;bit6:0    Device Address 
+	;(initflash writes BULKADDRESS to this QH after SetAddress)
 	mov dword [0x1005604],0x52006000  
 
 
@@ -719,11 +746,11 @@ init_EHCI_base:
 
 
 
-	;QH(4)  Flash bulk OUT/write transfers FLASH_BULKOUT_QH = 0x1005700
+	;QH(5)  Flash bulk OUT/write transfers FLASH_BULKOUT_QH = 0x1005700
 	;********************************************************************
 
 	;QH 1st dword-Horiz Link Pointer
-	mov dword [0x1005700],0x1005302  ;points back to start of circular list
+	mov dword [0x1005700],0x1005802  ;points to Keyboard controlQH
 
 	;QH 2nd dword-Endpoint Characteristics
 	mov dword [0x1005704],0x52006000  ;0x200 max packet, dt from qTD, not head-of-list
@@ -751,6 +778,62 @@ init_EHCI_base:
 	mov dword [0x1005738],0
 	mov dword [0x100573c],0
 	mov dword [0x1005740],0  ;Extended Buffer Pointer Page 4
+
+
+
+
+
+	;QH(6)  Keyboard control transfers KEYBOARD_CONTROL_QH = 0x1005800
+	;********************************************************************
+	;QH 1st dword-Horiz Link Pointer
+	mov dword [0x1005800],0x1005302  ;points back to start of circular list
+
+	;QH 2nd dword-Endpoint Characteristics
+	;bit31:28  NAK reload counter (0xf gives us the max qty of retries on nak)
+	;bit27     Control Endpoint Flag (set to 1 for lo speed device control xfer)
+	;bit26:16  MaxPacketLength  (0x08 for keyboard control transfer)
+	;bit15     Head of Reclaim list  (0=this QH is not head of list)
+	;bit14     Data Toggle (1=initial data toggle comes from incoming qTD)
+	;bit13:12  endpoint speed EPS (1=lo speed  endpoint)
+	;bit11:8   endpoint number (0 for ctrl xfer)
+	;bit7      inactive on next transaction (set for periodic schedule only)
+	;bit6:0    Device Address (0 for ctrl xfer before SetAddress)
+	mov dword [0x1005804],0x58085000   
+
+	;QH 3rd dword - Endpoint Capabilities
+	;bit31:30  Hi Bandwidth Pipe Multiplier Mult (1 transaction per microframe)
+	;bits29:23 PortNum (inithub.s writes value here)
+	;bits22:16 HubAddr (our HUBADDRESS=4)
+	;bits15:8  C-Mask (used for mouse interrupt in periodic list)
+	;bits0:7   S-Mask (used for mouse interrupt in periodic list)
+	mov dword [0x1005808],0x40040000
+	
+	;QH overlay 4th, 5th, 6th, 7th, 8th, 9th, 10th, 11th, 12th dwords
+	;the ehci overwrites this area but you must init Next qTD to 1 or a valid pointer
+	mov dword [0x100580c],0  ;4th dword Current qTD Pointer 
+	mov dword [0x1005810],1  ;5th dword Next qTD Pointer    (1=terminate)
+	mov dword [0x1005814],0  
+	mov dword [0x1005818],0
+	mov dword [0x100581c],0
+	mov dword [0x1005820],0
+	mov dword [0x1005824],0
+	mov dword [0x1005828],0
+	mov dword [0x100582c],0
+
+	;dwords 13-17 of QH
+	;if your controller uses 64bit addressing like the Intel ICHn
+	;then you need to specify the upper 32bits here
+	mov dword [0x1005830],0  ;Extended Buffer Pointer Page 0
+	mov dword [0x1005834],0
+	mov dword [0x1005838],0
+	mov dword [0x100583c],0
+	mov dword [0x1005840],0  ;Extended Buffer Pointer Page 4
+
+
+
+
+
+
 
 
 
@@ -839,58 +922,8 @@ init_EHCI_with_companion:
 	call init_EHCI_base
 
 
-	;test for low speed mouse on port 0
-	STDCALL usbinitstr41,putscroll
-	mov eax,0
-	call ehci_portlowspeed  
-	;zf is set if low speed mouse attached to this port
-	jz near .releaseOwnership
 
-	;test for low speed mouse on port 1
-	STDCALL usbinitstr42,putscroll
-	mov eax,1
-	call ehci_portlowspeed  
-	;zf is set if low speed mouse attached to this port
-	jz near .releaseOwnership
-
-	;test for low speed mouse on port 2
-	STDCALL usbinitstr43,putscroll
-	mov eax,2
-	call ehci_portlowspeed  
-	;zf is set if low speed mouse attached to this port
-	jz near .releaseOwnership
-
-	;test for low speed mouse on port 3
-	STDCALL usbinitstr44,putscroll
-	mov eax,3
-	call ehci_portlowspeed  
-	;zf is set if low speed mouse attached to this port
-	jz .releaseOwnership
-
-	;if we got here we failed to find any low speed device on any ehci port
-	;will not release port ownership to UHCI
-	;will not even init the UHCI controllers
-	STDCALL usbinitstr46,putscroll  
-	jmp .done
-
-
-.releaseOwnership:
-	;Release ownership of port to companion controller
-	;found low speed device attached
-	;eax=port number
-	STDCALL usbinitstr45,putscroll
-	mov esi,[EHCIOPERBASE]  ;get start of ehci operational regs
-	mov edi,[esi+44h+eax*4] ;read PORTSC=1 (ports are 44h, 48h, 4ch, 50h)
-	or edi,10000000000000b  ;set bit13 port owner = companion controller
-	mov [esi+44h+eax*4],edi ;write it back
-
-.doneReleaseOwnership:
-
-
-
-	;init UHCI companion controllers
-	;we dont know which companion controls the mouse port
-	;so we just init both companion controllers
+	;init both UHCI companion controllers
 
 	;init UHCI companion 1
 	;run pci bus scan and manually edit tatOS.config
@@ -920,6 +953,11 @@ init_EHCI_with_companion:
 	STDCALL pressanykeytocontinue,putscroll  
 	call getc
 	ret
+
+
+
+
+
 
 
 

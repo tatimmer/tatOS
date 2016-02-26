@@ -709,14 +709,17 @@ dumpPoints:
 ;dumps memory as a series of ascii hex bytes
 ;each byte is seperated by space
 ;3 ascii bytes are generated for each memory byte
-;input
-;push starting memory address   [ebp+12]
-;push qty bytes to convert      [ebp+8]
+;input:
+;   push starting memory address   [ebp+12]
+;   push qty bytes to convert      [ebp+8]
+;return:none
 ;**********************************************
 
 dumpmem:
+
 	push ebp
 	mov ebp,esp
+	pushad
 
 	;alloc some memory for this
 	;Aug 2011 this is our first function in all of tatOS to use alloc
@@ -736,6 +739,7 @@ dumpmem:
 	call free 
 
 .failed:
+	popad
 	pop ebp
 	retn 8
 

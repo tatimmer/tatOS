@@ -1,32 +1,57 @@
-README  tatOS usb
+README  tatOS usb    Feb 2016
 
 This usb driver code was developed from scratch and has evolved over the years.
 It is not perfect. No usb analyser has been used to check it.
 The flash drive init sequence usually passes but sometimes fails.
 Then I just reinit the controller and go thru the flash sequence again.
 It will almost always pass the 2nd time.
-If it fails a second time, reinit the controller and flash again.
-Its rare that I need to do this 3 times.
 
-On rare occassions the flash drive will pass the init sequence but then
-the first time I attempt a write10 it will fail.
-Then I just go back to usb central and reinit the controller and flash again. 
+Not all flash drives behave the same. Some will go thru the init sequence quickly
+the first time without fail, others may stall or slow down at some point.
 
-I have made it a habbit of reading a file and then immediately doing a save
-to make sure write10 is working properly, before doing any serious asm coding.
-On rare occasions I have to reboot to get the device to work properly.
 
-Every once in awhile I will experience a failed write10 that trashes the fat
-or parts of the root directory.  Im not sure why.  So BACKUP !  
+POLLING
+**********
+The usb driver code does not use interrupts, but uses polling.  See run.s
+We wait/poll for the usb controller to mark the tranfer descriptor as inactive
+or failed, before continuing code execution. I have only dabbled into getting
+the usb controller to issue a hardware interrupt on successful completion of a TD
+but have not been successful. It involves finding the registers that control
+legacy support and PIRQD routing.  On bootup the bios will enable legacy support 
+and enable usb keyboard hardware interrupts but route thru irq1. I did not want to 
+fall back on legacy support.  Then there are registers to enable the usb controller to generate interrupts and also an PCI->ISA bridge register to route that interrupt 
+to whatever irq you choose, and then the usb TD must be generated to issued an 
+interrupt on completion of the TD. A bit of work must be done here.
 
-The usb driver code does not use interrupts, but uses polling. See run.s
-We wait for the usb controller to mark the tranfer descriptor as inactive
-before continuing code execution.
+
+HUB
+****
+As of 2015 there is now code to init an "integrated root hub".  This hub is built into
+my Acer laptop and it allows a usb 1.0 (low speed device) like a mouse or keyboard
+to communicate with an ehci hi speed controller. The use of uhci companion controllers
+is apparently obsolete.  I have a Lenova desktop with 2 ehci controllers
+that also has an integrated root hub (also called "rate matching hub").
+
+
+KEYBOARD
+*********
+As of 2016 we now have usb keyboard code.  This keyboard code is identical to the 
+usb mouse except for the buffer pointers and device address and endpoint numbers. 
+In fact you can use the mouse init sequence on the keyboard and it will work.  
+Both the keyboard and mouse are "low speed" HID (human interface device).
+So in the interest of time I just copied the mouse code files to keyboard, 
+changed the address where the descriptors are stored and used unique values for 
+device address and proper endpoint.  Also new queue heads are required in the 
+frame list in order to conduct seperate interrupt transfers for each device.
+Some day I may spend time compacting the code and eliminating duplication but
+its not a priority right now.
 
 
 Thats all folks.
 Enjoy your usb transactions.
 
-TomT
+Tom Timmermann
+Janesville WI USA
+
 
 

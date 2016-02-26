@@ -2,6 +2,9 @@
 
 ;this file is included in boot2.s
 
+;deal with the PIC and PIT
+
+
 
 ;**********************************
 ;        PIC
@@ -68,7 +71,7 @@ picstart:
 
 	;irq0=bit0 = pit system timer 
 	;irq1=bit1 = ps2 keyboard
-	;irq2=bit2 = pic2
+	;irq2=bit2 = redirect to pic2
 	;irq3=bit3 = serial port
 	;irq4=bit4 = serial port
 	;irq5=bit5 = sound card
@@ -91,18 +94,19 @@ picstart:
 	;pic2
 	;******************************
 
-	;irq8=bit0 = real time clock 
-	;irq9=bit1 = irq2 redirected 
+	;irq8 =bit0 = real time clock 
+	;irq9 =bit1 = irq2 redirected 
 	;irq10=bit2 = reserved
-	;irq11=bit3 = reserved 
+	;irq11=bit3 = usb controller 
 	;irq12=bit4 = ps/2 mouse 
 	;irq13=bit5 = math co-processor
 	;irq14=bit6 = hard disc drive 
 	;irq15=bit7 = reserved
 	
-;	mov al,0         ;enable everything
-	mov al,11101111b ;enable mouse
-;	mov al,11111111b ;enable nothing
+	;mov al,0         ;enable everything
+	;mov al,11101111b ;enable ps2mouse
+	mov al,11100111b  ;enable usb + ps2mouse
+	;mov al,11111111b ;enable nothing
 
 	out 0xa1,al
 	call picpause
@@ -174,3 +178,6 @@ out 0x40,al
 
 ;interrupt bitmask 
 mov dword [0x50c],0
+
+
+

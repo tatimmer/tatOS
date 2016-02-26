@@ -42,13 +42,11 @@ dd FLASHDRIVEADDRESS    ;device address on bus
 %endif
 
 
-tustr1 db '********** Flash TestUnitReady  COMMAND transport **********',0
-tustr2 db '********** Flash TestUnitReady  STATUS  transport **********',0
 
 
 ;*****************************************************************
 ;TestUnitReady
-;input:eax=value of data toggle for STATUS transport (0 or 1)
+;input:eax=value of data toggle for STATUS transport (0 or 1) for ehci
 ;return: success eax=0, error eax=1
 status_toggle dd 0
 ;*****************************************************************
@@ -59,9 +57,12 @@ TestUnitReady:
 	mov dword [status_toggle],eax
 
 
+	STDCALL devstr1,dumpstr  ;FLASH
+
+
 	;Command Transport
 	;********************
-	STDCALL tustr1,dumpstr
+	STDCALL transtr10a,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push FlashTUR_structTD_command
@@ -101,13 +102,17 @@ TestUnitReady:
 
 	;Status Transport
 	;*******************
-	STDCALL tustr2,dumpstr
+	STDCALL transtr10c,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push SCSI_structTD_status
 	call uhci_prepareTDchain
 	call uhci_runTDchain
 	jnz near .error
+
+	mov esi,scsiCSW
+	call CheckCSWstatus  
+	jnc .error
 %endif
 
 %if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
@@ -121,13 +126,11 @@ TestUnitReady:
 	mov eax,FLASH_BULKIN_QH_NEXT_TD_PTR
 	call ehci_run
 	jnz near .error
-%endif
-
-
-	STDCALL 0xb70000,13,dumpmem  ;dump the Command Status Wrapper returned
 
 	mov esi,0xb70000
-	call CheckCSWstatus  ;test the last byte of CSW for pass/fail
+	call CheckCSWstatus  
+	jnc .error
+%endif
 
 
 .success:

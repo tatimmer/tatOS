@@ -4,9 +4,15 @@
 
 ;SetAddress
 ;MouseSetAddress
+;KeyboardSetAddress
 
 
 ;code to issue the usb Set Address Request
+
+
+
+
+
 
 
 align 0x10
@@ -42,16 +48,14 @@ dd ADDRESS0
 %endif
 
 
-setaddstr1 db '********** SetAddress COMMAND transport **********',0
-setaddstr2 db '********** SetAddress STATUS  transport **********',0
-
 
 ;***********************************************************
 ;SetAddress
+
 ;set unique address for usb device
 ;every usb device must have a unique address (0-127) 
-;this code for flash drive or hub or 
-;mouse plugged into hub port of ehci
+;this code for flash on uhci or ehci
+;for  hub, keyboard, mouse on ehci
 
 ;input: eax=usb device address (see our defines in usb.s)
 ;       global dword [qh_next_td_ptr] holds address of 
@@ -69,7 +73,7 @@ SetAddress:
 
 	;Command Transport
 	;********************
-	STDCALL setaddstr1,dumpstr 
+	STDCALL transtr3a,dumpstr 
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	mov dword [controltoggle],0
@@ -108,7 +112,7 @@ SetAddress:
 
 	;Status Transport
 	;******************
-	STDCALL setaddstr2,dumpstr 
+	STDCALL transtr3c,dumpstr 
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	mov dword [controltoggle],1
@@ -142,9 +146,9 @@ SetAddress:
 
 
 
-;***************************************************************************
-;         LOW SPEED USB MOUSE
-;***************************************************************************
+;****************************
+;   MOUSE SET ADDRESS
+;****************************
 
 MouseSA_structTD_command:
 dd SetAddressRequest  ;BufferPointer
@@ -165,10 +169,6 @@ dd controltoggle
 dd endpoint0          
 dd ADDRESS0           ;use address=0 to issue command
 
-
-msastr1 db 'Mouse SetAddress COMMAND transport',0
-msastr2 db 'Mouse SetAddress STATUS  transport',0
-
 ;***********************************************************
 ;MouseSetAddress
 ;set unique address for usb device
@@ -178,13 +178,16 @@ msastr2 db 'Mouse SetAddress STATUS  transport',0
 
 MouseSetAddress:
 
-	;assign device address
+	;set the device address to our structTD_command
 	mov word [SetAddressRequest+2],MOUSEADDRESS
+
+
+	STDCALL devstr2,dumpstr  ;"MOUSE"
 
 
 	;Command Transport
 	;********************
-	STDCALL msastr1,dumpstr 
+	STDCALL transtr3a,dumpstr 
 	mov dword [controltoggle],0
 	push MouseSA_structTD_command
 	call uhci_prepareTDchain
@@ -198,12 +201,55 @@ MouseSetAddress:
 
 	;Status Transport
 	;******************
-	STDCALL msastr2,dumpstr 
+	STDCALL transtr3c,dumpstr 
 	mov dword [controltoggle],1
 	push MouseSA_structTD_status
 	call uhci_prepareTDchain
 	call uhci_runTDchain
 
+
+	ret
+
+
+
+
+
+;********************************
+;     KEYBOARD SET ADDRESS 
+;********************************
+
+;same inputs and return value as for mouse
+;this code for uhci only
+;just a differant device address 
+
+KeyboardSetAddress:
+
+	;set the device address to our structTD_command
+	mov word [SetAddressRequest+2],KEYBOARDADDRESS
+
+
+	STDCALL devstr3,dumpstr    ;KEYBOARD
+
+
+	;Command Transport
+	;********************
+	STDCALL transtr3a,dumpstr 
+	mov dword [controltoggle],0
+	push MouseSA_structTD_command
+	call uhci_prepareTDchain
+	call uhci_runTDchain
+
+
+	;there is no data transport for this command
+	
+
+	;Status Transport
+	;******************
+	STDCALL transtr3c,dumpstr 
+	mov dword [controltoggle],1
+	push MouseSA_structTD_status
+	call uhci_prepareTDchain
+	call uhci_runTDchain
 
 	ret
 

@@ -3,6 +3,7 @@
 
 ;FlashGetDeviceDescriptor
 ;MouseGetDeviceDescriptor
+;KeyboardGetDeviceDescriptor
 ;HubGetDeviceDescriptor
 
 
@@ -18,6 +19,18 @@ db 6       ;bRequest=06=GET_DESCRIPTOR
 dw 0x0100  ;wValue=01 for DEVICE and 00 for index
 dw 0       ;wIndex
 dw 18      ;wLength=bytes data returned in data phase (8 or 18)
+
+
+ddstr5 db 'Device Descriptor Data Transport failed to return 12 01',0
+ddstr6 db 'VID VendorID',0
+ddstr7 db 'PID ProductID',0
+ddstr8 db 'bMaxPacket endpoint0',0
+
+
+
+
+
+
 
 
 
@@ -81,14 +94,6 @@ qtydevicedata dd 0
 ;01=bNumConfigurations=number of possible configurations
 
 
-ddstr1 db '********** Flash DeviceDescriptor COMMAND transport **********',0
-ddstr2 db '********** Flash DeviceDescriptor DATA    transport **********',0
-ddstr3 db '********** Flash DeviceDescriptor STATUS  transport **********',0
-ddstr4 db 'bMaxPacket endpoint0',0
-ddstr5 db 'Device Descriptor Data Transport failed to return 12 01',0
-ddstr6 db 'VID VendorID',0
-ddstr7 db 'PID ProductID',0
-
 
 ;********************************************************
 ;FlashGetDeviceDescriptor
@@ -106,10 +111,12 @@ ddstr7 db 'PID ProductID',0
 
 FlashGetDeviceDescriptor:
 
+	STDCALL devstr1,dumpstr
+
 
 	;Command Transport
 	;********************
-	STDCALL ddstr1,dumpstr
+	STDCALL transtr1a,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	mov dword [controltoggle],0
@@ -143,7 +150,7 @@ FlashGetDeviceDescriptor:
 
 	;Data Transport
 	;*****************
-	STDCALL ddstr2,dumpstr
+	STDCALL transtr1b,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	mov dword [controltoggle],1
@@ -183,7 +190,7 @@ FlashGetDeviceDescriptor:
 	;dump bMaxPacketEndpoint0
 	mov eax,[0x5000+7]
 	and eax,0xff
-	STDCALL ddstr4,0,dumpeax  
+	STDCALL ddstr8,0,dumpeax  
 
 	;dump the VID Vendor ID  (we keep track of these in /doc/hardware)
 	xor eax,eax
@@ -206,7 +213,7 @@ FlashGetDeviceDescriptor:
 
 	;Status Transport
 	;*******************
-	STDCALL ddstr3,dumpstr
+	STDCALL transtr1c,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	mov dword [controltoggle],1
@@ -292,11 +299,6 @@ dd ADDRESS0       ;device address
 ;12 01 00 02 00 00 00 08 cf 1b 07 00 10 00 00 02 00 01
 	
 
-mddstr1 db 'Mouse DeviceDescriptor COMMAND Transport',0
-mddstr2 db 'Mouse DeviceDescriptor DATA    Transport',0
-mddstr3 db 'Mouse DeviceDescriptor STATUS  Transport',0
-
-
 ;***************************************************************************
 ;MouseGetDeviceDescriptor
 ;this code is for a low speed mouse 
@@ -314,9 +316,11 @@ mddstr3 db 'Mouse DeviceDescriptor STATUS  Transport',0
 
 MouseGetDeviceDescriptor:
 
+	STDCALL devstr2,dumpstr  ;MOUSE
+
 	;Command Transport
 	;********************
-	STDCALL mddstr1,dumpstr
+	STDCALL transtr1a,dumpstr
 
 %if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
 	mov dword [controltoggle],0
@@ -349,7 +353,7 @@ MouseGetDeviceDescriptor:
 
 	;Data Transport
 	;*****************
-	STDCALL mddstr2,dumpstr
+	STDCALL transtr1b,dumpstr
 
 %if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
 	mov dword [controltoggle],1
@@ -371,7 +375,7 @@ MouseGetDeviceDescriptor:
 	call ehci_run
 	jnz near .error
 
-	;copy the Device Descriptor bytes received to 0x5000 for permanent storage
+	;copy the Device Descriptor bytes received to 0x5500 for permanent storage
 	mov esi,0xb70000
 	mov edi,0x5500
 	mov ecx,18
@@ -385,7 +389,7 @@ MouseGetDeviceDescriptor:
 
 	;Status Transport
 	;*******************
-	STDCALL mddstr3,dumpstr
+	STDCALL transtr1c,dumpstr
 
 %if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
 	mov dword [controltoggle],1
@@ -422,15 +426,149 @@ MouseGetDeviceDescriptor:
 
 
 
+;************************************************************************
+;              LOW SPEED USB KEYBOARD 
+;************************************************************************
+
+;the usb keyboard is a low speed usb device like the mouse
+;and it responds to the same code
+;all we do here is copy the mouse code and use differant buffer pointers
+;and endpoint/address values
+
+;Gear Head usb keyboard device descriptor
+;12 01 10 01 00 00 00 08 4f 1c 02 00 10 01 01 02 00 01
+
+
+KeyboardDD_structTD_data:
+dd 0x6500         ;BufferPointer 
+dd 18             ;we should get 18 bytes from the mouse
+dd LOWSPEED
+dd PID_IN
+dd controltoggle  ;Address of toggle
+dd endpoint0      ;Address of endpoint
+dd ADDRESS0       ;device address
+
+
+
+
+KeyboardGetDeviceDescriptor:
+
+
+	STDCALL devstr3,dumpstr    ;KEYBOARD
+
+
+	;Command Transport
+	;********************
+	STDCALL transtr1a,dumpstr
+
+%if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
+	mov dword [controltoggle],0
+	push MouseDD_structTD_command
+	call uhci_prepareTDchain
+	call uhci_runTDchain
+	jnz near .error
+%endif
+
+%if USBCONTROLLERTYPE == 2   ;ehci
+	;copy request to data buffer 0xb70000
+	mov esi,DeviceDescriptorRequest
+	mov edi,0xb70000
+	mov ecx,8
+	call strncpy
+
+	;generate 1 usb Transfer Descriptor
+	mov eax,8  ;Device Descriptor Request is 8 bytes long
+	mov ebx,2  ;PID = SETUP	
+	mov ecx,0  ;data toggle
+	call generate_TD
+
+	;attach TD to queue head and run
+	mov eax,KEYBOARD_CONTROL_QH_NEXT_TD_PTR
+	call ehci_run
+	jnz near .error
+%endif
+
+
+
+	;Data Transport
+	;*****************
+	STDCALL transtr1b,dumpstr
+
+%if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
+	mov dword [controltoggle],1
+	push KeyboardDD_structTD_data
+	call uhci_prepareTDchain
+	call uhci_runTDchain
+	jnz near .error
+%endif
+
+%if USBCONTROLLERTYPE == 2   ;ehci
+	;generate 1 usb Transfer Descriptor
+	mov eax,18  ;qty bytes to transfer
+	mov ebx,1   ;PID = IN	
+	mov ecx,1   ;data toggle
+	call generate_TD
+
+	;attach TD to queue head and run
+	mov eax,KEYBOARD_CONTROL_QH_NEXT_TD_PTR
+	call ehci_run
+	jnz near .error
+
+	;copy the Device Descriptor bytes received to 0x5500 for permanent storage
+	mov esi,0xb70000
+	mov edi,0x6500
+	mov ecx,18
+	call strncpy
+%endif
+
+
+	STDCALL 0x6500,18,dumpmem  ;to see the device descriptor
+
+
+
+	;Status Transport
+	;*******************
+	STDCALL transtr1c,dumpstr
+
+%if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
+	mov dword [controltoggle],1
+	push MouseDD_structTD_status
+	call uhci_prepareTDchain
+	call uhci_runTDchain
+	jnz near .error
+%endif
+
+%if USBCONTROLLERTYPE == 2   ;ehci
+	;generate 1 usb Transfer Descriptor
+	mov eax,0  ;qty bytes to transfer
+	mov ebx,0  ;PID_OUT	
+	mov ecx,1  ;data toggle
+	call generate_TD
+
+	;attach TD to queue head and run
+	mov eax,KEYBOARD_CONTROL_QH_NEXT_TD_PTR
+	call ehci_run
+	jnz near .error
+%endif
+
+
+
+.success:
+	mov eax,0
+	jmp .done
+.error:
+	mov eax,1
+.done:
+	ret
+
+
+
+
+
 
 ;********************
 ;        USB HUB
 ;********************
-
-
-hubDDstr1 db '********** hub Device Descriptor COMMAND Transport **********',0
-hubDDstr2 db '********** hub Device Descriptor DATA    Transport **********',0
-hubDDstr3 db '********** hub Device Descriptor STATUS  Transport **********',0
 
 ;this code was developed on my Acer laptop with ehci having "root" hub
 ;intel 7 Series /C216 Chipset Platform Controller Hub
@@ -466,10 +604,13 @@ hubDDstr3 db '********** hub Device Descriptor STATUS  Transport **********',0
 
 HubGetDeviceDescriptor:
 
+ 
+	STDCALL devstr4,dumpstr
+
 
 	;Command Transport
 	;********************
-	STDCALL hubDDstr1,dumpstr
+	STDCALL transtr1a,dumpstr
 
 	;copy request to data buffer 0xb70000
 	mov esi,DeviceDescriptorRequest
@@ -492,7 +633,7 @@ HubGetDeviceDescriptor:
 
 	;Data Transport
 	;*****************
-	STDCALL hubDDstr2,dumpstr
+	STDCALL transtr1b,dumpstr
 
 	;zero out some memory where our descriptor will be written to
 	;something is writting to memory in this area (maybe bios ?)
@@ -527,7 +668,7 @@ HubGetDeviceDescriptor:
 
 	;Status Transport
 	;*******************
-	STDCALL hubDDstr3,dumpstr
+	STDCALL transtr1c,dumpstr
 
 	;generate 1 usb Transfer Descriptor
 	mov eax,0  ;qty bytes to transfer

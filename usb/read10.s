@@ -65,9 +65,6 @@ dd FLASHDRIVEADDRESS
 %endif
 
 
-readstr1 db '********** Read10 COMMAND Transport **********',0
-readstr2 db '********** Read10 DATA    Transport **********',0
-readstr3 db '********** Read10 STATUS  Transport **********',0
 readstr4 db 'Read10 total qty bytes to transfer',0
 readstr8 db 'Read10: LBA start',0
 readstr9 db 'Read10: qty blocks',0
@@ -146,11 +143,13 @@ read10:
 	rep stosb   
 
 
+	
+	STDCALL devstr1,dumpstr  ;FLASH
 
 
 	;Command Transport
 	;*********************
-	STDCALL readstr1,dumpstr
+	STDCALL transtr16a,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push Read10_structTD_command
@@ -189,7 +188,7 @@ read10:
 
 	;Data Transport
 	;*****************
-	STDCALL readstr2,dumpstr
+	STDCALL transtr16b,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push Read10_structTD_data
@@ -224,13 +223,17 @@ read10:
 
 	;Status Transport
 	;*****************
-	STDCALL readstr3,dumpstr
+	STDCALL transtr16c,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push SCSI_structTD_status
 	call uhci_prepareTDchain
 	call uhci_runTDchain
 	jnz near .ReadErrorStatusTransport
+
+	mov esi,scsiCSW
+	call CheckCSWstatus  
+	jnc .ReadErrorCSWcheck
 %endif
 
 %if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
@@ -248,22 +251,18 @@ read10:
 	mov eax,FLASH_BULKIN_QH_NEXT_TD_PTR
 	call ehci_run
 	jnz near .ReadErrorStatusTransport
+
+	;dump the CSW and check last byte for pass/fail
+	mov esi,0xb70000
+	call CheckCSWstatus  
+	jnc .ReadErrorCSWcheck
 %endif
 
 
-
-
-	STDCALL 0xb70000,13,dumpmem  ;dump the Command Status Wrapper returned
-
-	mov esi,0xb70000
-	call CheckCSWstatus  ;test the last byte of CSW for pass/fail
-	jnc .ReadErrorCSWcheck
 	
 	
-
 	;if we got here we have a successful read10
 	jmp .success
-
 
 .ReadErrorCommandTransport:
 	STDCALL readstr11,putspause 

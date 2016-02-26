@@ -405,7 +405,7 @@ idt:
 	db 0x8e        
 	dw 0
 
-	dw irqd2        ;interrupt 43, irq11, general i/o
+	dw irq11        ;interrupt 43, irq11, usb controller (see irq11.s)
 	dw 0x08
 	db 0
 	db 0x8e        
@@ -847,6 +847,8 @@ intstrEFLAGS db 'EFLAGS',0
 intstrCS     db 'CS',0
 intstrEIP    db 'EIP',0
 intstrERROR  db 'ErrorCode',0
+intstr01     db 'this is interrupt irqd1',0
+intstr02     db 'this is interrupt irqd2',0
 
 
 
@@ -912,6 +914,8 @@ irqd1:
 	mov gs,ax
 
 
+	STDCALL intstr01,[DUMPSTR]
+
 	or dword [0x50c],100000000b
 
 	;end of interrupt (eoi) signal for pic1
@@ -944,6 +948,8 @@ irqd2:
 	mov fs,ax
 	mov gs,ax
 
+
+	STDCALL intstr02,[DUMPSTR]
 
 	or dword [0x50c],1000000000b
 	

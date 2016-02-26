@@ -2,6 +2,16 @@
 
 ;rev Feb 1, 2015
 
+
+;pci_detect_usb_controllers
+;pciReadDword
+;pciWriteDword
+;BusDevFunString
+;dumpBusDevFun
+;build_pci_config_address
+
+
+
 ;PCI = Peripheral Component Interface
 ;code to read/write a few pci configuration space registers
 ;in order to identify usb controllers on the pci bus
@@ -11,7 +21,7 @@
 ;a pci configuration address is 32 bits:
 ;bit31    = enable
 ;bit30-24 = reserved
-;bit23-16 = bus       (8 bits allow max 255 but I have read there can be only 8 busses ?))
+;bit23-16 = bus   (8 bits allow max 255 but I have read there can be only 8 busses ?))
 ;bit15-11 = device    (5 bits max 31 )
 ;bit10-8  = function  (3 bits max 7  )
 ;bit 7-2  = register
@@ -28,7 +38,7 @@
 
 ;The type 00 and 01 PCI header start like this:
 ;31        24|23          16|15                  8|7             0| <- bit
-;DeviceID.................. | VendorID............................|   00  <-register/offset
+;DeviceID.................. | VendorID............................|   00  <-regstr/ofst
 ;Status.................... | Command.............................|   04
 ;ClassCode.. | SubClass.... | ProgrammingInterface|RevisionID.....|   08
 ;Bist....... | HeaderType.. | LatencyTimer....... |CacheLineSize..|   0c
@@ -56,11 +66,13 @@
 ;you should run this function the first time you boot a new computer
 ;it will give you the bus:dev:fun of all usb controllers
 ;then hard code the desired usb controller bus:dev:fun 
-;in tatosconfig
+;in tatOS config
 ;this function was developed to deal with the modern computers
 ;that may have more than 1 ehci controller
+
 ;input:none
 ;return:writes bus:dev:fun of usb controllers to the screen
+
 bus db 0
 dev db 0
 fun db 0
@@ -376,11 +388,11 @@ dumpBusDevFun:
 ;build_pci_config_address
 ;build a 32 bit pci config address into eax
 ;input:
-;bl=BUS 
-;cl=DEV 
-;dl=FUN 
+;  bl=BUS 
+;  cl=DEV 
+;  dl=FUN 
 ;return:
-;eax=pci_config_address
+;  eax=pci_config_address
 ;*******************************************
 
 build_pci_config_address:
@@ -407,4 +419,6 @@ build_pci_config_address:
 
 	;eax=pci_config_address with the enable bit set
 	ret
+
+
 

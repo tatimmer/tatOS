@@ -1,12 +1,14 @@
 ;tatOS/usb/prepareTD-ehci.s
-;rev March 2015
 
 
 ;ehci_prepare_TDchain
 ;generate_TD
 ;generate_mouse_TD
+;generate_keyboard_TD
 
 
+;TD = transfer descriptor  
+;its just a structure in memory that is read by the usb controller
 
 ;functions to create a single qTD transfer descriptor (max 0x5000 bytes transferred)
 ;or a chain/single link list of qTDs (for > 0x5000 bytes)
@@ -454,6 +456,62 @@ generate_mouse_TD:
 	
 	ret
 
+
+
+
+
+;*******************************************************************
+;generate_keyboard_TD
+;this TD is for keyboard interrupt transfers with the perodic list
+;using ehci and a root hub
+;the TD is written starting at 0x1003300
+;input:none
+;return:none
+;********************************************************************
+
+generate_keyboard_TD:
+
+	;registers (in particular eax) must be preserved for usbkeyboardrequest
+	pushad
+
+	mov dword [0x1003300],1     ;write the Next qTD Pointer
+
+	mov dword [0x1003304],1     ;write the Alternate Next qTD Pointer
+
+	;generate the packet header in eax
+	;we start with eax=0x0180
+	;this means bits7=active, bit8=PID "in", IOC=0, C_Page=0, C_ERR=0
+	mov eax,0x0180
+	mov ebx,[keyboardtogglein]               ;get value of toggle
+	shl ebx,31                               ;bit31 is toggle
+	or eax,ebx                               ;set toggle bit
+	movzx ebx,word [KEYBOARD_WMAXPACKETSIZE] ;total bytes to transfer
+	shl ebx,16                               ;bit16 is total bytes to transfer
+	or eax,ebx                               ;add total bytes to transfer
+	mov [0x1003308],eax                      ;write the packet header
+	;now flip the toggle for the next TD
+	not dword [keyboardtogglein]
+	and dword [keyboardtogglein],1
+
+	;0x1009000 is the keyboard report buffer
+	;its where the keyboard report is written to (all 8 bytes)
+	mov dword [0x100330c], 0x1009000      ;write the buffer pointer page 0
+	mov dword [0x1003310],0               ;buffer pointer page 1
+	mov dword [0x1003314],0               ;buffer pointer page 2
+	mov dword [0x1003318],0               ;buffer pointer page 3
+	mov dword [0x100331c],0               ;buffer pointer page 4
+
+	;and if your controller uses 64bit addressing
+	;the upper 32bits of each page is specified here
+	mov dword [0x1003320],0   ;Extended Buffer Pointer Page 0, 9th dword
+	mov dword [0x1003324],0
+	mov dword [0x1003328],0
+	mov dword [0x100332c],0
+	mov dword [0x1003330],0   ;Extended Buffer Pointer Page 4, 13th dword
+
+	popad
+	
+	ret
 
 
 

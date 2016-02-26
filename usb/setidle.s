@@ -1,8 +1,13 @@
 ;tatOS/usb/setidle.s
 
 
+;MouseSetIdle
+;KeyboardSetIdle
+
+
+
 ;code to issue the usb Set Idle Request
-;for low speed usb mouse only via uhci or ehci with root hub
+;for low speed usb mouse & keyboard only via uhci or ehci with root hub
 
 ;this command limits the reporting frequency of the endpoint
 
@@ -24,17 +29,33 @@
 ;SetIdleDuration for the mouse is 00
 
 ;duration byte examples: (always multiply by 4)
-;02 = 8 milliseconds reporting frequency
-;0f = 60 milliseconds
-;ff = 1020 milliseconds
-;00 = indefinite
+;02 duration * 4 = 8 milliseconds reporting frequency
+;0f duration * 4 = 60 ms
+;7d duration * 4 = 500 ms
+;ff duration * 4 = 1020 ms
+;00 duration * 4 = indefinite
 
 ;I found the mouse to work perfectly fine on the older uhci controllers
 ;with a duration value of 00. 
 
+;the recommended rate for keyboards is 500ms 
+;I think if you are able to successfully set up the usb controller to use
+;hardware interrupts then this is the correct value to use
+;but tatOS is designed around usb polling not hardware interrupts
+;and I find it much more responsive to use a value of 0 for idle duration
+;same as the mouse
+
 ;run /usb/mouseinterrupt.s usbShowMouseReport() with differant values of the set idle
 ;duration byte to see the behavior of the mouse
 
+
+msistr3 db 'Set Idle Duration',0
+
+
+
+;**************************
+;    MOUSE SET IDLE 
+;*************************
 
 align 0x10
 
@@ -44,17 +65,6 @@ db 0x0a    ;bRequest 0a=SET_IDLE
 dw 0x0000  ;the hi byte is Duration, the low byte is Report ID
 dw 0       ;wIndex=InterfaceNum
 dw 0       ;wLength no bytes in data phase
-
-
-
-;************************************************************************
-;              LOW SPEED USB MOUSE
-;************************************************************************
-
-
-msistr1 db 'Mouse SetIdle COMMAND Transport',0
-msistr2 db 'Mouse SetIdle STATUS  Transport',0
-msistr3 db 'Set Idle Duration',0
 
 
 %if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
@@ -83,13 +93,15 @@ dd ADDRESS0
 
 
 
-;***************************************************************************
+;****************************
 ;MouseSetIdle
-;input:none
-;return: none
-;*****************************************************************************
+;no inputs and no returns
+;****************************
 
 MouseSetIdle:
+
+	STDCALL devstr2,dumpstr    ;MOUSE
+
 
 	;dump the set idle duration and reportID
 	xor eax,eax
@@ -99,7 +111,7 @@ MouseSetIdle:
 
 	;Command Transport
 	;********************
-	STDCALL msistr1,dumpstr
+	STDCALL transtr6a,dumpstr
 
 %if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
 	mov dword [controltoggle],0
@@ -135,7 +147,7 @@ MouseSetIdle:
 
 	;Status Transport
 	;*******************
-	STDCALL msistr2,dumpstr
+	STDCALL transtr6c,dumpstr
 
 %if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
 	mov dword [controltoggle],1
@@ -166,6 +178,124 @@ MouseSetIdle:
 	mov eax,1
 .done:
 	ret
+
+
+
+
+;**************************
+;KEYBOARD SET IDLE 
+;no inputs and no returns
+;*************************
+
+align 0x10
+
+KeyboardSetIdleRequest:
+db 0x21    ;bmRequestType
+db 0x0a    ;bRequest 0a=SET_IDLE
+;dw 0x7d00  ;the hi byte is Duration, the low byte is Report ID
+dw 0       ;this is better for tatOS
+dw 0       ;wIndex=InterfaceNum
+dw 0       ;wLength no bytes in data phase
+
+
+%if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
+
+KeyboardSI_structTD_command:
+dd KeyboardSetIdleRequest      ;Bufferpointer
+dd 8                           ;SetIdle Request struct is 8 bytes
+dd LOWSPEED
+dd PID_SETUP
+dd controltoggle
+dd endpoint0    
+dd ADDRESS0       
+
+;no data transport
+;use same status as mouse
+
+%endif
+
+
+KeyboardSetIdle:
+
+	STDCALL devstr3,dumpstr    ;KEYBOARD
+
+
+	;dump the set idle duration and reportID
+	xor eax,eax
+	mov ax,[KeyboardSetIdleRequest+2]
+	STDCALL msistr3,0,dumpeax
+
+
+	;Command Transport
+	;********************
+	STDCALL transtr6a,dumpstr
+
+%if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
+	mov dword [controltoggle],0
+	push KeyboardSI_structTD_command
+	call uhci_prepareTDchain
+	call uhci_runTDchain
+	jnz near .error
+%endif
+
+%if  USBCONTROLLERTYPE == 2  ;ehci
+	;copy request to data buffer 0xb70000
+	mov esi,SetIdleRequest
+	mov edi,0xb70000
+	mov ecx,8
+	call strncpy
+
+	;generate 1 usb Transfer Descriptor
+	mov eax,8  ;Device Descriptor Request is 8 bytes long
+	mov ebx,2  ;PID = SETUP	
+	mov ecx,0  ;data toggle
+	call generate_TD
+
+	;attach TD to queue head and run
+	mov eax,KEYBOARD_CONTROL_QH_NEXT_TD_PTR
+	call ehci_run
+	jnz near .error
+%endif
+
+
+
+	;no data transport
+
+
+	;Status Transport
+	;*******************
+	STDCALL transtr6c,dumpstr
+
+%if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
+	mov dword [controltoggle],1
+	push MouseSI_structTD_status   ;keyboard & mouse use same
+	call uhci_prepareTDchain
+	call uhci_runTDchain
+	jnz .error
+%endif
+
+%if  USBCONTROLLERTYPE == 2  ;ehci
+	;generate 1 usb Transfer Descriptor
+	mov eax,0  ;qty bytes to transfer
+	mov ebx,1  ;PID_IN	
+	mov ecx,1  ;data toggle
+	call generate_TD
+
+	;attach TD to queue head and run
+	mov eax,KEYBOARD_CONTROL_QH_NEXT_TD_PTR
+	call ehci_run
+	jnz near .error
+%endif
+
+
+.success:
+	mov eax,0
+	jmp .done
+.error:
+	mov eax,1
+.done:
+	ret
+
 
 
 

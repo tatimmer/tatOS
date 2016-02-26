@@ -6,12 +6,14 @@
 ;Also resets the usb controller and sets up the frame list and 
 ;queue heads for usbmass/bulk and usbmouse/interrupt transactions
 ;the bus:dev:fun:00 of the primary UHCI controller is saved at 0x560=UHCIBUSDEVFUN
-;values for the uhci companion controllers are saved at UHCIBUSDEVFUNCOM1, UHCIBUSDEVFUNCOM2
+;values for the uhci companion controllers are saved at 
+;UHCIBUSDEVFUNCOM1 and UHCIBUSDEVFUNCOM2
 
+;Jan 2011 cleaned up code to include only register modifications
+;         see show_uhci_reg which can be displayed from USB CENTRAL
 
-;Jan 2011, cleaned up code to include only register modifications
-;see show_uhci_reg which can be displayed from USB CENTRAL
-
+;Feb 2016 added QH for keyboard interrupt transactions
+;         dabbled with usb controller interrupts
 
 
 ;*******************************
@@ -28,6 +30,8 @@ usbUstr11 db 'UHCI Zero out FRNUM',0
 usbUstr12 db 'UHCI Set max packet',0
 usbUstr13 db 'UHCI Start Controller',0
 usbUstr14 db 'UHCI done controller init',0
+usbUstr15 db 'UHCI routing PIRQX to irq11',0
+usbUstr16 db 'UHCI value of LEGSUP Legacey Support Register',0
 
 
 
@@ -59,7 +63,8 @@ initUHCI:
 
 	STDCALL usbUstr0,putscroll
 
-	;PCI Config: Command register  (byte offset 4-5), Set Bus Master Enable Bit
+	;PCI Config: Command register  (address offset 4-5) 
+	;Set the Bus Master Enable Bit
 	STDCALL usbUstr8,putscroll  
 	mov eax,[uhcibusdevfun]
 	mov ebx,4  ;register/offset 
@@ -85,26 +90,51 @@ initUHCI:
 
 
 
+	;route the usb controller to send interrupts to irq11
+	;this involves pci commands to Function=0 which is a PCI to ISA Bridge
+	;set PIRQX Route Control Register  (address offset 63h=PIRQD)
+	;this routes PIRQD which serves the usb controller to IRQ11
+	;it also clears bit7 "Interrupt Routing Enable"
+	;code removed, not finished, not completed
+
+
+	;Legacy Support Register  (address offset c0-c1h)
+	;this register provides control/status capability for the legacy
+	;keyboard and mouse functions. i.e. allows the usb keyboard to operate
+	;like a ps2 keyboard (use the same irq1 and driver code)
+	;note bit13 is USB PIRQ Enable and this seems to be cleared/disabled by bios
+	;typical values for this are:
+	;CBS 0x3b
+	;Gateway 0x30
+	;mov eax,[uhcibusdevfun]  ;pci_config_address
+	;mov ebx,0xc0             ;register/offset 
+	;call pciReadDword        ;eax=dword read from port
+	;STDCALL usbUstr16,0,dumpeax
+
+
+
+
+
 	;done with PCI Config registers
 	;now we deal with the controller I/O space registers
 
 
 
-;********************************************************
-;resetuhcicontroller
-;the controller runs all the time
-;like a wild horse
-;cycling thru the frame list
-;a transaction occurs 
-;when you connect the first td in a linked list of td's
-;to a qh which is pointed to by an entry in the frame list
-;at first we make all entries in the frame list
-;point to the same qh
-;later you can get fancy by mixing control, bulk, iso
-;a transaction ends when the tds making up the transaction
-;are marked "inactive" by the controller
-;or marked "stall" or the 5sec timeout expires
-;********************************************************
+	;********************************************************
+	;resetuhcicontroller
+	;the controller runs all the time
+	;like a wild horse
+	;cycling thru the frame list
+	;a transaction occurs 
+	;when you connect the first td in a linked list of td's
+	;to a qh which is pointed to by an entry in the frame list
+	;at first we make all entries in the frame list
+	;point to the same qh
+	;later you can get fancy by mixing control, bulk, iso
+	;a transaction ends when the tds making up the transaction
+	;are marked "inactive" by the controller
+	;or marked "stall" or the 5sec timeout expires
+	;********************************************************
 
 
 
@@ -130,16 +160,43 @@ initUHCI:
 
 
 
-	;Sep 2009-init our Queue Heads QH
-	;QH1 = 0x1005000 reserved for interrupt transfers (usb mouse)
-	;it holds the address of the next QH (horizontal move)
-	;QH2 = 0x1005100 reserved for control & bulk transfers 
-	mov dword [0x1005000],0x1005102  ;QH1 1st dword holds address of QH2 w/bit1 set for QH
-	mov dword [0x1005000+4],1        ;QH1 2nd dword is terminate - no more QH's in list
-	mov dword [0x1005100],1          ;QH2 1st dword terminate - no horizontal TD's 
-	mov dword [0x1005100+4],1        ;QH2 2nd dword terminate - no TD chain to execute
+	;program USBINTR Interrupt Enable Register
+	;this register enables the controller to give IOC only
+	;interrupt on short packet is disabled
+	;interrupt on resume is disabled
+	;interrupt on time-outCRC is disabled
+	;this is for usb keyboard/mouse interrupt transfers
+	;the TD must still be marked to generate an IOC
+	;mov dx,[UHCIBASEADD]
+	;add dx,0x4   ;offset 4 is USBINTR
+	;mov eax,4    ;4=Interrupt On Complete (IOC)
+	;out dx,eax     
 
+
+
+
+	;QH1 = 0x1005000 reserved for interrupt transfers (mouse)
+	;QH2 = 0x1005100 reserved for control & bulk transfers 
+	;QH3 = 0x1005200 reserved for interrupt transfers (keyboard)
+
+	;QH1 1st dword holds address of next QH to be processed in horizontal list 
+	;bit1 is set to indicate this is a QH, bits2:3 are reserved written as 0
+	mov dword [MOUSE_UHCI_INTERRUPT_QH], GENERAL_UHCI_CONTROL_QH+2  
+	;QH1 2nd dword terminate - no valid TDs in the queue
+	mov dword [MOUSE_UHCI_INTERRUPT_QH+4],1        
+
+	;QH2 1st dword holds address of next QH to be processed in horizontal list 
+	mov dword [GENERAL_UHCI_CONTROL_QH], KEYBOARD_UHCI_INTERRUPT_QH+2          
+	;QH2 2nd dword terminate - no valid TDs in the queue
+	mov dword [GENERAL_UHCI_CONTROL_QH+4],1        
+
+	;QH3 1st dword is set to terminate - last QH in the schedule
+	mov dword [KEYBOARD_UHCI_INTERRUPT_QH],1          
+	;QH3 2nd dword terminate - no valid TDs in the queue
+	mov dword [KEYBOARD_UHCI_INTERRUPT_QH+4],1        
 	
+
+
 	;fill each entry in the frame list 
 	;with the address of our first QH
 	;our FRAMELIST starts at 0x1000000
@@ -147,9 +204,9 @@ initUHCI:
 	STDCALL usbUstr10,putscroll  
 	cld
 	mov ecx,1024
-	mov eax,0x1005000   ;address of our first QH goes in the frame list
-	or eax,10b          ;item points to qh, valid ptr
-	mov edi,0x1000000   ;start address of framelist
+	mov eax,MOUSE_UHCI_INTERRUPT_QH ;address of first QH goes in the frame list
+	or eax,10b                      ;item points to qh, valid ptr
+	mov edi,0x1000000               ;start address of framelist
 	rep stosd
 
 

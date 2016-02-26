@@ -188,6 +188,9 @@ polyline:
 ;linepolar
 ;draws a straight line using polar coordinates
 
+;note the angle is an unsigned integer 0,1,2...359
+;SINCOS lookup tables are used, see tlib/polar.s
+
 ;input
 ;push linetype             [ebp+28]
 ;push xstart               [ebp+24]

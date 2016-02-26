@@ -2,12 +2,14 @@
 
 ;SCSI inquiry command for usb flash drive 
 
+
 ;returns 36 bytes of info to 0x5200
 ;there is an ascii vendor string that on my pen drive by SimpleTech
 ;says "Simple Flash Disk 2.00"
 ;my Toshiba flash drive says "TOSHIBA TransMemory     PMAP"
 
 ;this is a "bulk" transfer
+;this is the first "bulk" command issued during initflash
 ;all the SCSI commands are bulk transfers 
 ;because they use the CBW command block wrapper and the CSW command status wrapper
 ;note also these commands must be sent to the BULKIN or BULKOUT endpoints of the flash
@@ -62,7 +64,7 @@ dd FLASHDRIVEADDRESS
 
 
 
-;this structure is used for all scsi status transports
+;this structure is used for all scsi status transports for UHCI only
 SCSI_structTD_status: 
 dd scsiCSW       ;BufferPointer
 dd 13            ;all scsi should return 13 byte transfer
@@ -89,23 +91,25 @@ dd FLASHDRIVEADDRESS
 
 
 
-fistr1 db '********** Flash Inquiry  COMMAND transport **********',0
-fistr2 db '********** Flash Inquiry  DATA    transport **********',0
-fistr3 db '********** Flash Inquiry  STATUS  transport **********',0
+fistr4 db 'command transport failed',0
+fistr5 db 'data transport failed',0
+fistr6 db 'status transport failed',0
 
 
 Inquiry:
 
+	STDCALL devstr1,dumpstr  ;FLASH
+
 
 	;Command Transport
 	;********************
-	STDCALL fistr1,dumpstr
+	STDCALL transtr9a,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push FlashINQ_structTD_command
 	call uhci_prepareTDchain
 	call uhci_runTDchain
-	jnz near .error
+	jnz near .commandfailed
 %endif
 
 %if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
@@ -132,13 +136,13 @@ Inquiry:
 	
 	;Data Transport
 	;*****************
-	STDCALL fistr2,dumpstr
+	STDCALL transtr9b,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push FlashINQ_structTD_data
 	call uhci_prepareTDchain
 	call uhci_runTDchain
-	jnz near .error
+	jnz near .datafailed
 %endif
 
 %if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
@@ -174,13 +178,18 @@ Inquiry:
 
 	;Status Transport
 	;*******************
-	STDCALL fistr3,dumpstr
+	STDCALL transtr9c,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push SCSI_structTD_status
 	call uhci_prepareTDchain
 	call uhci_runTDchain
-	jnz near .error
+	jnz near .statusfailed
+
+	;dump the CSW and check the last byte for pass/fail
+	mov esi,scsiCSW
+	call CheckCSWstatus  ;test the last byte of CSW for pass/fail
+	jnc .error
 %endif
 
 %if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
@@ -194,17 +203,30 @@ Inquiry:
 	mov eax,FLASH_BULKIN_QH_NEXT_TD_PTR
 	call ehci_run
 	jnz near .error
-%endif
-
-
-	STDCALL 0xb70000,13,dumpmem  ;dump the Command Status Wrapper returned
 
 	mov esi,0xb70000
 	call CheckCSWstatus  ;test the last byte of CSW for pass/fail
+	jnc .error
+%endif
 
-
+	
 .success:
 	mov eax,0
+	jmp .done
+.commandfailed:
+	STDCALL fistr4,putscroll
+	STDCALL fistr4,dumpstr
+	mov eax,1
+	jmp .done
+.datafailed:
+	STDCALL fistr5,putscroll
+	STDCALL fistr5,dumpstr
+	mov eax,1
+	jmp .done
+.statusfailed:
+	STDCALL fistr6,putscroll
+	STDCALL fistr6,dumpstr
+	mov eax,1
 	jmp .done
 .error:
 	mov eax,1

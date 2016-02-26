@@ -2,11 +2,19 @@
 
 
 ;a CSW CommandStatusWrapper is what is returned in the status phase
-;of a scsi bulk transfer
+;of a scsi bulk transfer, its 13 bytes of goodies 
+
+;call this function after inquiry, request sense, test unit ready, 
+;read10, write10, read capacity
+
+;our CSW looks like: 55 53 42 53 DD CC BB AA 00 00 00 00 00
 
 
 ;********************************************
 ;CheckCSWstatus
+
+;memory for scsiCSW is reserved in usb.s
+
 ;check last byte of the CSW (bCSWStatus)
 ;00=command passed 
 ;01=failed 
@@ -15,8 +23,13 @@
 ;05-ff=Reserved
 
 ;input:esi=address of CSW
+;      for uhci its scsiCSW
+;      for ehci its 0xb70000
+
 ;return:
-;sets CF if command passed else clears CF
+;eax=0 success and eax=1 on failure
+;same as all other usb transactions
+;sets CF if command passed else clears CF on failure
 
 cswstr1 db 'CSW bCSWStatus = FAIL',0
 cswstr2 db 'CSW bCSWStatus = FAIL-PHASE ERROR',0
@@ -26,7 +39,13 @@ cswstr4 db 'CSW bCSWStatus = Command Passed',0
 
 CheckCSWstatus:
 
-	mov al, [esi+12]  ;get the CSW status byte
+	;first dump the Command Status Wrapper
+	STDCALL esi,13,dumpmem  
+	call dumpnl
+
+
+	;get the CSW status byte
+	mov al, [esi+12]  
 
 	cmp al,0
 	jz .commandpassed
@@ -39,26 +58,31 @@ CheckCSWstatus:
 	;al>2 : failed reserved
 	STDCALL cswstr3,dumpstr 
 	clc
+	mov eax,1
 	jmp .done
 
 .commandpassed:
 	STDCALL cswstr4,dumpstr 
 	stc
+	mov eax,0
 	jmp .done
 
 .commandfailed:
 	STDCALL cswstr1,dumpstr 
 	clc
+	mov eax,1
 	jmp .done
 
 .phaseerror:
 	STDCALL cswstr2,dumpstr 
 	clc
-	jmp .done
-
+	mov eax,1
 
 .done:
 	ret
+
+
+
 
 
 

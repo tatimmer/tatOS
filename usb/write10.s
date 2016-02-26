@@ -3,9 +3,7 @@
 
 ;write10
 
-
-;code to copy an array of bytes from memory to your pen drive
-
+;code to copy an array of bytes from memory to your flash drive
 
 
 
@@ -44,9 +42,6 @@ dd FLASHDRIVEADDRESS
 
 
 
-wrtstr1 db '********** Write10 COMMAND Transport **********',0
-wrtstr2 db '********** Write10 DATA    Transport **********',0
-wrtstr3 db '********** Write10 STATUS  Transport **********',0
 wrtstr4 db 'Write10: total qty bytes to transfer',0
 wrtstr5 db 'Write10: invalid LBAstart out of range',0
 wrtstr6 db 'Write10: flash drive not ready',0
@@ -128,11 +123,13 @@ write10:
 
 
 
+	STDCALL devstr1,dumpstr  ;FLASH
+
 
 
 	;Command Transport
 	;*********************
-	STDCALL wrtstr1,dumpstr
+	STDCALL transtr17a,dumpstr
 
 %if USBCONTROLLERTYPE = 0  ;uhci
 	push Write10_structTD_command
@@ -168,7 +165,7 @@ write10:
 
 	;Data Transport
 	;*****************
-	STDCALL wrtstr2,dumpstr
+	STDCALL transtr17b,dumpstr
 
 %if USBCONTROLLERTYPE = 0  ;uhci
 	push Write10_structTD_data
@@ -208,13 +205,17 @@ write10:
 
 	;Status Transport
 	;*****************
-	STDCALL wrtstr3,dumpstr
+	STDCALL transtr17c,dumpstr
 
 %if USBCONTROLLERTYPE = 0  ;uhci
 	push SCSI_structTD_status
 	call uhci_prepareTDchain
 	call uhci_runTDchain
 	jnz near .WriteErrorStatusTransport 
+
+	mov esi,scsiCSW
+	call CheckCSWstatus  ;test the last byte of CSW for pass/fail
+	jnc .WriteErrorCSWcheck
 %endif
 
 %if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
@@ -231,20 +232,18 @@ write10:
 	mov eax,FLASH_BULKIN_QH_NEXT_TD_PTR
 	call ehci_run
 	jnz near .WriteErrorStatusTransport 
-%endif
 
-
-
-	STDCALL 0xb70000,13,dumpmem  ;dump the Command Status Wrapper returned
-
+	;dump the CSW and check last byte for pass/fail
 	mov esi,0xb70000
 	call CheckCSWstatus  ;test the last byte of CSW for pass/fail
 	jnc .WriteErrorCSWcheck
+%endif
+
+
 	
 
 	;if we got here we have a successful write10
 	jmp .success
-
 
 .WriteErrorCommandTransport:
 	;because a failure of write10 is serious

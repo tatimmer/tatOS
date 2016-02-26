@@ -4,7 +4,7 @@
 
 ;getc, checkc, GetKeyState
 
-;see tatos.inc for some predefined key combinations
+;see tatOS.inc for some predefined key combinations
 ;for example:
 ;hold down Ctrl key then press 'x', returns al=0xa1=CUT
 ;hold down Ctrl key then press 'c', returns al=0xa2=COPY
@@ -14,19 +14,21 @@
 ;************************************************************************
 ;getc
 ;get a single keypress from 0x504
-;input:none
-;return:
-;al=ascii char is returned
-;   tatOS.inc has some defines like F1,F2,SPACE,TAP,NL,ESCAPE...
-;   or 0x31 is for the number 1 ...and so forth
-;   see font01.inc to get the ascii value of the letters and numbers
+;this function will poll/block until a key on the ps2 keyboard is pressed
 
 ;this version also handles ListControlKeydown
 ;if a list control is being displayed by a kernel or user app
 ;the ascii keypress retrieved by getc will be passed on to
 ;ListControlKeydown for processing
 
-;this function will poll/block until a key is pressed
+;input:none
+
+;return:
+;al=ascii char is returned
+;   tatOS.inc has some defines like F1,F2,SPACE,TAP,NL,ESCAPE...
+;   or 0x31 is for the number 1 ...and so forth
+;   see font01.inc to get the ascii value of the letters and numbers
+
 getcstr1 db 'getc returns',0
 ;***********************************************************************
 
@@ -106,7 +108,7 @@ checkc:
 ;*******************************************************
 ;GetKeyState
 ;userland function to obtain the state of special keys
-;on the keyboard
+;on the ps2 keyboard
 ;input:
 ;to obtain state of CTRL  key set ebx=0
 ;to obtain state of SHIFT key set ebx=1

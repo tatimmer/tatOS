@@ -37,7 +37,8 @@ dd 0xaabbccdd   ;dCBWTag  (just make it up)
 dd 18           ;dCBWDataTransferLength (during data transport)
 db 0x80         ;bmCBWFlags (TD direction 0x80=IN 00=OUT)
 db 0            ;bCBWLun
-db 6            ;bCBWCBLength, ReadCapacity10 is a 10 byte command TOM WHAT DOES THIS MEAN ?
+db 6            ;bCBWCBLength, ReadCapacity10 is a 10 byte command 
+                ;TOM WHAT DOES THIS MEAN ?
 ;CBWCB
 db 0x03         ;operation code for RequestSense
 db 0            
@@ -74,18 +75,17 @@ dd FLASHDRIVEADDRESS
 
 ;uses same SCSI_structTD5_status as inquiry for status transport
 
-rsstr1 db '********** Flash RequestSense  COMMAND transport **********',0
-rsstr2 db '********** Flash RequestSense  DATA    transport **********',0
-rsstr3 db '********** Flash RequestSense  STATUS  transport **********',0
 
 
 
 RequestSense:
 
+	STDCALL devstr1,dumpstr  ;FLASH
+
 
 	;Command Transport
 	;********************
-	STDCALL rsstr1,dumpstr
+	STDCALL transtr11a,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push FlashRS_structTD_command
@@ -118,7 +118,7 @@ RequestSense:
 
 	;Data Transport
 	;*****************
-	STDCALL rsstr2,dumpstr
+	STDCALL transtr11b,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push FlashRS_structTD_data
@@ -157,13 +157,17 @@ RequestSense:
 
 	;Status Transport
 	;*******************
-	STDCALL rsstr3,dumpstr
+	STDCALL transtr11c,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push SCSI_structTD_status
 	call uhci_prepareTDchain
 	call uhci_runTDchain
 	jnz near .error
+
+	mov esi,scsiCSW
+	call CheckCSWstatus  
+	jnc .error
 %endif
 
 %if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
@@ -177,13 +181,12 @@ RequestSense:
 	mov eax,FLASH_BULKIN_QH_NEXT_TD_PTR
 	call ehci_run
 	jnz near .error
+
+	;dump the CSW and check last byte for pass/fail
+	mov esi,0xb70000  ;all ehci transactions are written here
+	call CheckCSWstatus  
+	jnc .error
 %endif
-
-
-	STDCALL 0xb70000,13,dumpmem  ;dump the Command Status Wrapper returned
-
-	mov esi,0xb70000
-	call CheckCSWstatus  ;test the last byte of CSW for pass/fail
 
 
 .success:

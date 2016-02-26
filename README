@@ -1,4 +1,4 @@
-README - tatOS - Jan 2016
+README - tatOS - Feb 2016
 
 Welcome to tatOS - "programming for the common man in assembler"
 
@@ -11,18 +11,26 @@ public and extern symbols and works with "tlink" and "make" to create executable
 from multiple source file projects.
 
 There is a suite of functions for graphics, string handling, file system (/tlib) 
-There is a suite of functions to control the usb flash drive & usb mouse. (/usb)
+There is a suite of functions to control usb devices. (/usb)
 
-tatOS includes 4 differant usb controller drivers for flash drive & mouse:
+This version of tatOS includes 4 differant usb controller drivers:
 * usb 1.0 uhci 
 * usb 2.0 ehci with uhci companion controllers
 * usb 2.0 ehci with integrated root hub
 * usb 2.0 ehci with no usb 1.0 support
 You will have to set appropriate values in tatOS.config and reassemble for your hdwre.
 
+This version of tatOS supports these usb devices:
+* usb mouse   
+* usb keyboard
+* usb flash drive
+
+This version of tatOS is still dependent on the ps2 keyboard. 
+The ps2 mouse driver is included for reference only.
+
 Not supported:
 * ohci and usb 3.0 xhci usb controllers 
-* usb keyboard, wireless usb 
+* wireless usb 
 * multi-tasking, multi-threading, multiple processors
 * APIC, ACPI, EFI, MMX, or SSE. 
 See /doc/hardware for a more complete list of supported hardware
@@ -34,9 +42,6 @@ tatOS is designed for desktop/laptop computers with a single 32bit Intel or
 Amd processor. It will also run on 64 bit multi-processor machines using the 
 bootstrap processor only in 32 bit protected mode. 
 
-The only keyboard supported is the ps/2.
-
-The ps2 mouse driver is depreciated but included in the source for reference. 
 Most apps and utilities I develop for tatOS use the keyboard only because of time 
 constraints, but a few also require the usb mouse.
 
@@ -79,6 +84,9 @@ A special memory block called the "dump" (tlib/dump.s) is used by the kernel and
 apps to write ascii strings about what is going on.
  
 To shut down tatOS just hold down your power button.
+
+If you have added code to /tlib or /usb and nasm reports a TIMES error, 
+increase the SIZEOFTLIB in tlib/tatOS.inc and reassemble.
 
 You can break out of most infinite loops or interrupt service routines with 
 ctrl+alt+del which sends you back to the shell.

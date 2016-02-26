@@ -442,12 +442,10 @@ putscriptT:
 
 ;*****************************************************************
 ;BitmapViewer
+
 ;a program to view a tatOS BTS bitmap file 
 ;or to convert to other bitmap formats
 ;this is an interactive program with menu called from the shell
-
-;note after displaying a bitmap or bts file to get back to this 
-;program menu you have to press the "menu" key on your keyboard
 
 ;input:none
 ;return:none
@@ -456,8 +454,6 @@ putscriptT:
 ViewBitsMenu:
 db 'Bitmap Viewer and  Converter',NL
 db '*****************************',NL
-db 'to return to this menu after displaying a bitmap or bts press the "menu" key',NL
-db NL
 db 'F1=Display unformatted bits array using std palette, user gives width,height',NL
 db 'F2=Display a BTS file',NL
 db 'F3=Convert a Windows 8 bit 256 color bmp to BTS',NL
@@ -465,6 +461,7 @@ db 'F4=Convert a Windows 24 bit DIB to grayscale BTS',NL
 db 'F5=Convert BTS to Windows 8 bit 256 color bmp',NL
 db 'F6=Display BMP file info',NL
 db 'F7=Save IMAGEBUFFER to flash as BTS file (following PrntScrn)',NL
+db 'F12=quit',NL
 db 0
 
 
@@ -507,7 +504,7 @@ BitmapViewer:
 	call getc ;pause waiting for user input, returns char in al
 
 	cmp al,ESCAPE  ;program exit
-	jz near .done
+	jz near .doMenu
 	cmp al,MENU
 	jz near .doMenu
 	cmp al,F1
@@ -524,6 +521,8 @@ BitmapViewer:
 	jz near .doF6
 	cmp al,F7
 	jz near .doF7
+	cmp al,F12
+	jz near .done
 
 
 	;handle all other keystrokes
@@ -804,6 +803,7 @@ BitmapViewer:
 	;free the memory we allocated at the start of this program
 	mov esi,[BitsViewerMemory]
 	call free
+	mov dword [BitsPaintOption],0
 	jmp .quit
 .allocfailed:
 	STDCALL bitstr10,dumpstr

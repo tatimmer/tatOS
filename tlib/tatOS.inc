@@ -1,4 +1,4 @@
-;tatOS/tlib/tatos.inc
+;tatOS/tlib/tatOS.inc
 
 ;some defines and macros for tatOS
 
@@ -7,14 +7,15 @@
 ;ttasm has some hard coded memory addresses too
 
 
-;TIMES error
-;***************
+;********************
+;    TIMES error
+;********************
 ;here is where you increase the size of tatOS
 ;if you assembled tatOS and get a TIMES error (-) you must increase this value
 ;SIZEOFTLIB is used at the end of tlib.s
 ;to set the qty blocks of assembled code
 ;SIZEOFTLIB is also used in boot2.s for loading tatOS
-%define SIZEOFTLIB 290
+%define SIZEOFTLIB 300
 
 
 ;my SimpleTech flash drive has a listed capacity of 250meg
@@ -240,6 +241,8 @@ LBAMAX equ 488000
 %define PASTE    0xa3   ;Ctrl+v
 %define GUI      0xa4
 %define MENU     0xa5
+;added 2/13/2016
+%define BREAK    0xa6
 
 
 

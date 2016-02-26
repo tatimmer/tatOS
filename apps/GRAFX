@@ -1,5 +1,5 @@
 
-;grafx01  Jan 22, 2016
+;grafx04  Feb 5, 2016
 
 ;Graphic Primative Demo
 
@@ -126,6 +126,41 @@ dd SOLIDLINE  ;linetype
 
 filletbuf2:
 db0 64
+
+
+
+
+;various HERSHEYSTRUC 
+;**************************
+
+hershey_RL:
+dd 0           ;output graphics monitor
+dd 150         ;XC first char
+dd 550         ;YC 
+dd str19       ;address ascii string
+dd GRE         ;color
+dd 0           ;font type = HERSHEYROMANLARGE
+dd 0xffffffff  ;linetype
+
+hershey_GTH:
+dd 0
+dd 150
+dd 520
+dd str19
+dd YEL
+dd 1           ;font type = HERSHEYGOTHIC
+dd 0xffffffff
+
+hershey_RS:
+dd 0
+dd 150
+dd 500
+dd str19
+dd WHI
+dd 2           ;font type = HERSHEYROMANSMALL
+dd 0xffffffff
+
+
 
 
 
@@ -428,36 +463,25 @@ dq 450.0
 
 
 
-	;display a string using Hershey font
+	;display 3 strings using Hershey font
 	;Hershey font is a line drawing font
-	mov eax,48    ;putsHershey
-	mov ebx,150   ;x
-	mov ecx,550   ;y
-	mov edx,str19 ;address of string
-	mov esi,GRE   ;color
-	mov edi,0     ;0=HERSHEYROMANLARGE
-	mov ebp,0xffffffff  ;linetype
+	;all 3 strings are drawn at scale factor = 1.0
+	;so you can see the natural height of each varies by design
+
 	fld1          ;st0=1.0 scale factor
+
+	mov eax,48    ;putsHershey
+	mov edi,hershey_RL
 	sysenter
 
 	;and display the same string using the gothic font
 	mov eax,48    ;putsHershey
-	mov ebx,150   ;x
-	mov ecx,520   ;y
-	mov edx,str19 ;address of string
-	mov esi,YEL   ;color
-	mov edi,1     ;1=HERSHEYGOTHIC
-	mov ebp,0xffffffff  ;linetype
+	mov edi,hershey_GTH
 	sysenter
 
 	;and display the same string using the small roman font
 	mov eax,48    ;putsHershey
-	mov ebx,150   ;x
-	mov ecx,500   ;y
-	mov edx,str19 ;address of string
-	mov esi,WHI   ;color
-	mov edi,2     ;1=HERSHEYGOTHIC
-	mov ebp,0xffffffff  ;linetype
+	mov edi,hershey_RS
 	sysenter
 
 	ffree st0     ;free the st0 scale factor
@@ -553,4 +577,4 @@ DoneDrawPolar:
 ;*************************TheEnd********************************
    
 
-  
+   

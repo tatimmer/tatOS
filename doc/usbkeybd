@@ -1,0 +1,149 @@
+tatOS/doc/usbkeybd
+
+Feb 6, 2016
+
+The usb keyboard gives a multi byte report.
+The values given are all differant then ps2 keyboard scancodes
+
+Here is a table giving the keyboard report for various key combinations
+
+The keyboard used is identified as: 
+"Gear Head"
+107 Key Gear Head Keyboard
+Model No. KB2500U
+made in china
+
+I got this data by going thru the usb mouse init sequence with the usb keyboard
+Yes the tatOS usb mouse init sequence works just fine on the usb keyboard
+since they are both low speed usb 1.0 devices
+
+The keyboard report is max 8 bytes: "aa bb cc dd ee ff gg hh"
+
+with all keys up all the bytes are 00 00 00 00 00 00 00 00
+
+when a single key is pressed, most keys give a value in the 'cc' byte
+all the other bytes remain 00
+the CTRL, ALT, SHIFT keys give a value in the 'aa' byte, see below
+
+when you hold down 2 keys like 'a' then 'b' the 
+first key pressed is the 'cc' byte, the 2nd key pressed is the 'dd' byte
+if you press 3 keys at once the third key pressed is the 'ee' byte
+the tatOS usb keyboard driver does not support holding down 3 keys other than
+CTRL+ALT+DEL and you can only hold down 2 keys like CTRL+ or SHIFT+
+
+I have not found the 'bb' byte to give anything other than 00
+
+there are some multiple key combinations like 'rty' held down together that
+must cause an overflow and the keyboard report just shows 00 00 01 01 01 01 01 
+
+the table below gives the report for a single key pressed
+along with which byte of the report is giving the value
+
+
+
+single key held down
+key        report  
+*******    *******
+a          cc=04
+b          cc=05
+c          cc=06
+d          cc=07
+e          cc=08
+f          cc=09
+g          cc=0a
+h          cc=0b
+i          cc=0c
+j          cc=0d
+k          cc=0e
+l          cc=0f
+m          cc=10
+n          cc=11
+o          cc=12
+p          cc=13
+q          cc=14
+r          cc=15
+s          cc=16
+t          cc=17
+u          cc=18
+v          cc=19
+w          cc=1a
+x          cc=1b
+y          cc=1c
+z          cc=1d
+1          cc=1e
+2          cc=1f
+3          cc=20
+4          cc=21
+5          cc=22
+6          cc=23
+7          cc=24
+8          cc=25
+9          cc=26
+0          cc=27
+ENTER      cc=28
+ESCAPE     cc=29
+bkspace    cc=2a
+TAB        cc=2b
+SPACE      cc=2c
+-  dash    cc=2d
+=  equal   cc=2e
+[  lbrace  cc=2f
+]  rbrace  cc=30
+\  bslash  cc=31
+
+;  semico  cc=33
+'  squote  cc=34
+`  btick   cc=35
+,  comma   cc=36
+.  period  cc=37
+/  fslash  cc=38
+
+F1         cc=3a
+F2         cc=3b
+F3         cc=3c
+F4         cc=3d
+F5         cc=3e
+F6         cc=3f
+F7         cc=40
+F8         cc=41
+F9         cc=42
+F10        cc=43
+F11        cc=44
+F12        cc=45
+prntscrn   cc=46
+scrollock  cc=47
+break      cc=48
+insert     cc=49
+home       cc=4a
+pageup     cc=4b
+delete     cc=4c
+end        cc=4d
+pagedn     cc=4e
+rightarrow cc=4f
+leftarrow  cc=50
+dnarrow    cc=51
+uparrow    cc=52
+numlock    cc=53
+
+
+MENU       aa=65
+LSHIFT     aa=02
+RSHIFT     aa=20
+LCTRL      aa=01
+RCTRL      aa=10
+LALT       aa=04
+RALT       aa=40
+LCTRL+LALT aa=05
+LWINDOW    aa=08
+RWINDOW    aa=80
+
+
+
+special key combinations:
+
+LCTRL+LALT+DEL  =  05 00 4c
+
+the upper case 'A' = LSHIFT + a = 02 00 04
+
+
+

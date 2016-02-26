@@ -1,9 +1,5 @@
 ;tatOS/usb/initflash.s
-;May 2015
 
-
-
-;initflash
 
 
 ;code to prepare a usb flash drive for read/write
@@ -21,10 +17,8 @@
 ;prior to calling this function the ehci usb controller must be setup
 ;including populating the ehci async list
 
-;if any transfer descriptor TD fails we jump back to reset the port and try again
-;usually there is success the first time thru but sometimes we have to reset the port
-;a second time. If a flash drive endpoint halts, then you must reinit the usb controller
-;and try init flash again. It usually always passes the 2nd time.
+;if any transfer descriptor TD fails we bail 
+;you can always go back and reinit controller and flash again
 
 ;we store the various usbmass descriptors
 ;(device,condiguration,interface,endpoint)
@@ -45,304 +39,100 @@
 ;the ehci driver now uses all 5 page pointers for maximum data transfer rates
 ;and this has also increased reliability greatly. 
 
-;this code will only handle one hi speed device plugged into a port
+;this code will only handle one hi speed device plugged into a port per controller
 ;if there is more than 1 hi speed device plugged in there will be problems
 
-
-mpdstr0 db 'initflash with  ehci & uhci companions',0
-mpdstr1 db 'pausing 5 seconds',0
-mpdstr2 db 'initflash with uhci',0
-mpdstr8 db 'Decrementing port number',0
-mpdstr10 db 'Check for device connect',0
-mpdstr11 db 'Check for low speed device',0
-mpdstr13 db 'Port Reset',0
-mpdstr29 db 'initflash usb transaction failure',0
-mpdstr26 db 'Low Speed device attached',0
-mpdstr28 db 'endpoint has halted - initflash failed - reinit ehci and flash',0
-mpdstr25 db 'No device attached to port',0
-mpdstr27 db 'Fatal-All ports have been checked',0
-
-fdstr0 db 'initflash common code',0
-fdstr1 db 'USB device is not 0x08 mass storage class',0
-fdstr2 db 'USB device subclass is not 0x06 for SCSI commands',0
-fdstr3 db 'USB device protocol is not 0x50 bulk-only transport',0
-fdstr4 db 'initflash: error EPin=0',0
-fdstr5 db 'initflash: error EPout=0',0
-fdstr6 db 'USB device has more than 1 interface',0
-fdstr7 db 'Endpoint wMaxPacketSize',0
-fdstr8 db 'Get Device Descriptor',0
-fdstr9 db 'Get Configuration/Interface/Endpoint Descriptors',0
-fdstr10 db 'Set Address',0
-fdstr11 db 'Set Configuration',0
-fdstr12 db 'Inquiry',0
-fdstr13 db 'TestUnitReady',0
-fdstr14 db 'RequestSense',0
-fdstr15 db 'ReadCapacity',0
-fdstr16 db 'Read10 3 blocks',0
-fdstr17 db 'Write10 3 blocks back',0
-fdstr18 db 'Invalid root hub port num for flash',0
-
-hbstr1 db 'initflash with ehci and integrated root hub',0
+;do not change the order of the function calls in initflash
+;or insert new ones, without checking the data toggles. 
 
 
 
+
+usbfdstr0  db 'init usb flash',0
+usbfdstr1  db 'flash-GetDeviceDescriptor',0
+usbfdstr2a db 'flash-GetConfigDescriptor 9 bytes',0
+usbfdstr2b db 'flash-GetConfigDescriptor full',0
+usbfdstr3a db 'flash-1st Endpoint wMaxPacketSize',0
+usbfdstr3b db 'flash-2nd Endpoint wMaxPacketSize',0
+usbfdstr4  db 'flash-SetAddress',0
+usbfdstr5  db 'flash-SetConfiguration',0
+usbfdstr6  db 'flash-Inquiry',0
+usbfdstr7  db 'flash-TestUnitReady',0
+usbfdstr8  db 'flash-RequestSense',0
+usbfdstr9  db 'flash-ReadCapacity',0
+usbfdstr10 db 'flash-Read10 3 blocks',0
+usbfdstr11 db 'flash-Write10 3 blocks back',0
+usbfdstr12 db 'flash-usb transaction failure',0
+usbfdstr13 db 'flash-USB device is not 0x08 mass storage class',0
+usbfdstr14 db 'flash-USB device subclass is not 0x06 for SCSI commands',0
+usbfdstr15 db 'flash-USB device protocol is not 0x50 bulk-only transport',0
+usbfdstr16 db 'flash-error bulk EPIN=0',0
+usbfdstr17 db 'flash-error bulk EPOUT=0',0
+usbfdstr18 db 'done init usb flash drive',0
+
+
+
+;************************************************************
+;initflash
+
+;this code inits a hi speed usb flash drive (memory stick)
+
+;assumptions:
+;   * a hi speed device has been detected on the port
+;   * the port is already reset
+;the above functions are provided by initdevices.s
+
+;input: none
+;return: eax=0 success
+;        eax=1 error
+;************************************************************
 
 initflash:
 
-	;before resetting the port we make sure this value is 0
-	;if a usb transaction fails resulting in an endpoint halting
-	;this value will be set to 1 which indicates the ehci controller
-	;must be reinit before doing port reset
-	mov dword [ehciEndpointHasHalted],0
-
-
-;****************************************************
-;      ehci w/ integrated root hub
-;****************************************************
-
-
-%if USBCONTROLLERTYPE == 2  ;ehci with root hub
-
-;code to init a hi speed flash drive plugged into the port of ehci with root hub
-;also reset the port
-;you must first init ehci and init the root hub before calling this function
-
-	STDCALL hbstr1,putscroll
-	STDCALL hbstr1,dumpstr
-	
-.resetport:
-
-	STDCALL mpdstr13,putscroll  
-
-	;first make sure inithub found a valid port number for the flash
-	cmp dword [flash_hubportnum],0xff
-	jz near .invalidFlashPortNum
-
-	;in inithub we reset all the ports and found which 
-	;port the flash drive and mouse were plugged into
-	;but it wont hurt to do it again
-	;if for some reason this fails, I suggest to reassemble tatOS
-	;and copy the image file to your boot flash again
-	mov eax,[flash_hubportnum]
-	call HubPortReset
-	cmp eax,1  ;check for error
-	jz near .failure
-
-
-
-%endif  ;end of ehci with root hub  *********************************
-
-
-
-
-
-;****************************************************
-;      ehci w/ uhci companion controllers
-;                    or
-;         ehci with no usb 1.0 support
-;****************************************************
-
-%if ( USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 3 )  
-
-	;here we do not know whats plugged into what
-	;so we have to loop 
-	;checking ports 3,2,1,0 for a connected device
-	;if so is it lo or hi speed ?
-	;if its hi speed then reset the port
-
-	STDCALL mpdstr0,putscroll
-
-	
-	;pause for 5 seconds
-	;if you try to init the flash too quickly immediately after bootup
-	;this sequence will fail. But just waiting a bit seems to help
-	;Dec 2015 Im not sure this is really necessary but we shall keep it in for now
-	STDCALL mpdstr1,putscroll
-	mov ebx,5000 ;5 seconds
-	call sleep
-
-	
-	;init loop with portnum=4
-	;for ehci with uhci companions we check ports 3,2,1,0
-	mov dword [portnumber],4         
-
-
-.NextPort:
-
-	STDCALL mpdstr8,putscroll
-	dec dword [portnumber]     ;decrement portnumber
-	jns .PortConnect           ;when portnumber goes (-) were done
-	STDCALL mpdstr27,putscroll ;fatal
-	jmp .done
-
-
-.PortConnect:
-	; check for device connected
-	STDCALL mpdstr10,putscroll
-	mov eax,[portnumber]
-	call ehci_portconnect   ;CF is set on device connect
-	jc .donePortConnect
-	STDCALL mpdstr25,putscroll  ;nothing attached
-	jmp .NextPort
-.donePortConnect:
-
-
-	;check for low speed device
-	STDCALL mpdstr11,putscroll
-	mov eax,[portnumber]
-	call ehci_portlowspeed     ;ZF is set on low speed device attached
-	jnz .donePortLowSpeed
-	STDCALL mpdstr26,putscroll  ;low speed device like mouse is attached
-	jmp .NextPort
-.donePortLowSpeed:
-
-
-.resetport:
-
-	;first check if the endpoint has halted
-	;this happens sometimes with Request Sense
-	;just go thru the ehci controller init sequence a 2nd time
-	;and then go thru initflash a second time and all will be well
-	cmp dword [ehciEndpointHasHalted],0
-	jz .doportreset
-	STDCALL mpdstr28,putscroll
-	jmp .done
-
-
-.doportreset:
-	;reset the port and start usb transactions
-	;we still dont know if we have a flash drive connected
-	;or some other hi speed device
-	STDCALL mpdstr13,putscroll  
-	mov eax,[portnumber]
-	call ehci_portreset
-
-%endif  ;ehci w/ uhci compannions  or ehci only no usb 1.0 support
-	
-
-
-;****************************************************
-;         good old fashioned UHCI 
-;****************************************************
-
-%if USBCONTROLLERTYPE == 0  ;uhci
-	
-	;the code here is same as USBCONTROLLERTYPE == 1
-	;except for function calls for uhci 
-
-	STDCALL mpdstr2,putscroll
-	STDCALL mpdstr2,dumpstr
-
-	STDCALL mpdstr1,putscroll
-	mov ebx,5000 ;5 seconds
-	call sleep
-
-	mov dword [portnumber],2  ;only 2 ports for uhci: 0,1
-
-.NextPort:
-	STDCALL mpdstr8,putscroll
-	dec dword [portnumber]   ;decrement portnumber
-	jns .PortConnect         ;when portnumber goes (-) were done
-	STDCALL mpdstr27,putscroll ;fatal
-	jmp .done
-
-
-.PortConnect:
-	STDCALL mpdstr10,putscroll
-	mov eax,[portnumber]
-	call uhci_portconnect   ;CF is set on device connect
-	jc .donePortConnect
-	STDCALL mpdstr25,putscroll  ;nothing attached
-	jmp .NextPort
-.donePortConnect:
-
-
-	;check for low speed device
-	STDCALL mpdstr11,putscroll
-	mov eax,[portnumber]
-	call uhci_portlowspeed     ;ZF is set on low speed device attached
-	jnz .donePortLowSpeed
-	STDCALL mpdstr26,putscroll  ;low speed device like mouse is attached
-	jmp .NextPort
-.donePortLowSpeed:
-
-
-	;reset the port
-	;ehci has dword [ehciEndpointHasHalted] but not uhci
-	STDCALL mpdstr13,putscroll  
-	mov eax,[portnumber]
-	call uhci_portreset
-
-%endif   ;end uhci
-
-
-;end usb controller specific code
-;*************************************************************************
-
-
-
-	;INIT FLASH COMMON CODE
-	;prior to this the port must be detected 
-	;where the hi speed flash drive is plugged in
-	;and the port must be reset
-
-
-	STDCALL fdstr0,dumpstr
-	STDCALL fdstr0,putscroll
+	STDCALL usbfdstr0,dumpstr
+	STDCALL usbfdstr0,putscroll
 
 
 	;refresh the Flash drive control/bulkout/bulkin QH queue heads
 	;*************************************************************
 	;in case there is a previous transaction error with the flash
-	;you must refresh the QH because the ehci writes values to them
-	;making them unuseable 
-	;the idea here is to avoid having to always call initehci 
-	;after every failed transaction since initehci generates the QH's
-	;but this also means you have to reinit the mouse and any other
-	;device plugged into your ehci ports
-	;but having duplicate code here and also in inehci 
-	;also poses a code maintenance problem
-	;so as of April 2015 we are back to having to reinit the ehci if you
-	;suffer a failed flash transaction
-	;as of Dec 2015 we have not had any failed usb flash drive transactions
-	;very happy to report, so some day we may like to include code to 
-	;refresh the QH without reinitting the controller but for now its not
-	;a high priority
-	
-
-	
-
-
-	;do not change the order of these function calls or insert new ones
-	;without checking the data toggles. all data toggles are set manually here
-
+	;you must refresh the queue heads QH because 
+	;the usb controller writes values to them making them unuseable 
+	;the idea here is to avoid having to always reset the usb controller
+	;after a failed flash drive control or bulk transaction
+	;but if you reset the usb controller
+	;you have to reinit the mouse and any other
+	;device plugged into your ports
+	;I never got this concept working - for future
 
 		
 	;Device Descriptor
 	;Some drivers request just 8 bytes then check bMaxPacketSize0=0x40 for endpoint 0
 	;after getting the 18 bytes you might want to make sure that bNumConfigurations=1
 	;sometimes this fails the first time
-	STDCALL fdstr8,putscroll
+	STDCALL usbfdstr1,putscroll
 	call FlashGetDeviceDescriptor
 	cmp eax,1  ;check for error
-	jz near .failure
+	jz near .errorTransaction
 
 
 
 	;so we do it again
+	STDCALL usbfdstr1,putscroll
 	call FlashGetDeviceDescriptor
 	cmp eax,1  ;check for error
-	jz near .failure
+	jz near .errorTransaction
 
 
 
 .getConfigDescriptor:
 	;first we request the 9 byte Configuration Descriptor
 	;this will give us the BNUMINTERFACES and WTOTALLENGTH
+	STDCALL usbfdstr2a,putscroll
 	mov edx,9
 	call FlashGetConfigDescriptor
 	cmp eax,1  ;check for error
-	jz near .failure
+	jz near .errorTransaction
 
 
 
@@ -353,19 +143,18 @@ initflash:
 	;a usb camera will have more than 1 interface
 	;cmp byte [FLASH_BNUMINTERFACES],1
 	;jz .getremainingdescriptors
-	;STDCALL fdstr6,putscroll
 	;jmp near .nextport  ;try another port
 .getremainingdescriptors:
 
 
 	;now we get the configuration, interface and
 	;all endpoint descriptors all in one shot
-	STDCALL fdstr9,putscroll
+	STDCALL usbfdstr2b,putscroll
 	xor edx,edx
 	mov dx,[FLASH_WTOTALLENGTH]
 	call FlashGetConfigDescriptor
 	cmp eax,1  ;check for error
-	jz near .failure
+	jz near .errorTransaction
 
 
 
@@ -424,31 +213,39 @@ initflash:
 
 
 	;dump the wMaxPacketSize for each endpoint
-	;control endpoint0 is 64 bytes and configured endpoints IN/OUT are 0x0200
+	;control endpoint0 is 64 bytes and configured endpoints 
+	;IN/OUT for bulk transport are 0x0200
 	;we saved the first endpoint wMaxPacketSize at [0x5032+4]
 	mov ax,[0x5032+4]
 	and eax,0xffff
-	STDCALL fdstr7,0,dumpeax
+	STDCALL usbfdstr3a,0,dumpeax
 	;we saved the 2nd endpoint wMaxPacketSize at [0x5039+4]
 	mov ax,[0x5039+4]
 	and eax,0xffff
-	STDCALL fdstr7,0,dumpeax
+	STDCALL usbfdstr3b,0,dumpeax
 
 	
 
 
-	STDCALL fdstr10,putscroll
+	STDCALL usbfdstr4,putscroll
+	STDCALL devstr1,dumpstr  ;FLASH
+
 	mov eax,FLASHDRIVEADDRESS
 	mov dword [qh_next_td_ptr], FLASH_CONTROL_QH_NEXT_TD_PTR
 	call SetAddress
+
 	cmp eax,1  ;check for error
-	jz near .failure
+	jz near .errorTransaction
 
 
 	
 	;to this point all usb transactions used deviceaddress=0 and endpoint=0
 	;now we must use devicesaddress=FLASHDRIVEADDRESS assigned in usb.s
 
+
+
+
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
 
 	;for EHCI only, has no affect for UHCI primary
 	;Modify QH(1) for control transfers with assigned FLASHDRIVEADDRESS
@@ -457,7 +254,6 @@ initflash:
 	;also modify QH(2) and QH(3) for bulk transfer which need BULKEPIN and BULKEPOUT
 	;the ehci controller puts these in the QH
 	
-
 	;modify our control QH to include the address
 	mov eax,FLASH_CONTROL_QH
 	mov ecx,0  ;still use endpoint 0
@@ -476,137 +272,127 @@ initflash:
 	mov ebx,FLASHDRIVEADDRESS
 	call modify_ehci_qh
 
+%endif
 
 
 
 
-	STDCALL fdstr11,putscroll
+
+	STDCALL usbfdstr5,putscroll
+	STDCALL devstr1,dumpstr  ;FLASH
+
 	mov ax,[FLASH_BCONFIGVALUE]
 	mov dword [qh_next_td_ptr], FLASH_CONTROL_QH_NEXT_TD_PTR  ;ehci only
 	call SetConfiguration
+
 	cmp eax,1  ;check for error
-	jz near .failure
+	jz near .errorTransaction
 
 
 
+
+	;***********************
+	;    BULK Transfers
+	;***********************
 
 	;done with control transfers
 	;now we start on the SCSI bulk transfers 
-	;the redundancy is important
+	;the order and redundancy is important
 	;mostly I think to "warm" up the device and get it ready for read10/write10
 	;all these SCSI commands are "bulk" commands along with read10/write10
 	;they use the CBW command block wrapper and CSW command status wrapper
 	;they must be sent to the BULKIN and BULKOUT endpoints 
 
-	;notes about data TOGGLE
-	;as of March 2015 I am using data toggles from the qTD for all SCSI bulk commands
-	;that means I have to keep track of the toggles myself in code
-	;this is supposed to make my life easier for recovering from failed transactions (I hope)
-	;the rule is to start with BULKIN toggle =0 and BULKOUT toggle =0 then flip them
-	;after every use
-	;because I am setting toggles manually, you must execute these bulk commands
-	;in the order shown here, do not reorder these function calls or insert new ones
-	;otherwise the value of the toggles will be messed up
+	
+%if USBCONTROLLERTYPE == 0  ;uhci
+	;init toggles for bulk
+	;the prepareTD functions will flip these toggles
+	mov dword [bulktoggleout],0 
+	mov dword [bulktogglein],0  
+%endif
 
 
-	STDCALL fdstr12,putscroll
+	STDCALL usbfdstr6,putscroll
 	call Inquiry
 	cmp eax,1  ;check for error
-	jz near .failure
+	jz near .errorTransaction
+
 
 
 	;TestUnitReady will always fail the first time
 	;looping 10x doesnt help
 	;it just means you have to issue more bulk commands like RequestSense
 	;until the flash is warmed up and ready to go
-	STDCALL fdstr13,putscroll
-	mov eax,0  ;status transport toggle
+	STDCALL usbfdstr7,putscroll
+	mov eax,0  ;status transport toggle for ehci
 	call TestUnitReady
-	;failure here will not hang the device
-	;just keep going and try some more commands until TestUnitReady passes
-	;do not resetport here, it totally messes up the controller
+	;if eax=1, failure here will not hang the device
+	;just keep going and do RequestSense
+
 
 
 	;if this command fails the endpoint will halt, then dont try any more commands
-	;just reset ehci and run initflash again and all will be well
-	STDCALL fdstr14,putscroll
+	;just reset the usb controller and run initflash again and all will be well
+	STDCALL usbfdstr8,putscroll
 	call RequestSense
 	cmp eax,1  ;check for error
-	jz near .failure  
-	;do not jmp to reset port, it will not work, GetDeviceDescriptor will fail
-	;must instead reinit ehci
-	;on my old blue flash drive this always fails the first time
-	;and always passes the 2nd time after doing initehci again
-	;perhaps we should implement "Bulk Only Mass Storage Reset"  ???
-	;or try clearing the endpoint
+	jz near .errorTransaction  
 
 
 
-
-	STDCALL fdstr13,putscroll
-	mov eax,1  ;status transport toggle
+	STDCALL usbfdstr7,putscroll
+	mov eax,1  ;status transport toggle for ehci
 	call TestUnitReady
+	cmp eax,1
+	jz near .errorTransaction
+	;I have never seen the flash not pass this one
 
 
-	STDCALL fdstr15,putscroll
+
+	STDCALL usbfdstr9,putscroll
 	call ReadCapacity
 	cmp eax,1  ;check for error
-	jz near .failure
+	jz near .errorTransaction
 	;If you get this far this command should never fail
 
 
 
 
-	;init our data toggle values
-	;up to this point we had control transfers and bulk transfers
-	;which used data toggles which I set manually
-	;you can not eliminate any of the above function calls or change their order
-	;without messing up the data toggles
-	;from here on we will not set the toggles manually
-	;read10 and write10 will instead get their toggles from variables
-	;dword [bulktogglein] and dword [bulktoggleout]
-	;our QH in initehci.s is setup to get toggles from the qTD
-	;every time we use these variables, must call toggle() from math.s to flip
-	;the toggle value must be 0,1,0,1,0,1 ...
+%if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
+	;for ehci
 	mov dword [bulktoggleout],1 ;previous ReadCapacity Command OUT used 0 so we use 1
 	mov dword [bulktogglein],0  ;previous ReadCapacity Status IN used 1 so we use 0
-
-
-
+%endif
 
 
 
 	;Read10 test
 	;we read 3 blocks near the end to warm up the flash
-	STDCALL fdstr16,putscroll
+	STDCALL usbfdstr10,putscroll
 	mov ebx,[flashdriveLBAmax]
 	sub ebx,100
 	mov ecx,3           ;qty blocks
 	mov edi,CLIPBOARD   ;destination memory address
 	call read10
-	jz near .failure
+	jz near .errorTransaction
 
 
 
 	;Write10 test 
 	;and we write back the same data
-	STDCALL fdstr17,putscroll
+	STDCALL usbfdstr11,putscroll
 	mov ebx,[flashdriveLBAmax]
 	sub ebx,100        ;LBAstart = [flashdriveLBAmax] - 100 blocks
 	mov ecx,3          ;qty blocks to write
 	mov esi,CLIPBOARD  ;source address
 	call write10
-	jz near .failure
+	jz near .errorTransaction
 
 
 
 
 
 	;load the vbr, fat1, fat2, rootdir into memory
-	;all tatOS file operations that modify the fat or root dir
-	;are done in memory only
-	;to write all changes to the flash is done manually from the filemanager
-	;before you unplug and shutdown
 	call fatloadvbrfatrootdir	
 
 
@@ -630,7 +416,7 @@ initflash:
 
 
 .clearEndpoint:
-	;2do, this is not currently implemented, not way to execute this code
+	;2do, this is not currently implemented, no way to execute this code
 	;if bulkin or bulkout endpoints fails 
 	;in one of the SCSI commands
 	;we should jump here and call
@@ -638,33 +424,29 @@ initflash:
 	call ClearFeatureEndpointHalt
 	;this will reset data toggles in the flash
 	;and then fall thru and go back to resetport
-
-.failure:
+.errorTransaction:
 	mov eax,3
-	STDCALL mpdstr29,putscroll
-	jmp .done
-.invalidFlashPortNum:
-	STDCALL fdstr18,putscroll
+	STDCALL usbfdstr12,putscroll
+	STDCALL pressanykeytocontinue,putscroll
 	jmp .done
 .not_mass_storage:
-	STDCALL fdstr1,dumpstr 
+	STDCALL usbfdstr13,dumpstr 
 	jmp .done
 .not_SCSI:
-	STDCALL fdstr2,dumpstr
+	STDCALL usbfdstr14,dumpstr
 	jmp .done
 .not_bulk_only:
-	STDCALL fdstr3,putscroll
+	STDCALL usbfdstr15,putscroll
 	jmp .done
 .epin_zero:
-	STDCALL fdstr4,putscroll
+	STDCALL usbfdstr16,putscroll
 	jmp .done
 .epout_zero:
-	STDCALL fdstr5,putscroll
+	STDCALL usbfdstr17,putscroll
 	jmp .done
 .done:
-	;so user can see the init sequence messages
-	STDCALL pressanykeytocontinue,putscroll 
-	call getc
+	STDCALL usbfdstr18,putscroll
+	;initdevices will pause execution
 	ret
 	
 

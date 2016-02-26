@@ -15,6 +15,7 @@
 ;ehci_portdump
 ;uhci_portscan 
 ;ehci_portscan
+;ehci_release_ownership
 
 
 ;a "port" is where you plug your device (mouse,flash drive) into
@@ -22,10 +23,20 @@
 ;some say port num starts with 0 and others start with 1
 ;the EHCI docs for example use port nums starting with 1
 ;tatOS uses port numbers starting with 0
-;so UHCI has 2 ports 0 and 1
+
+;so UHCI has 2 ports 0,1
+
 ;EHCI generally has 4 or more "root" ports starting with 0,1,2,3...
-;a root port is directly connected to the controller
-;no support for hubs other than the "root hub"
+
+;if you have EHCI with integrated root hub (i.e. rate matching hub)
+;then the commands in this file to reset a port only work on the "upstream" port
+;The upstream port is the invisible port between ehci and hub
+;The downstream hub ports are the 4 ports you plug your devices into
+;these downstream ports do not respond to commands in this file
+;you must you usb hub class commands to reset these downstream ports
+;see hubport.s
+;these downstream hub ports are numbered starting with 1,2,3,4
+
 
 ;run this after resetting the controller
 ;also if your communication with the device gets screwed up 
@@ -280,14 +291,13 @@ ehci_portconnect:
 
 ;*****************************************************************
 ;uhci_portlowspeed and ehci_portlowspeed
+
 ;tests if a low speed device is connected to the port
 ;there is no quick easy way to know if a mouse of flash drive
 ;is connected to a port except to read the 6th byte of the
 ;interface descriptor. But we can use this function to
-;see if a low speed device is connected to the port, 
-;then chances are its probably a mouse since we only 
-;support mouse of flash drive and all mice are low speed
-;and the flash drive is full speed on UHCI and hi speed on EHCI
+;see if a low speed device is connected to the port 
+
 ;input
 ;eax=port number 0,1 for uhci, 0,1,2,3 for ehci
 ;return
@@ -559,5 +569,33 @@ ehci_portscan:
 	STDCALL portscanstr4,0,dumpeax
 
 	ret
+
+
+
+
+;******************************************************************
+;ehci_release_ownership
+
+;this function sets bit13 of PORTSC to indicate the port
+;belongs (is controlled) by uhci (companion controller)
+;because the device is low speed
+
+;input: eax=port number (0,1,2,3)
+;return:none
+;******************************************************************
+
+ehci_release_ownership:
+
+	STDCALL usbinitstr45,putscroll
+
+	mov esi,[EHCIOPERBASE]  ;get start of ehci operational regs
+
+	mov edi,[esi+44h+eax*4] ;read PORTSC=1 (ports are 44h, 48h, 4ch, 50h)
+	or edi,10000000000000b  ;set bit13 port owner = companion controller
+	mov [esi+44h+eax*4],edi ;write it back
+
+	ret
+
+
 
 

@@ -62,9 +62,6 @@ dd FLASHDRIVEADDRESS
 ;uses same SCSI_structTD_status as inquiry for status transport
 
 
-rcstr1 db '********** Flash ReadCapacity  COMMAND transport **********',0
-rcstr2 db '********** Flash ReadCapacity  DATA    transport **********',0
-rcstr3 db '********** Flash ReadCapacity  STATUS  transport **********',0
 rcstr4 db 'flash drive LBAmax',0
 rcstr5 db 'bytes per block',0
 rcstr6 db 'flash drive capacity, bytes',0
@@ -73,9 +70,12 @@ rcstr6 db 'flash drive capacity, bytes',0
 ReadCapacity:
 
 
+	STDCALL devstr1,dumpstr  ;FLASH
+
+
 	;Command Transport
 	;********************
-	STDCALL rcstr1,dumpstr
+	STDCALL transtr12a,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push FlashRC_structTD_command
@@ -108,7 +108,7 @@ ReadCapacity:
 
 	;Data Transport
 	;*****************
-	STDCALL rcstr2,dumpstr
+	STDCALL transtr12b,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push FlashRC_structTD_data
@@ -164,13 +164,17 @@ ReadCapacity:
 
 	;Status Transport
 	;*******************
-	STDCALL rcstr3,dumpstr
+	STDCALL transtr12c,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	push SCSI_structTD_status
 	call uhci_prepareTDchain
 	call uhci_runTDchain
 	jnz near .error
+
+	mov esi,scsiCSW
+	call CheckCSWstatus  
+	jnc .error
 %endif
 
 %if (USBCONTROLLERTYPE == 1 || USBCONTROLLERTYPE == 2 || USBCONTROLLERTYPE == 3)
@@ -184,13 +188,12 @@ ReadCapacity:
 	mov eax,FLASH_BULKIN_QH_NEXT_TD_PTR
 	call ehci_run
 	jnz near .error
-%endif
 
-
-	STDCALL 0xb70000,13,dumpmem  ;dump the Command Status Wrapper returned
-
+	;dump the CSW and test last byte for pass/fail
 	mov esi,0xb70000
-	call CheckCSWstatus  ;test the last byte of CSW for pass/fail
+	call CheckCSWstatus  
+	jnc .error
+%endif
 
 
 .success:

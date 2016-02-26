@@ -216,7 +216,11 @@ alloc:
 	xor eax,eax
 .done:
 	mov eax,[allocStartOfMemory]
+
+%If VERBOSEDUMP
 	STDCALL allocstr4,0,dumpeax     ;memory address returned
+%endif
+
 	popad
 	mov esi,[allocStartOfMemory]  ;return value
 	ret

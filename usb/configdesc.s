@@ -3,10 +3,18 @@
 
 ;FlashGetConfigDescriptor
 ;MouseGetConfigDescriptor
+;KeyboardGetConfigDescriptor
 ;hubGetConfigDescriptor
 
 
+
+
 ;code to issue the usb Configuration Descriptor Request
+
+;this code is run 2x 
+;the first time you get only the config descriptor
+;the second time you get the config + interface + endpoint descriptors (and HID
+;descriptors if low speed device)
 
 
 
@@ -16,6 +24,33 @@ db 6       ;bRequest=06=GET_DESCRIPTOR
 dw 0x0200  ;wValue=02=CONFIGURATION and 00=index
 dw 0       ;wIndex
 dw 9       ;wLength=bytes data to be returned,9 or WTOTALLENGTH
+
+
+
+configstr4 db 'wTotalLength',0
+configstr5 db 'bNumInterfaces',0
+configstr6 db 'bConfigurationValue',0
+configstr7 db 'bNumEndpoints',0
+configstr8 db 'bInterfaceClass',0
+configstr9 db 'bInterfaceSubClass',0
+configstr10 db 'bInterfaceProtocol (00=hub, 0x50=flash, 01=keyboard, 02=mouse',0
+configstr11 db 'Warning: wTotalLength exceeds 0x27, saving only 0x27 bytes',0
+
+mconfigstr5 db 'MOUSINENDPOINT',0
+mconfigstr6 db 'Mouse endpoint wMaxPacketSize',0
+
+kconfigstr4 db 'Keyboard Interface Subclass (0x01=boot)',0
+kconfigstr5 db 'KEYBOARDINENDPOINT',0
+kconfigstr6 db 'Keyboard endpoint wMaxPacketSize',0
+
+
+hubqtyconfigdata dd 0
+hub_wtotallength dd 0
+qtyconfigdata dd 0
+
+configtempbuf times 100 db 0
+
+
 
 
 ;*****************************************************************
@@ -114,21 +149,6 @@ dd ADDRESS0
 ;01=bInterval,does not apply to bulk endpoints
 
 	
-configstr1 db '********** Flash ConfigDescriptor COMMAND Transport **********',0
-configstr2 db '********** Flash ConfigDescriptor DATA    Transport **********',0
-configstr3 db '********** Flash ConfigDescriptor STATUS  Transport **********',0
-configstr4 db 'Config Descriptor wTotalLength',0
-configstr5 db 'bNumInterfaces',0
-configstr6 db 'bConfigurationValue',0
-configstr7 db 'bNumEndpoints',0
-configstr8 db 'bInterfaceClass',0
-configstr9 db 'bInterfaceSubClass',0
-configstr10 db 'bInterfaceProtocol',0
-configstr11 db 'Warning: wTotalLength exceeds 0x27, saving only 0x27 bytes',0
-
-
-qtyconfigdata dd 0
-
 
 
 
@@ -160,10 +180,12 @@ FlashGetConfigDescriptor:
 	mov [ConfigDescriptorRequest+6],dx
 
 
+	STDCALL devstr1,dumpstr
+	
 
 	;Command Transport
 	;*********************
-	STDCALL configstr1,dumpstr
+	STDCALL transtr2a,dumpstr
 	
 %if USBCONTROLLERTYPE == 0 ;uhci
 	mov [FlashCD_structTD_data+4],edx
@@ -198,7 +220,7 @@ FlashGetConfigDescriptor:
 
 	;Data Transport
 	;*******************
-	STDCALL configstr2,dumpstr
+	STDCALL transtr2b,dumpstr
 
 %if USBCONTROLLERTYPE == 0 ;uhci
 	mov dword [controltoggle],1
@@ -233,6 +255,7 @@ FlashGetConfigDescriptor:
 	mov edi,0x5020
 	call strncpy
 %endif
+
 
 
 
@@ -275,7 +298,7 @@ FlashGetConfigDescriptor:
 
 	;Status Transport
 	;*****************
-	STDCALL configstr3,dumpstr
+	STDCALL transtr2c,dumpstr
 
 %if USBCONTROLLERTYPE == 0 ;uhci
 	mov dword [controltoggle],1
@@ -379,24 +402,30 @@ dd ADDRESS0
 ;the wMaxPacketSize tells us the mouse gives a 6 byte report if SetProtocol=report
 
 
-;Logitech Mouse Config Descriptor
+
+;Logitech usb Mouse Descriptors:
+;**********************************
+;Configuration Descriptor
 ;09 02 22 00 01 01 00 a0 31 
-;Logitech Mouse Interface Descriptor
-;09 04 00 00 01 03 01 02 00 
-;Logitech Mouse HID Descriptor
+;    (offset2-3=wTotalLength=0022)
+;    (offset4=bNumInterfaces=01)
+;    (offset5=bConfigurationValue=01)
+;Interface Descriptor
+;09 04 00 00 01 03 01 02 00
+;    (offset4=bNumEndpoints=01)
+;    (offset5=bInterfaceClass=03=HID)
+;    (offset6=bInterfaceSubclass=01=boot)
+;    (offset7=bInterfaceProtocol=02=mouse)  this is where we know its mouse
+;HID Descriptor
 ;09 21 10 01 00 01 22 34 00 
-;Logitech Mouse Endpoint Descriptor
-;07 05 81 03 04 00 0a   (wMaxPacketSize=04)
+;    (offset7=wItemLength=0034=length of report descriptor)
+;Endpoint Descriptor
+;07 05 81 03 04 00 0a           
+;    (offset2=bEndpointAddress=81,8=IN,1=address)
+;    (offset4-5=wMaxPacketSize=0004)
+
 
 	
-mconfigstr1 db 'Mouse ConfigDescriptor COMMAND Transport',0
-mconfigstr2 db 'Mouse ConfigDescriptor DATA    Transport',0
-mconfigstr3 db 'Mouse ConfigDescriptor STATUS  Transport',0
-mconfigstr4 db 'Mouse Interface Subclass (0x01=boot)',0
-mconfigstr5 db 'MOUSINENDPOINT',0
-mconfigstr6 db 'Mouse endpoint wMaxPacketSize',0
-mconfigstr7 db 'Mouse bNumInterfaces',0
-mconfigstr8 db 'Mouse bConfigValue',0
 
 
 ;**********************************************************
@@ -409,11 +438,14 @@ mconfigstr8 db 'Mouse bConfigValue',0
 
 ;input:
 ;edx = qty bytes for device to return in tdData packet
-;    = 9 or MOUSE_WTOTALLENGTH
+;    = 9 to get just the config descriptor
+;    = 18 to get the config + interface descriptor
+;    = MOUSE_WTOTALLENGTH to get the config/interface/HID/endpoint
+;      descriptors all in one shot
 
-;return: eax=0 on success, 1 on error
+;return: eax=0 on success, 1 on transaction error
+;         bl=bInterfaceProtocol (should = 2 for mouse)
 ;***********************************************************
-
 
 MouseGetConfigDescriptor:
 
@@ -422,10 +454,12 @@ MouseGetConfigDescriptor:
 	mov [ConfigDescriptorRequest+6],dx
 
 
+	STDCALL devstr2,dumpstr    ;MOUSE
+
 
 	;Command Transport
 	;*********************
-	STDCALL mconfigstr1,dumpstr
+	STDCALL transtr2a,dumpstr
 
 %if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
 	mov [MouseCD_structTD_data+4],edx  ;write qty bytes requested into this struc
@@ -459,7 +493,7 @@ MouseGetConfigDescriptor:
 
 	;Data Transport
 	;*******************
-	STDCALL mconfigstr2,dumpstr
+	STDCALL transtr2b,dumpstr
 
 %if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
 	mov dword [controltoggle],1
@@ -502,23 +536,25 @@ MouseGetConfigDescriptor:
 	cmp dword [qtyconfigdata],9
 	jz near .1
 
-	;dump descriptor wTotalLength
+
 	mov ax,[MOUSE_WTOTALLENGTH]
-	STDCALL configstr4,1,dumpeax ;dump the WTOTALLENGTH
+	STDCALL configstr4,1,dumpeax 
 
-	;dump bConfigValue
 	mov al,[MOUSE_BCONFIGVALUE]
-	STDCALL mconfigstr8,2,dumpeax
+	STDCALL configstr6,2,dumpeax
 
-	;dump bNumInterfaces
 	mov al,[MOUSE_BNUMINTERFACES]
-	STDCALL mconfigstr7,2,dumpeax
+	STDCALL configstr5,2,dumpeax
 
-	;dump Interface Subclass  01=boot
-	mov al,[0x552f]
-	STDCALL mconfigstr4,2,dumpeax
+	mov al,[MOUSE_BINTERFACECLASS]
+	STDCALL configstr8,2,dumpeax
 
-	;dump endpoint wMaxPacketSize
+	mov al,[MOUSE_BINTERFACESUBCLASS]
+	STDCALL configstr9,2,dumpeax
+
+	mov al,[MOUSE_BINTERFACEPROTOCOL]   ;02=mouse
+	STDCALL configstr10,2,dumpeax
+
 	mov ax,[MOUSE_WMAXPACKETSIZE]  
 	STDCALL mconfigstr6,1,dumpeax
 
@@ -535,7 +571,7 @@ MouseGetConfigDescriptor:
 
 	;Status Transport
 	;*****************
-	STDCALL mconfigstr3,dumpstr
+	STDCALL transtr2c,dumpstr
 
 %if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
 	mov dword [controltoggle],1
@@ -566,6 +602,233 @@ MouseGetConfigDescriptor:
 .error:
 	mov eax,1
 .done:
+	mov bl,[MOUSE_BINTERFACEPROTOCOL]   ;02=mouse
+	ret
+
+
+
+
+
+;*****************************************************************
+;      KEYBOARD  Config/Interface/HID/Endpoint Descriptor
+;*****************************************************************
+
+;this function takes the same inputs as the mouse
+;infact the command and status stage code is identical
+;only the buffer pointer in the data stage is differant
+
+
+;Gear Head usb Keyboard Descriptors
+;************************************
+;this device returns 0x3b=59 qty bytes for all descriptors
+;Configuration Descriptor
+;09 02 3b 00 02 01 00 a0 31
+;    (offset2-3=wTotalLength=003b)
+;    (offset4=bNumInterfaces=02)
+;    (offset5=bConfigurationValue=01)
+;Interface Descriptor
+;09 04 00 00 01 03 01 01 00    
+;    (offset4=bNumEndpoints=01)
+;    (offset5=bInterfaceClass=03=HID)
+;    (offset6=bInterfaceSubclass=01=boot)
+;    (offset7=bInterfaceProtocol=01=keyboard)  this is where we know its keyboard
+;HID Descriptor
+;09 21 10 01 00 01 22 36 00
+;    (offset7=wItemLength=0036=length of report descriptor)
+;Endpoint Descriptor
+;07 05 81 03 08 00 0a 
+;    (offset2=bEndpointAddress=82,8=IN,2=address)
+;    (offset4-5=wMaxPacketSize=0003)
+;another interface descriptor
+;09 04 01 00 01 03 00 00 00
+;another HID descriptor
+;09 21 10 01 00 01 22 32 00
+;another endpoint descriptor
+;07 05 82 03 03 00 0a
+
+
+KeyboardCD_structTD_data:
+dd 0x6520 ;BufferPointer-data is written to
+dd 0      ;qtybytes2get is passed as arg to function
+dd LOWSPEED
+dd PID_IN
+dd controltoggle
+dd endpoint0
+dd ADDRESS0
+
+
+
+
+;**********************************************************
+;KeyboardGetConfigDescriptor
+
+;input:
+;edx = qty bytes for device to return in tdData packet
+;    = 9 to get just the config descriptor
+;    = 18 to get the config + interface descriptor
+;    = KEYBOARD_WTOTALLENGTH to get the config/interface/HID/endpoint
+;      descriptors all in one shot
+
+;return: eax=0 on success, 1 on error
+;         bl=bInterfaceProtocol (should = 1 for keyboard)
+;***********************************************************
+
+KeyboardGetConfigDescriptor:
+
+	;qty bytes device should return 
+	mov [qtyconfigdata],edx 
+	mov [ConfigDescriptorRequest+6],dx
+
+
+	STDCALL devstr3,dumpstr    ;KEYBOARD
+
+
+	;Command Transport
+	;*********************
+	STDCALL transtr2a,dumpstr
+
+%if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
+	mov [KeyboardCD_structTD_data+4],edx    ;assign qty bytes in data phase
+	mov dword [controltoggle],0
+	push MouseCD_structTD_command
+	call uhci_prepareTDchain
+	call uhci_runTDchain
+	jnz near .error
+%endif
+
+%if USBCONTROLLERTYPE == 2   ;ehci
+	;copy request to data buffer 0xb70000
+	mov esi,ConfigDescriptorRequest
+	mov edi,0xb70000
+	mov ecx,8
+	call strncpy
+
+	;generate 1 usb Transfer Descriptor
+	mov eax,8  ;Config Descritor Request is 8 bytes long
+	mov ebx,2  ;PID = SETUP	
+	mov ecx,0  ;data toggle
+	call generate_TD
+
+	;attach TD to queue head and run
+	mov eax,KEYBOARD_CONTROL_QH_NEXT_TD_PTR
+	call ehci_run
+	jnz near .error
+%endif
+
+
+
+	;Data Transport
+	;*******************
+	STDCALL transtr2b,dumpstr
+
+%if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
+	mov dword [controltoggle],1
+	push KeyboardCD_structTD_data
+	call uhci_prepareTDchain
+	call uhci_runTDchain
+	jnz near .error
+%endif
+
+%if USBCONTROLLERTYPE == 2   ;ehci
+	;generate 1 usb Transfer Descriptor
+	mov eax,[qtyconfigdata]  ;qty bytes to transfer
+	mov ebx,1                ;PID = IN	
+	mov ecx,1                ;data toggle
+	call generate_TD
+
+	;attach TD to queue head and run
+	mov eax,KEYBOARD_CONTROL_QH_NEXT_TD_PTR
+	call ehci_run
+	jnz near .error
+
+	;copy the Config Descriptor bytes received to 0x5520 for permanent storage
+	mov ecx,[qtyconfigdata]
+	cmp ecx,0x27
+	jbe .docopy
+	STDCALL configstr11,dumpstr
+	mov ecx,0x27  ;prevent copying more than 0x27 of wTotalLength
+.docopy:
+	mov esi,0xb70000
+	mov edi,0x6520
+	call strncpy
+%endif
+
+
+
+	;dump the entire descriptor as hex
+	STDCALL 0x6520,[qtyconfigdata],dumpmem  
+
+	;skip dump details until we get the full config/inter/ep descriptor
+	cmp dword [qtyconfigdata],9
+	jz near .1
+
+
+	mov ax,[KEYBOARD_WTOTALLENGTH]
+	STDCALL configstr4,1,dumpeax 
+
+	mov al,[KEYBOARD_BCONFIGVALUE]
+	STDCALL configstr6,2,dumpeax
+
+	mov al,[KEYBOARD_BNUMINTERFACES]
+	STDCALL configstr5,2,dumpeax
+
+	mov al,[KEYBOARD_BINTERFACECLASS]
+	STDCALL configstr8,2,dumpeax
+
+	mov al,[KEYBOARD_BINTERFACESUBCLASS]
+	STDCALL configstr9,2,dumpeax
+
+	mov al,[KEYBOARD_BINTERFACEPROTOCOL]  ;01=keyboard
+	STDCALL configstr10,2,dumpeax
+
+	mov ax,[KEYBOARD_WMAXPACKETSIZE]  
+	STDCALL kconfigstr6,1,dumpeax
+
+	;save the address of the keyboard endpoint
+	;its the 3rd byte of the endpoint descriptor
+	;and it better be an IN endpoint 0x8?
+	movzx eax,byte [0x653d]   ;eax=0x81 typically
+	and eax,0xf               ;eax=1 
+	mov [KEYBOARDINENDPOINT],al  ;save mouse in endpoint num
+	STDCALL kconfigstr5,0,dumpeax
+
+.1:
+
+
+	;Status Transport
+	;*****************
+	STDCALL transtr2c,dumpstr
+
+%if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci
+	mov dword [controltoggle],1
+	push MouseCD_structTD_status
+	call uhci_prepareTDchain
+	call uhci_runTDchain
+	jnz near .error
+%endif
+
+%if USBCONTROLLERTYPE == 2   ;ehci
+	;generate 1 usb Transfer Descriptor
+	mov eax,0  ;qty bytes to transfer
+	mov ebx,0  ;PID_OUT	
+	mov ecx,1  ;data toggle
+	call generate_TD
+
+	;attach TD to queue head and run
+	mov eax,KEYBOARD_CONTROL_QH_NEXT_TD_PTR
+	call ehci_run
+	jnz near .error
+%endif
+
+
+
+.success:
+	mov eax,0
+	jmp .done
+.error:
+	mov eax,1
+.done:
+	mov bl,[KEYBOARD_BINTERFACEPROTOCOL]  ;01=keyboard
 	ret
 
 
@@ -628,18 +891,6 @@ MouseGetConfigDescriptor:
 ;currently tatOS does not have any support for the status change endpoint
 
 
-hubconfigstr1 db '********** hub Config Descriptor COMMAND Transport **********',0
-hubconfigstr2 db '********** hub Config Descriptor DATA    Transport **********',0
-hubconfigstr3 db '********** hub Config Descriptor STATUS  Transport **********',0
-hubconfigstr4 db 'hub Config Descriptor wTotalLength',0
-hubconfigstr5 db 'hub bConfigurationValue for SetConfiguration',0
-hubconfigstr6 db 'hub bNumInterfaces',0
-
-hubqtyconfigdata dd 0
-hub_wtotallength dd 0
-
-
-
 
 ;**********************************************************
 ;hubGetConfigDescriptor
@@ -667,10 +918,12 @@ hubGetConfigDescriptor:
 	mov [ConfigDescriptorRequest+6],dx
 
 
+	STDCALL devstr4,dumpstr
+
 
 	;Command Transport
 	;*********************
-	STDCALL hubconfigstr1,dumpstr
+	STDCALL transtr2a,dumpstr
 
 	;copy request to data buffer 0xb70000
 	mov esi,ConfigDescriptorRequest
@@ -693,7 +946,7 @@ hubGetConfigDescriptor:
 
 	;Data Transport
 	;*******************
-	STDCALL hubconfigstr2,dumpstr
+	STDCALL transtr2b,dumpstr
 
 	;generate 1 usb Transfer Descriptor
 	mov eax,[qtyconfigdata]  ;qty bytes to transfer
@@ -718,17 +971,17 @@ hubGetConfigDescriptor:
 	STDCALL 0x6020,[qtyconfigdata],dumpmem  ;to see all the config data
 
 	mov ax,[HUB_WTOTALLENGTH]
-	STDCALL hubconfigstr4,1,dumpeax 
+	STDCALL configstr4,1,dumpeax 
 	mov al,[HUB_BCONFIGVALUE]
-	STDCALL hubconfigstr5,2,dumpeax
+	STDCALL configstr6,2,dumpeax
 	mov al,[HUB_BNUMINTERFACES]
-	STDCALL hubconfigstr6,2,dumpeax
+	STDCALL configstr5,2,dumpeax
 
 
 
 	;Status Transport
 	;*****************
-	STDCALL hubconfigstr3,dumpstr
+	STDCALL transtr2c,dumpstr
 
 	;generate 1 usb Transfer Descriptor
 	mov eax,0  ;qty bytes to transfer

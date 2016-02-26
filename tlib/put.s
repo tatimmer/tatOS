@@ -641,8 +641,8 @@ puteaxstr:
 ;push qty bytes to display   [ebp+8]
 ;***************************************
 
-
 putmem:
+
 	push ebp
 	mov ebp,esp
 	

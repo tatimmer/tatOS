@@ -989,6 +989,9 @@ te_doF11:
 	;queue up a usb mouse request just in case the app needs it
 	call usbmouserequest
 
+	;and queue up a usb keyboard request
+	call usbkeyboardrequest
+
 
 	;dump a message that we are about to do SYSEXIT
 	STDCALL te_str9,dumpstr

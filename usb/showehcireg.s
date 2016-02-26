@@ -31,8 +31,8 @@ devid2d db 'Vendor=unknown',0
 
 ;STATUS-COMMAND
 statcom1 db 'PCI: STATUS-COMMAND',0
-statcom2 db 'Bus Master enable (Via:1=yes)',0
-statcom3 db 'Memory Space enable (Via:1=yes)',0
+statcom2 db 'Bus Master enable (1=yes)',0
+statcom3 db 'Memory Space enable (1=yes)',0
 
 ;CLASSC-SUBCLA-PROGINT-REVID
 class1 db 'PCI: ClassCode, SubClass, ProgrammingInterface, RevisionID',0
@@ -113,7 +113,7 @@ port1 db  'PORTSC(n) - PORT STATUS & CONTROL',0
 port2 db  '    Port Owner (1=companion controller,0=ehci)',0
 port3 db  '    Port Power (1=host controller has port power switches)',0
 port4a db '    Line Status:Not low speed device, perform EHCI reset',0
-port4b db '    Line Status:Low speed device, release ownership to UHCI',0
+port4b db '    Line Status:Low speed device, release ownership of port',0
 port5 db  '    Port Reset (1=in reset)',0
 port6 db  '    Port Suspend (1=in suspend)',0
 port7 db  '    Port Enable (1=enable)',0

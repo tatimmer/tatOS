@@ -1,0 +1,122 @@
+
+;key28  Feb 26, 2016
+;testing usbgetc
+
+
+;this is a USBGETC usb keyboard demo.
+;a block of text is displayed on the screen
+;use UP/DN/LEFT/RIGHT arrows of your usb keyboard
+;to move the text around on the screen.
+;ESC=quit
+
+
+org STARTOFEXE
+
+
+
+;*************
+;   DATA
+;*************
+
+str2:
+db 'USB Keyboard and usbgetc demo',NL
+db '*********************************',NL
+db 'Press the LEFT UP RIGHT DOWN arrow keys',NL
+db 'to move the text around on the screen',NL
+db 'ESCAPE on the usb keyboard = quit',0
+
+Yloc:
+dd 0
+Xloc:
+dd 0
+
+
+;*************
+;   CODE
+;*************
+
+
+..start
+
+
+	mov dword [Xloc],100
+	mov dword [Yloc],100
+
+
+
+.1:
+	backbufclear
+
+
+
+	;we had a sleep in here
+	;but with putsml we dont need it
+	;otherwise the processor needs at least 5ms of work here
+	;before calling usbgetc otherwise the usb keyboard
+	;becomes unresponsive
+
+
+
+	;display a message that will move up/down/left/right 
+	;around the screen with every keypress
+
+	mov eax,7  ;putsml
+	mov ebx,FONT01
+	mov ecx,[Xloc]
+	mov edx,[Yloc] 
+	mov esi,str2
+	mov edi,0xefff
+	sysenter
+
+	
+
+	;this is a non-blocking function
+	mov eax,125  ;usbgetc
+	sysenter
+	;returns
+	;eax=ascii char else 0 
+	;ebx=1 for LCTRL, 2 for LALT, 3 for LSHIFT
+
+
+	cmp al,0  ;no keypress
+	jz .3
+
+	cmp al,UP
+	jz .doup
+	cmp al,DOWN
+	jz .dodown
+	cmp al,LEFT
+	jz .doleft
+	cmp al,RIGHT
+	jz .doright
+	cmp al,ESCAPE
+	jz .done
+	
+	;any other keypress and there is no activity
+	jmp .3
+
+
+.dodown:
+	add dword [Yloc],10
+	jmp .3
+.doup:
+	sub dword [Yloc],10
+	jmp .3
+.doright:
+	add dword [Xloc],10
+	jmp .3
+.doleft:
+	sub dword [Xloc],10
+
+
+.3:
+	swapbuf
+	jmp .1
+
+
+.done:
+	exit
+
+
+
+ 

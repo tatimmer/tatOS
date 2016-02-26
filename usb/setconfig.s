@@ -3,8 +3,14 @@
 
 ;SetConfiguration
 ;MouseSetConfiguration
+;KeyboardSetConfiguration
 ;GetConfiguration
 
+
+
+setconfigstr3 db 'SetConfiguration: configuration value used',0
+getconfigstr4 db 'Get Configuration: configuration value received',0
+configstor dd 0
 
 
 align 0x10
@@ -46,19 +52,11 @@ dd FLASHDRIVEADDRESS
 %endif
 
 
-
-setconfigstr1 db '********** SetConfiguration COMMAND transport **********',0
-setconfigstr2 db '********** SetConfiguration STATUS  transport **********',0 
-setconfigstr3 db 'SetConfiguration: configuration value used',0
-
-
-
 ;***************************************************************************
 ;SetConfiguration
 ;code to issue the usb SetConfiguration request
 ;hi speed flash drive or hub using ehci
-;low speed usb mouse using uhci or ehci with root hub
-;for flash drive or hub on ehci
+;low speed usb mouse using ehci with root hub
 ;The DeviceDescriptor gives us bNumConfigurations
 ;The ConfigDescriptor gives us bConfigurationValue
 
@@ -80,7 +78,7 @@ SetConfiguration:
 
 	;Command Transport
 	;******************
-	STDCALL setconfigstr1,dumpstr
+	STDCALL transtr7a,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	mov dword [controltoggle],0
@@ -115,7 +113,7 @@ SetConfiguration:
 	
 	;Status Transport
 	;*******************
-	STDCALL setconfigstr2,dumpstr
+	STDCALL transtr7c,dumpstr
 
 %if USBCONTROLLERTYPE == 0  ;uhci
 	mov dword [controltoggle],1
@@ -152,9 +150,9 @@ SetConfiguration:
 
 
 
-;*********************************************************************
-;      LOW SPEED MOUSE 
-;*********************************************************************
+;*******************************
+;   MOUSE SET CONFIGURATION
+;*******************************
 
 MouseSC_structTD_command:
 dd SetConfigurationRequest  ;BufferPointer
@@ -178,18 +176,15 @@ dd controltoggle
 dd endpoint0
 dd MOUSEADDRESS
 
-
-
-msetconfigstr1 db 'Mouse SetConfiguration COMMAND transport',0
-msetconfigstr2 db 'Mouse SetConfiguration STATUS  transport',0 
-
 ;***************************************************************************
 ;MouseSetConfiguration
-;input:none
+;for uhci ony
+;no input and no return
 ;***************************************************************************
 
 MouseSetConfiguration:
 
+	STDCALL devstr2,dumpstr  ;MOUSE
 
 	;set the wValue field of the SetConfigurationRequest
 	;this must be the bConfigurationValue gotten from Config Descriptor
@@ -199,7 +194,8 @@ MouseSetConfiguration:
 
 	;Command Transport
 	;******************
-	STDCALL msetconfigstr1,dumpstr
+	STDCALL transtr7a,dumpstr
+
 	mov dword [controltoggle],0
 	push MouseSC_structTD_command
 	call uhci_prepareTDchain
@@ -211,15 +207,86 @@ MouseSetConfiguration:
 	
 	;Status Transport
 	;*******************
-	STDCALL msetconfigstr2,dumpstr
+	STDCALL transtr7c,dumpstr
+
 	mov dword [controltoggle],1
 	push MouseSC_structTD_status
 	call uhci_prepareTDchain
 	call uhci_runTDchain
 
-
 	ret
 
+
+
+
+
+
+;*******************************
+;   KEYBOARD SET CONFIGURATION
+;*******************************
+
+KeyboardSC_structTD_command:
+dd SetConfigurationRequest  ;BufferPointer
+dd 8                        ;SetConfig Request struct is 8 bytes long
+dd LOWSPEED
+dd PID_SETUP
+dd controltoggle            ;toggle address
+dd endpoint0
+dd KEYBOARDADDRESS          ;we now must use device address
+
+;no data transport
+	
+KeyboardSC_structTD_status:
+dd 0                        ;null BufferPointer
+dd 0                        ;qty bytes transferred
+dd LOWSPEED
+dd PID_IN
+dd controltoggle
+dd endpoint0
+dd KEYBOARDADDRESS
+
+
+;***************************************************************************
+;KeyboardSetConfiguration
+;for uhci ony
+;no input and no return
+;***************************************************************************
+
+KeyboardSetConfiguration:
+
+	STDCALL devstr3,dumpstr    ;KEYBOARD
+
+
+	;set the wValue field of the SetConfigurationRequest
+	;this must be the bConfigurationValue gotten from Config Descriptor
+	mov al,[KEYBOARD_BCONFIGVALUE]
+	mov [SetConfigurationRequest+2],al
+	
+
+	;Command Transport
+	;******************
+	STDCALL transtr7a,dumpstr
+
+	mov dword [controltoggle],0
+	push KeyboardSC_structTD_command
+	call uhci_prepareTDchain
+	call uhci_runTDchain
+
+
+	;no Data Transport
+
+	
+	;Status Transport
+	;*******************
+	STDCALL transtr7c,dumpstr
+
+	mov dword [controltoggle],1
+	push KeyboardSC_structTD_status
+	call uhci_prepareTDchain
+	call uhci_runTDchain
+
+
+	ret
 
 
 
@@ -235,17 +302,9 @@ dw 0       ;wValue=0
 dw 0       ;wIndex
 dw 1       ;wLength=bytes data returned
 
-
-getconfigstr1 db '********** GetConfiguration COMMAND transport **********',0
-getconfigstr2 db '********** GetConfiguration DATA    transport **********',0
-getconfigstr3 db '********** GetConfiguration STATUS  transport **********',0 
-getconfigstr4 db 'Get Configuration: configuration value received',0
-
-configstor dd 0
-
 ;***************************************************************************
 ;GetConfiguration
-;for flash drive or hub on ehci
+;for flash drive or hub on ehci only
 ;input: none
 ;       global dword [qh_next_td_ptr] holds address of 
 ;       ehci QH_NEXT_TD_PTR to attach to for ehci_run  
@@ -257,7 +316,7 @@ GetConfiguration:
 
 	;Command Transport
 	;******************
-	STDCALL getconfigstr1,dumpstr
+	STDCALL transtr8a,dumpstr
 
 	;copy request to data buffer 0xb70000
 	mov esi,GetConfigurationRequest
@@ -280,7 +339,7 @@ GetConfiguration:
 
 	;Data Transport
 	;*****************
-	STDCALL getconfigstr2,dumpstr
+	STDCALL transtr8b,dumpstr
 
 	;generate 1 usb Transfer Descriptor
 	mov eax,1   ;qty bytes to transfer
@@ -304,7 +363,7 @@ GetConfiguration:
 	
 	;Status Transport
 	;*******************
-	STDCALL getconfigstr3,dumpstr
+	STDCALL transtr8c,dumpstr
 	
 	;generate 1 usb Transfer Descriptor
 	mov eax,0  ;qty bytes to transfer

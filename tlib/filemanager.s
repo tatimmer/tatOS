@@ -2,7 +2,7 @@
 ;rev May 2015
 
 
-;Filemanager
+;filemanager
 ;fmDeleteFile
 ;fmRenameFile
 ;fmCutFile
@@ -33,7 +33,7 @@ FMmenu:
 db 'tatOS USB Flash Drive FAT16 File Manager',NL
 db '*****************************************',NL
 db 'UP/DN arrow to select',NL
-db 'CUT/COPY/PASTE to move or copy files',NL
+db 'CUT/COPY/PASTE to move or copy a file',NL
 db NL
 db 'F1     = List VBR Volume Boot Record Info',NL
 db 'r      = Set CWD as ROOT',NL
@@ -48,7 +48,7 @@ db 'F10    = Save directory listing to flash',NL
 db 'ESC    = Exit',0
  
 
-FMstr1  db 'Filemanager',0
+FMstr1  db 'filemanager',0
 FMstr3  db 'fmCutFile',0
 FMstr4  db 'Rename Directory Entry: Enter new 11 char file/dir name',0
 FMstr5  db 'fmCopyFile',0
@@ -58,7 +58,7 @@ FMstr8  db 'error: not an archive file',0
 FMstr9  db 'CurrentWorkingDirectory =',0
 FMstr10 db 'fmPasteFile: fatwritefile failed',0
 FMstr12 db 'Filename......Filesize...LastModified...Attributes.....StartCluster',0
-FMstr13 db 'Filemanager exit: selected filename:',0
+FMstr13 db 'filemanager exit: selected filename:',0
 FMstr14 db 'Delete DirEntry: there is NO undo - do you wish to proceed? (ENTER/ESC)',0
 FMstr15 db 'Copy File failed',0
 FMstr16 db 'Copy File: Enter unique name of file copy',0

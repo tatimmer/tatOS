@@ -11,6 +11,9 @@
 
 ;code to control the ports of a hub
 ;specifically developed on my asus laptop with ehci and "root" hub
+;USBCONTROLLERTYPE == 2 only !
+
+;hub ports are numbered 1,2,3,4
 
 
 
@@ -24,27 +27,29 @@ dw 4       ;wLength=bytes data returned in data phase
 
 hubportstatus dd 0  ;save the port status dword here
 
-hubportstr1 db 'Hub Get Port Status COMMAND Transport',0
-hubportstr2 db 'Hub Get Port Status DATA    Transport',0
-hubportstr3 db 'Hub Get Port Status STATUS  Transport',0
 hubportstr4 db 'hub port status',0
-hubportstr5 db '********** hub port#: port status **********',0
+hubportstr5 db 'hub port #',0
 
 
 ;the GetPortStatus returns 4 bytes of info
 ;the loword is wPortStatus see table 11-21 usb 2.0 spec
 ;the hiword is wPortChange see table 11-22
+
 ;after SetConfiguration the port status is 0x0
+
 ;after HubPortPower the port status is:
 ;  * for device not present = 0x100 (port is not in the powered off state)
 ;  * for device present = 0x10101 
+
 ;after HubPortReset the port status is:
 ;  * for device not present = 0x100 
 ;  * for flash drive present = 0x110503
-;      -0503 = device present, port is enabled, port is not powered off, hi speed device
+;      -0503 = device present, port is enabled, port is not powered off, 
+;              hi speed device
 ;      -11 = current connect status has changed, reset complete 
 ;  * for mouse present = 0x110303
-;      -0303 = device present, port is enabled, port is not powered off, lo speed device
+;      -0303 = device present, port is enabled, port is not powered off, 
+;              lo speed device
 
 
 
@@ -54,7 +59,7 @@ hubportstr5 db '********** hub port#: port status **********',0
 ;retrieves the status dword of a downstream port
 ;input:eax=port number starting with 1
 ;return:ebx=hub port status
-;       eax=0 on success, 1 on error
+;       eax=0 on success, 1 on transaction error
 ;*************************************************
 
 HubGetPortStatus:
@@ -64,14 +69,20 @@ HubGetPortStatus:
 	push esi
 	push edi
 
-	;write the port number into the request
+
+	STDCALL devstr4,dumpstr  ;HUB
+
+	;dump the port #
 	STDCALL hubportstr5,0,dumpeax
+
+	;write the port number into the request
 	mov [GetPortStatusRequest+4],ax
+
 
 
 	;Command Transport
 	;********************
-	STDCALL hubportstr1,dumpstr
+	STDCALL transtr13a,dumpstr
 
 	;copy request to data buffer 0xb70000
 	mov esi,GetPortStatusRequest
@@ -94,7 +105,7 @@ HubGetPortStatus:
 
 	;Data Transport
 	;*****************
-	STDCALL hubportstr2,dumpstr
+	STDCALL transtr13b,dumpstr
 
 	;generate 1 usb Transfer Descriptor
 	mov eax,4   ;qty bytes to transfer (receive)
@@ -120,7 +131,7 @@ HubGetPortStatus:
 
 	;Status Transport
 	;*******************
-	STDCALL hubportstr3,dumpstr
+	STDCALL transtr13c,dumpstr
 
 	;generate 1 usb Transfer Descriptor
 	mov eax,0  ;qty bytes to transfer
@@ -162,9 +173,6 @@ dw 4       ;wValue=FeatureSelector=PORT_RESET
 dw 0       ;wIndex, this is portnum 1,2,3...
 dw 0       ;wLength
 
-hubPRstr1 db 'hub Port Reset COMMAND Transport',0
-hubPRstr3 db 'hub Port Reset STATUS  Transport',0
-hubPRstr4 db '********** hub port#: resetting hub port number **********',0
 
 
 ;**************************************************************
@@ -182,15 +190,19 @@ HubPortReset:
 	push edi
 
 
+	STDCALL devstr4,dumpstr  ;HUB
+
+	;dump the port #
+	STDCALL hubportstr5,0,dumpeax
+
 	;write the port number into the request
-	STDCALL hubPRstr4,0,dumpeax
 	mov [HubPortResetRequest+4],ax
 
 
 
 	;Command Transport
 	;********************
-	STDCALL hubPRstr1,dumpstr
+	STDCALL transtr14a,dumpstr
 
 	;copy request to data buffer 0xb70000
 	mov esi,HubPortResetRequest
@@ -211,6 +223,7 @@ HubPortReset:
 
 
 
+
 	;Data Transport
 	;*****************
 	;no data transport
@@ -221,7 +234,7 @@ HubPortReset:
 	
 	;Status Transport
 	;*******************
-	STDCALL hubPRstr3,dumpstr
+	STDCALL transtr14c,dumpstr
 
 	;generate 1 usb Transfer Descriptor
 	mov eax,0  ;qty bytes to transfer
@@ -261,9 +274,6 @@ dw 8       ;wValue=FeatureSelector=PORT_POWER
 dw 0       ;wIndex, this is portnum 1,2,3...
 dw 0       ;wLength
 
-hubPPstr1 db 'Hub Port Power COMMAND Transport',0
-hubPPstr3 db 'Hub Port Power STATUS  Transport',0
-hubPPstr4 db '********** hub port#: applying power **********',0
 
 
 ;**************************************************************
@@ -282,15 +292,19 @@ HubPortPower:
 	push edi
 
 
+	STDCALL devstr4,dumpstr  ;HUB
+
+	;dump the port #
+	STDCALL hubportstr5,0,dumpeax
+
 	;write the port number into the request
-	STDCALL hubPPstr4,0,dumpeax
 	mov [HubPortPowerRequest+4],ax
 
 
 
 	;Command Transport
 	;********************
-	STDCALL hubPPstr1,dumpstr
+	STDCALL transtr15a,dumpstr
 
 	;copy request to data buffer 0xb70000
 	mov esi,HubPortPowerRequest
@@ -319,7 +333,7 @@ HubPortPower:
 	
 	;Status Transport
 	;*******************
-	STDCALL hubPPstr3,dumpstr
+	STDCALL transtr15c,dumpstr
 
 	;generate 1 usb Transfer Descriptor
 	mov eax,0  ;qty bytes to transfer

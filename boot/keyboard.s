@@ -104,6 +104,8 @@ irq1:
 	mov gs,ax
 
 
+	;STDCALL _intstr01,[DUMPSTR]
+
 	;read the port
 	in al,0x60          ;read byte at port
 	mov [_scancode],al  ;save the scancode 
@@ -508,6 +510,7 @@ _haveE1 db 0
 _haveE0 db 0
 _E1count db 0
 _ctrlaltdel db 'Ctrl+Alt+Delete',0
+_intstr01 db 'this is interrupt irq1',0
 
 
 
