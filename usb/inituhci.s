@@ -1,13 +1,19 @@
 ;tatOS/usb/inituhci.s
 
 
-;functions to init the usb UHCI controller
+;init the usb UHCI controller
 ;Get the base address needed for usb transactions. 
 ;Also resets the usb controller and sets up the frame list and 
 ;queue heads for usbmass/bulk and usbmouse/interrupt transactions
 ;the bus:dev:fun:00 of the primary UHCI controller is saved at 0x560=UHCIBUSDEVFUN
 ;values for the uhci companion controllers are saved at 
 ;UHCIBUSDEVFUNCOM1 and UHCIBUSDEVFUNCOM2
+
+;I do not know how to "hand off" the uhci from bios to tatOS in software. EHCI has
+;a pci config register to do this but not sure where to do this with uhci.
+;So if you want to use the usb keyboard with the old uhci, make sure you still 
+;have your ps2 keyboard plugged in, or else you may have to go into your bios 
+;settings manually
 
 ;Jan 2011 cleaned up code to include only register modifications
 ;         see show_uhci_reg which can be displayed from USB CENTRAL
@@ -244,6 +250,10 @@ initUHCI:
 
 	;done with setting up the usb UHCI controller
 	STDCALL usbUstr14,putscroll  
+
+	;pause so user can see putscroll messages
+	mov ebx,1000
+	call sleep
 
 	ret
 

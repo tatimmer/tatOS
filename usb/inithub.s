@@ -22,17 +22,18 @@
 ;                                        ------> Mouse
 
 
-hubstr0 db 'INIT ROOT HUB',0
-hubstr1 db 'hub-GetDeviceDescriptor',0
-hubstr2 db 'hub-GetConfigDescriptor 9 bytes',0
-hubstr3 db 'hub-GetConfigDescriptor full',0
-hubstr4 db 'error hub bInterfaceClass is not HUB_CLASSCODE',0
-hubstr5 db 'hub IN endpoint #',0
-hubstr6 db 'hub-GetHubDescriptor',0
-hubstr7 db 'hub-SetAddress',0
-hubstr8 db 'inithub-failed usb transaction',0
-hubstr9 db 'hub-SetConfiguration',0
+hubstr0  db 'INIT ROOT HUB',0
+hubstr1  db 'hub-GetDeviceDescriptor',0
+hubstr2  db 'hub-GetConfigDescriptor 9 bytes',0
+hubstr3  db 'hub-GetConfigDescriptor full',0
+hubstr4  db 'error hub bInterfaceClass is not HUB_CLASSCODE',0
+hubstr5  db 'hub IN endpoint #',0
+hubstr6  db 'hub-GetHubDescriptor',0
+hubstr7  db 'hub-SetAddress',0
+hubstr8  db 'inithub-failed usb transaction',0
+hubstr9  db 'hub-SetConfiguration',0
 hubstr10 db 'hub putting power to all ports',0
+hubstr11 db 'success init usb root hub',0
 
 
 
@@ -150,7 +151,7 @@ inithub:
 	STDCALL hubstr10,putscroll
 	movzx ecx,byte [HUB_BQTYDOWNSTREAMPORTS]
 .1:
-	mov eax,ecx
+	mov eax,ecx  ;eax=hub port number
 	call HubPortPower
 	loop .1
 
@@ -170,6 +171,7 @@ inithub:
 	mov eax,1
 	jmp .done
 .success:
+	STDCALL hubstr11,putscroll
 	mov eax,0
 .done:
 	ret

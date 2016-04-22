@@ -30,7 +30,9 @@
 
 ;duration byte examples: (always multiply by 4)
 ;02 duration * 4 = 8 milliseconds reporting frequency
+;07 duration * 4 = 28 ms
 ;0f duration * 4 = 60 ms
+;4b duration * 4 = 300 ms
 ;7d duration * 4 = 500 ms
 ;ff duration * 4 = 1020 ms
 ;00 duration * 4 = indefinite
@@ -38,12 +40,6 @@
 ;I found the mouse to work perfectly fine on the older uhci controllers
 ;with a duration value of 00. 
 
-;the recommended rate for keyboards is 500ms 
-;I think if you are able to successfully set up the usb controller to use
-;hardware interrupts then this is the correct value to use
-;but tatOS is designed around usb polling not hardware interrupts
-;and I find it much more responsive to use a value of 0 for idle duration
-;same as the mouse
 
 ;run /usb/mouseinterrupt.s usbShowMouseReport() with differant values of the set idle
 ;duration byte to see the behavior of the mouse
@@ -62,7 +58,7 @@ align 0x10
 SetIdleRequest:
 db 0x21    ;bmRequestType
 db 0x0a    ;bRequest 0a=SET_IDLE
-dw 0x0000  ;the hi byte is Duration, the low byte is Report ID
+dw 0x0000  ;bDuration-bReportID
 dw 0       ;wIndex=InterfaceNum
 dw 0       ;wLength no bytes in data phase
 
@@ -192,10 +188,20 @@ align 0x10
 KeyboardSetIdleRequest:
 db 0x21    ;bmRequestType
 db 0x0a    ;bRequest 0a=SET_IDLE
-;dw 0x7d00  ;the hi byte is Duration, the low byte is Report ID
-dw 0       ;this is better for tatOS
+dw 0x4b00  ;bDuration-bReportID
 dw 0       ;wIndex=InterfaceNum
 dw 0       ;wLength no bytes in data phase
+
+;dw 0xff00  ;bDuration-bReportID: 1020ms duration
+;dw 0x7d00  ;bDuration-bReportID: 500ms duration
+;dw 0x4b00  ;bDuration-bReportID: 300ms duration
+;dw 0x0700  ;bDuration-bReportID:  28ms duration
+;dw 0       ;bDuration-bReportID:  00ms duration 
+
+;the bDuration value can control a number of things such as how fast the keyboard
+;repeats when you hold down a key, or how it responds to multiple simultaneous 
+;key presses, it you set the value to something less than the PIT timer polling rate
+;you will get duplicate key presses.
 
 
 %if ( USBCONTROLLERTYPE == 0 || USBCONTROLLERTYPE == 1 )  ;uhci

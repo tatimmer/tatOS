@@ -18,7 +18,7 @@ This version of tatOS includes 4 differant usb controller drivers:
 * usb 2.0 ehci with uhci companion controllers
 * usb 2.0 ehci with integrated root hub
 * usb 2.0 ehci with no usb 1.0 support
-You will have to set appropriate values in tatOS.config and reassemble for your hdwre.
+You must set USBCONTROLLERTYPE in tatOS.config and reassemble for your hdwre.
 
 This version of tatOS supports these usb devices:
 * usb mouse   

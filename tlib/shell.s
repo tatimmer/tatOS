@@ -1,7 +1,5 @@
 ;tatOS/tlib/shell.s
 
-;rev:  Feb 2015 next version of tatOS
-
 ;this progam allows you to run other utilities that are part of tlib. 
 ;this is the top level routine in tatOS
 ;use scroll UP/DN then hit ENTER to run
@@ -10,8 +8,7 @@
 
 ;Shell Instruction String:
 shellstr0:  
-;"Welcome to tatOS" is done using hershey font now
-db 'January 2016',NL
+db 'March 2016',NL
 db 'UP/DN to move selection bar & scroll the list',NL
 db 'ENTER to execute the program',NL
 db 'To shutdown push your power button',NL

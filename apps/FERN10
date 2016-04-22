@@ -108,6 +108,7 @@ dd 0
 
 str1:
 db 'Please wait about 20 seconds, fern being built',0
+;this note is old, with a Ghz processor it only takes about 5 seconds
 
 ;******************
 ;   CODE

@@ -149,12 +149,11 @@ timerinit:
 
 ;********************************************************
 ;clock
-;function returns a time value in seconds*1000
+;function returns a time value in milliseconds
 ;to determine elapsed time within your program
 ;call this function twice and subtract the two values
-;then divide by 1000
 ;input:none
-;return:eax=time in seconds*1000
+;return:eax=time in milliseconds
 ;********************************************************
 
 clock:

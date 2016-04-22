@@ -41,7 +41,6 @@ CheckCSWstatus:
 
 	;first dump the Command Status Wrapper
 	STDCALL esi,13,dumpmem  
-	call dumpnl
 
 
 	;get the CSW status byte

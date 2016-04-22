@@ -1,25 +1,12 @@
 ;tatOS/usb/usbcentral.s
 
-;rev: Dec 29, 2015
 
-;a utility executed from the shell
+;a utility executed from the shell to init the usb controller and connected devices
 
-; * init ehci only with no usb 1.0 support
-; * init ehci with uhci companion controllers
-; * init ehci with root hub
-; * init usb flash drive
-; * show controller registers and bitfields
-; * init usb mouse
-; * show mouse report
-; * format usb flash drive
-
-;Feb 2015
-;This code is now usb controller hardware dependent
-;there are 3 differant hdwre approaches to using the usb flash drive and mouse
-;1) Via pci addon card with EHCI and UHCI companion controllers
-;2) old computer Intel UHCI with only 2 ports on the machine
-;3) new laptop Acer with EHCI and root hub
-;you must set USBCONTROLLERTYPE in tatOS.config and reassemble
+;conditional assembly will present to the user only 1 option for controlling
+;the flash drive, keyboard and mouse 
+;you must set an appropriate value for USBCONTROLLERTYPE in tatOS.config
+;and reassemble for your hardware
 
 
 usbcen_menu:
@@ -27,15 +14,11 @@ db 'USB CENTRAL',NL
 db '***********',NL
 db NL
 
-;conditional assembly will present to the user only 1 of 4 options for controlling
-;the flash drive and mouse, the USBCONTROLLERTYPE is set in tatOS.config
-
 %if USBCONTROLLERTYPE == 0
 db 'USBCONTROLLERTYPE == 0',NL
 db 'UHCI primary: INTEL 8086 did=7112 bus:dev:fun 00:07:02',NL
 db NL
-db 'F1=init UHCI',NL
-db 'F9=Show UHCI Primary Controller Registers',NL
+db 'F9      = show UHCI primary controller registers',NL
 %endif
 
 %if USBCONTROLLERTYPE == 1
@@ -45,34 +28,33 @@ db 'ehci    bus:dev:fun 00:10:02',NL
 db 'uhci #1 bus:dev:fun 00:10:00',NL
 db 'uhci #2 bus:dev:fun 00:10:01',NL
 db NL
-db 'F1=init EHCI & UHCI companions',NL
-db 'F8=Show EHCI Controller Registers',NL
-db 'F10=Show UHCI Companion Controller #1 Registers',NL
-db 'F11=Show UHCI Companion Controller #2 Registers',NL
+db 'F8      = show EHCI controller registers',NL
+db 'F10     = show UHCI companion controller #1 registers',NL
+db 'F11     = show UHCI companion controller #2 registers',NL
 %endif
 
 %if USBCONTROLLERTYPE == 2
 db 'USBCONTROLLERTYPE == 2',NL
-db 'EHCI with root hub: INTEL 8086 bus:dev:fun 00:1d:00',NL
+db 'EHCI with root hub: INTEL 8086 bus:dev:fun 00:1a/1d:00',NL
 db NL
-db 'F1=init EHCI & root hub',NL
-db 'F4=hub downstream port status wPortStatus',NL
-db 'F8=Show EHCI Controller Registers',NL
+db 'F4      = hub downstream port status wPortStatus',NL
+db 'F8      = show EHCI controller registers',NL
 %endif
 
 %if USBCONTROLLERTYPE == 3
 db 'USBCONTROLLERTYPE == 3',NL
 db 'EHCI only no usb 1.0 support',NL
 db NL
-db 'F1=init EHCI only',NL
-db 'F8=Show EHCI Controller Registers',NL
+db 'F8      = show EHCI controller registers',NL
 %endif
 
-db 'F2      = init usb devices: flash, keyboard, mouse',NL
-db 'F6      = Format Flash Drive with tatOS FAT16 no partition',NL
-db 'F7      = Show usb mouse report',NL
-db 'Ctrl+F7 = Show usb keyboard report',NL
-db 'F12     = Scan PCI bus for all usb controllers',NL
+db NL
+db 'F1      = init usb controller & low speed devices',NL
+db 'F2      = init flash drive',NL
+db 'F6      = format flash drive with tatOS FAT16 no partition',NL
+db 'F7      = show usb mouse report',NL
+db 'Ctrl+F7 = show usb keyboard report',NL
+db 'F12     = scan pci bus to get usb controllers bus:dev:fun',NL
 db 'ESC     = quit',NL
 db 0
 
@@ -89,6 +71,8 @@ usbcen7 db 'Flash drive LBAmax',0
 usbcen8 db 'Flash drive max cluster',0
 usbcen9 db 'Flash drive bytes per block',0
 usbcen10 db 'Flash drive capacity, bytes',0
+usbcen11 db '[usbcentral] calling initdevices:low speed',0
+usbcen12 db '[usbcentral] calling initdevices:hi  speed',0
 
 
 LEFTMARGIN equ 50
@@ -166,41 +150,47 @@ UsbCentral:
 
 
 
-.F1:  ;init usb controller
+.F1:  ;init usb controller & low speed devices
 
-	%if USBCONTROLLERTYPE == 0   ;uhci only
+%if USBCONTROLLERTYPE == 0   ;uhci only
 	mov bl,UHCI_BUS
 	mov cl,UHCI_DEV
 	mov dl,UHCI_FUN
 	call build_pci_config_address  ;return value in eax
 	mov [UHCIBUSDEVFUN],eax        ;save for later
 	call initUHCI
-	STDCALL pressanykeytocontinue,putscroll  
-	call getc
-	%endif
+%endif
 
-	%if USBCONTROLLERTYPE == 1 
+%if USBCONTROLLERTYPE == 1 
 	call init_EHCI_with_companion
-	%endif
+%endif
 
-	%if USBCONTROLLERTYPE == 2 
+%if USBCONTROLLERTYPE == 2 
 	call init_EHCI_with_roothub
-	%endif
+%endif
 
-	%if USBCONTROLLERTYPE == 3  
+%if USBCONTROLLERTYPE == 3  
 	call init_EHCI_only
-	%endif
+%endif
 
+	;the Lenovo does not have a ps2 port so we only have the usb keyboard
+	;when it boots up the usb keyboard is controlled by bios
+	;once we init the ehci the usb keyboard is dead so we must
+	;immediately detect the keyboard and init it otherwise we have no control
 
-	jmp UsbCentral
-
-
-
-
-
-.F2:  ;init flash drive, keyboard & mouse
+	STDCALL usbcen11,putscroll
+	mov eax,0  ;low speed devices
 	call initdevices
 	jmp UsbCentral
+
+
+
+.F2:
+	STDCALL usbcen12,putscroll
+	mov eax,1  ;hi speed flash drive
+	call initdevices
+	jmp UsbCentral
+
 
 
 

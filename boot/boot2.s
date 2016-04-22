@@ -623,7 +623,7 @@ do_pmode:
 
 
 	;remap the pic hdwre interrupts
-	%include "boot/pic.s"
+	%include "boot/picpitinit.s"
 
 
 
@@ -709,8 +709,9 @@ lba dw SIZEOFBOOT2+1   ;lba_initial = sizeof(boot2) + 1  in sectors
 
 
 %include "boot/gdtidttss.s"   ;descriptor tables, tss, all other irq's and isr's
-%include "boot/keyboard.s"    ;irq1   ps2 keyboard interrupt handler
-%include "boot/irq11.s"       ;irq11  usb controller interrupt handler
+%include "boot/irq0.s"        ;irq0   PIT timer interrupt handler 
+%include "boot/irq1.s"        ;irq1   ps2 keyboard interrupt handler
+%include "boot/irq11.s"       ;irq11  usb controller interrupt handler (test only)
 
 
 

@@ -566,7 +566,7 @@ fatstr59 db 'failed to find available entry in Root dir',0
 fatstr60 db 'fatwritefile: qty clusters needed',0
 fatstr61 db '...',0
 fatstr62 db 'fatfindfile: direntry does not exist in CWD, returning 0',0
-fatstr63 db 'fatloadvbrfatrootdir:Loading VBR,FAT1,FAT2,ROOTDIR',0
+fatstr63 db NL,'fatloadvbrfatrootdir:Loading VBR,FAT1,FAT2,ROOTDIR',0
 fatstr64 db 'FAT read dir entry return value',0
 fatstr66 db 'fatrenamefile',0
 fatstr67 db 'fatwritefile: file size is zero bytes',0

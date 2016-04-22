@@ -11,11 +11,11 @@
 ;    TIMES error
 ;********************
 ;here is where you increase the size of tatOS
-;if you assembled tatOS and get a TIMES error (-) you must increase this value
+;if you assemble tatOS and get a TIMES error (-) you must increase this value
 ;SIZEOFTLIB is used at the end of tlib.s
 ;to set the qty blocks of assembled code
 ;SIZEOFTLIB is also used in boot2.s for loading tatOS
-%define SIZEOFTLIB 300
+%define SIZEOFTLIB 305
 
 
 ;my SimpleTech flash drive has a listed capacity of 250meg
@@ -36,6 +36,7 @@ LBAMAX equ 488000
 %define SPACEKEYSTATE     0x50a    ;byte
 %define RANDSEED          0x514
 %define PITCOUNTER        0x51c
+%define USBKEYBDPOLLFREQ  0x520    ;dword 
 %define UHCIBASEADD       0x530
 %define BPSL              0x538    ;bytesperscanline
 %define BPSL64            0x53c    ;BPSL*600/64

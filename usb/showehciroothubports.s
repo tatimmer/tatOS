@@ -22,11 +22,32 @@ hpstr5 db 'reset 1=reset signalling asserted',0
 hpstr6 db 'port power 1=not powered OFF state',0
 hpstr7 db 'low speed device attached 0=full or hi speed 1=low speed',0
 hpstr8 db 'hi speed device attached 0=full speed 1= hi speed',0
+hpstr9 db 'building list control strings',0
 
 
 
 
 showehciroothubports:
+
+
+	;we are going to clear the screen and show the program title immediately
+	;because it takes more than 1 second to build and display the list
+	;control strings, and we want the user to feel like something is happening
+	call backbufclear
+
+	;show the program title
+	STDCALL FONT01,0,20,hpstr0,0xefff,puts
+
+	;message to tell user we are building list control strings
+	;this string will get overwritten by the list control
+	STDCALL FONT01,0,100,hpstr9,0xefff,puts
+
+	;make it show up
+	call swapbuf
+
+
+
+	;now prepare to build list control strings
 
 	;edx holds address in memory to store list control string
 	;all addresses are spaced out 0x100
@@ -46,8 +67,10 @@ showehciroothubports:
 
 
 
+
 .1: ;top of loop
     ;9 strings are generated for each hub port
+	;this loop actually takes more than 1 second to execute
 
 	;get status of port 
 	mov eax,ecx            ;eax=portnum 1,2,3... 
@@ -134,12 +157,12 @@ showehciroothubports:
 	mov ebx,100 ;Ylocation of top of listcontrol
 	call ListControlInit
 
+
+
 .appmainloop:
 
-	call backbufclear
 	call ListControlPaint
 
-	;program title
 	STDCALL FONT01,0,20,hpstr0,0xefff,puts
 
 	call swapbuf

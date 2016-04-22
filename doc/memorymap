@@ -38,7 +38,7 @@ global bytes, words and dwords.
 0x514 dword   Seed value for rand.s
 0x518 dword   1=CTRL+ALT+DEL has been pressed, 0=not
 0x51c dword   the value of the PITCOUNTER irq0 
-0x520 dword   
+0x520 dword   USBKEYBDPOLLFREQ, used in irq0 and /usb/interkeybd.s
 0x524 dword   
 0x528 dword   Is flash drive ready ? 1=yes, 0=no
 0x52c dword   UHCI USBBA USB I/O Space Base Address Register

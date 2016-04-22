@@ -858,42 +858,8 @@ intstr02     db 'this is interrupt irqd2',0
 
 
 
+;code for irq0 is moved to a seperate file  030616
 
-
-;********************************************
-; irq0
-; PIT: Programmable Interrupt Timer
-; this is the interrupt service routine for the pit
-; referred to as the 8253 controller 
-; or system timer
-
-; see pic.s which initializes the pit
-; and sets the firing rate
-; to about 1000 hits per second
-;******************************************
-
-
-irq0:  
-	cli	  ;disable interrupts
-	pushad 
-
-	;I tried some code in here to push ds,es,fs,gs
-	;then assign 0x10 kernel data selector values
-	;then just after end of interrupt we pop ds,es,fs,gs
-	;but doing this is not reqd
-	;see discussion in tlibentry.s
-
-	;count up to 0xffffffff then 
-	;roll over to 0 and continue
-	inc dword [PITCOUNTER]
-
-	;end of interrupt
-	mov al,0x20 
-	out 0x20,al  
-	
-	popad	 
-	sti  ;enable interrupts
-	iret  
 
 
 

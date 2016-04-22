@@ -81,6 +81,11 @@ tedit:
 	mov dword [YOFFSET],0
 
 
+	;queue up a usb keyboard request
+	;this version of tedit uses the usb keyboard
+	call usbkeyboardrequest
+
+
 	call tedit_paint
 
 	
@@ -94,8 +99,8 @@ tedit_app_main_loop:
 
 
 
-	;block waiting for keypress in al
 	call getc
+	;returns ascii keydown in al
 
 
 
@@ -136,7 +141,7 @@ tedit_app_main_loop:
 	mov dl,al
 
 	;convert nonprintable into jumptable index
-	;0x80 comes from tatos.inc where we arbitrarly assign
+	;0x80 comes from tatOS.inc where we arbitrarly assign
 	;F1 key = 0x80, F2=0x81 ... and increment from there
 	;so when you press F1 we subtract 0x80 to get 0 which is the
 	;index of F1 in the jump table
@@ -989,9 +994,6 @@ te_doF11:
 	;queue up a usb mouse request just in case the app needs it
 	call usbmouserequest
 
-	;and queue up a usb keyboard request
-	call usbkeyboardrequest
-
 
 	;dump a message that we are about to do SYSEXIT
 	STDCALL te_str9,dumpstr
@@ -1130,6 +1132,13 @@ insertnewlink:
 
 tedit_endkeypress:
 	call tedit_paint
+
+	;provide alternate way to break out of tedit
+	;this is for usb keyboard developement when we lock up the keyboards
+	call usbcheckmouse
+	cmp al,0
+	jnz near shell
+
 	jmp tedit_app_main_loop
 
 

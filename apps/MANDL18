@@ -65,7 +65,7 @@ dd 0
 ;    CODE
 ;*****************
 
-start
+..start
 
 
 	;get bitsperscanline

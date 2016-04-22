@@ -456,7 +456,8 @@ init_EHCI_base:
 	;KEYBOARD interrupt QH
 	;*************************
 	mov dword [0x1006100],1          ;dword1 QH horiz link ptr is invalid
-	mov dword [0x1006104],0x50005005 ;dword2  KEYBOARDADDRESS=5
+	;mov dword [0x1006104],0x50005005 ;dword2  KEYBOARDADDRESS=5
+	mov dword [0x1006104],0x50001005 ;dword2  toggle from QH, KEYBOARDADDRESS=5
 	mov dword [0x1006108],0xc0041c01 ;dword3
 	mov dword [0x100610c],0          ;dword4
 	mov dword [0x1006110],1          ;dword5
@@ -902,7 +903,6 @@ init_EHCI_base:
 ;*********************************************************************
 ;init_EHCI_with_companion
 ;init the EHCI 
-;release port ownership of low speed device to companion controller
 ;init both UHCI companion controllers
 ;input: none
 ;return:none
@@ -950,8 +950,12 @@ init_EHCI_with_companion:
 
 .done:
 	STDCALL usbinitstr40,putscroll  
-	STDCALL pressanykeytocontinue,putscroll  
-	call getc
+
+	;pause so user can see putscroll messages
+	mov ebx,1000
+	call sleep
+	;we move directly to initdevices now
+
 	ret
 
 
@@ -1005,8 +1009,12 @@ init_EHCI_with_roothub:
 
 .done:
 	STDCALL usbinitstr40,putscroll  
-	STDCALL pressanykeytocontinue,putscroll  
-	call getc
+
+	;pause so user can see putscroll messages
+	mov ebx,1000
+	call sleep
+	;we move directly to initdevices now
+
 	ret
 
 
@@ -1041,8 +1049,7 @@ init_EHCI_only:
 
 .done:
 	STDCALL usbinitstr40,putscroll  
-	STDCALL pressanykeytocontinue,putscroll  
-	call getc
+	;we move directly to initdevices now
 	ret
 
 

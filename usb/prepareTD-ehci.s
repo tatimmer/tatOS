@@ -4,7 +4,7 @@
 ;ehci_prepare_TDchain
 ;generate_TD
 ;generate_mouse_TD
-;generate_keyboard_TD
+;ehci_generate_keyboard_TD
 
 
 ;TD = transfer descriptor  
@@ -85,7 +85,8 @@ ehci_prepare_TDchain:
 	;the ehci controller can transfer multiple packets per time frame
 	;0x5000 is the max qty bytes a single ehci page pointer can access
 	;we started this driver with a transfer of only 512 bytes per TD
-	;then got bold and upped it to 0x1000 bytes per TD with a significant increase in speed
+	;then we got "bold" and uped it to 0x1000 bytes per TD 
+	;with a significant increase in speed
 	;now we make use of all 5 page page pointers to maximize the byte xfer rate 
 	;0x5000 is (40) 512 byte packets per TD
 	mov dword [TDmaxbytes],0x5000  
@@ -461,53 +462,58 @@ generate_mouse_TD:
 
 
 ;*******************************************************************
-;generate_keyboard_TD
+;ehci_generate_keyboard_TD
+
 ;this TD is for keyboard interrupt transfers with the perodic list
 ;using ehci and a root hub
-;the TD is written starting at 0x1003300
+
+;with this version the data toggle is maintained by the 
+;usb keyboard QH queue head, so this TD is a static structure
+;of 13 dwords that can be queue'ed up with rep movsb
+
+;the TD is written to a temp buffer "keyboard_interrupt_TD"
+;and then copied to 0x1003300 for usb interrupt transactions
+
 ;input:none
 ;return:none
+align 0x100
+ehci_keyboard_interrupt_TD times 100 db 0
 ;********************************************************************
 
-generate_keyboard_TD:
+ehci_generate_keyboard_TD:
 
 	;registers (in particular eax) must be preserved for usbkeyboardrequest
 	pushad
 
-	mov dword [0x1003300],1     ;write the Next qTD Pointer
+	mov dword [ehci_keyboard_interrupt_TD],1     ;write the Next qTD Pointer
 
-	mov dword [0x1003304],1     ;write the Alternate Next qTD Pointer
+	mov dword [ehci_keyboard_interrupt_TD+4],1   ;write the Alternate Next qTD Pointer
 
 	;generate the packet header in eax
 	;we start with eax=0x0180
 	;this means bits7=active, bit8=PID "in", IOC=0, C_Page=0, C_ERR=0
+	;data toggle is maintained by the QH
 	mov eax,0x0180
-	mov ebx,[keyboardtogglein]               ;get value of toggle
-	shl ebx,31                               ;bit31 is toggle
-	or eax,ebx                               ;set toggle bit
 	movzx ebx,word [KEYBOARD_WMAXPACKETSIZE] ;total bytes to transfer
 	shl ebx,16                               ;bit16 is total bytes to transfer
 	or eax,ebx                               ;add total bytes to transfer
-	mov [0x1003308],eax                      ;write the packet header
-	;now flip the toggle for the next TD
-	not dword [keyboardtogglein]
-	and dword [keyboardtogglein],1
+	mov [ehci_keyboard_interrupt_TD+8],eax   ;write the packet header
 
 	;0x1009000 is the keyboard report buffer
 	;its where the keyboard report is written to (all 8 bytes)
-	mov dword [0x100330c], 0x1009000      ;write the buffer pointer page 0
-	mov dword [0x1003310],0               ;buffer pointer page 1
-	mov dword [0x1003314],0               ;buffer pointer page 2
-	mov dword [0x1003318],0               ;buffer pointer page 3
-	mov dword [0x100331c],0               ;buffer pointer page 4
+	mov dword [ehci_keyboard_interrupt_TD+12],0x1009000  ;buffer pointer page 0
+	mov dword [ehci_keyboard_interrupt_TD+16],0          ;buffer pointer page 1
+	mov dword [ehci_keyboard_interrupt_TD+20],0          ;buffer pointer page 2
+	mov dword [ehci_keyboard_interrupt_TD+24],0          ;buffer pointer page 3
+	mov dword [ehci_keyboard_interrupt_TD+28],0          ;buffer pointer page 4
 
 	;and if your controller uses 64bit addressing
 	;the upper 32bits of each page is specified here
-	mov dword [0x1003320],0   ;Extended Buffer Pointer Page 0, 9th dword
-	mov dword [0x1003324],0
-	mov dword [0x1003328],0
-	mov dword [0x100332c],0
-	mov dword [0x1003330],0   ;Extended Buffer Pointer Page 4, 13th dword
+	mov dword [ehci_keyboard_interrupt_TD+32],0  ;Ext Buf Pointer Page 0, 9th dword
+	mov dword [ehci_keyboard_interrupt_TD+36],0
+	mov dword [ehci_keyboard_interrupt_TD+40],0
+	mov dword [ehci_keyboard_interrupt_TD+44],0
+	mov dword [ehci_keyboard_interrupt_TD+48],0  ;Ext Buf Pointer Page 4, 13th dword
 
 	popad
 	

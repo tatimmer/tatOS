@@ -36,7 +36,7 @@ usbkbstr6  db 'keyboard-SetIdle',0
 usbkbstr7  db 'keyboard-SetAddress',0
 usbkbstr8  db 'keyboard-SetConfiguration',0
 usbkbstr9  db 'keyboard-usb transaction failure',0
-usbkbstr10 db 'done init usb keyboard',0
+usbkbstr10 db 'success init usb keyboard',0
 usbkbstr11 db '[initkeyboard] device is not a keyboard, bInterfaceProtocol != 1',0
 
 
@@ -228,15 +228,33 @@ initkeyboard:
 .notkeyboard:
 	STDCALL usbkbstr11,putscroll
 	STDCALL usbkbstr11,dumpstr
+	mov dword [is_usb_keyboard_ready],0  ;not ready
 	mov eax,2
 	jmp .done
+
 .errorTransaction:
 	STDCALL usbkbstr9,putscroll
 	STDCALL pressanykeytocontinue,putscroll
+	mov dword [is_usb_keyboard_ready],0  ;not ready
 	mov eax,1
 	jmp .done
+
 .success:
 	STDCALL usbkbstr10,putscroll
+
+	;set usb keyboard to 1= ready
+	mov dword [is_usb_keyboard_ready],1
+
+%if USBCONTROLLERTYPE == 2
+	;generate the static keyboard interrupt TD, see prepareTD-ehci.s
+	;these 13 dwords are copied over and over and over again by usbkeyboardrequest
+	;every time you press a key
+	call ehci_generate_keyboard_TD
+%endif
+
+	;queue up our first usb keyboard request, see interkeybd.s
+	call usbkeyboardrequest
+
 	mov eax,0
 .done:
 	ret

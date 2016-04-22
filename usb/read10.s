@@ -96,6 +96,7 @@ read10:
 	pushad
 
 	;dump the lbastart, qtyblocks, memory address
+	call dumpnl
 	mov eax,ebx
 	STDCALL readstr8,0,dumpeax
 	mov eax,ecx

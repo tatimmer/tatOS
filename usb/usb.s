@@ -88,6 +88,7 @@ LinkPointer            dd 0
 BufferPointer          dd 0
 mouse_hubportnum       dd 0
 keyboard_hubportnum    dd 0
+is_usb_keyboard_ready  dd 0
 
 
 
@@ -98,7 +99,6 @@ keyboard_hubportnum    dd 0
 
 
 portnumber     dd 0
-portnumber_max dd 0
 eecp           dd 0  ;EHCI Extended Capabilities Pointer
 
 ;the results from ReadCapacity are saved here
@@ -349,8 +349,8 @@ db 0x55,0x53,0x42,0x53,0xdd,0xcc,0xbb,0xaa,0,0,0,0,0
 %include "usb/reportdesc.s"
 %include "usb/protocol.s"
 %include "usb/setidle.s"
-%include "usb/interruptmouse.s"
-%include "usb/interruptkeyboard.s"
+%include "usb/intermouse.s"
+%include "usb/interkeybd.s"
 %include "usb/setaddress.s"
 %include "usb/setconfig.s"
 %include "usb/readcapacity.s"

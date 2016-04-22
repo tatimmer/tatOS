@@ -144,7 +144,10 @@ Start:
 	mov ds,ax
 	mov es,ax
 	mov ss,ax
-	mov sp,0xffff
+	;set the stack pointer, make sure its aligned
+	;do not use 0xffff (thanks to SpyderTL)
+	;the first push will dec sp to 0xfffe, the next push will dec to 0xfffc ... 
+	mov sp,0
 	sti   
 
 

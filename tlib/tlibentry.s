@@ -67,6 +67,8 @@
 ;line SOLIDLINE,x1,y1,x2,y2,color
 ;polyline OpenClose,linetype,AddressPointsArray,QtyPoints,color
 ;swapbuf
+;getc
+;checkc
 
 
 
@@ -153,10 +155,9 @@ dd _strchr, _rotateline, _getangleinc, _toggle, _offset        ;107,108,109,110,
 dd _gethubinfo, _hypot, _dumpFPUstatus, _dumpview              ;112,113,114,115
 dd _dumpst09, _arccos, _strlenB, _st02str, _inflaterect        ;116,117,118,119,120
 dd _dumpreset, _showpopup, _dumpstrquote, _linepdf             ;121,122,123,124
-dd _usbgetc                                                    ;125
 
 ;dont forget to increment this tom when you add a function to this table !!!
-%define MAXTLIBFUNCTIONID 125
+%define MAXTLIBFUNCTIONID 124
 ;**********************************************************************************
 
 tlibEntryProc:
@@ -1181,12 +1182,6 @@ _linepdf:
 	push esi      ;y2
 	call linepdf
 	jmp near Exit
-
-_usbgetc:
-	;mov eax,125
-	call usbgetc
-	jmp near Exit
-
 
 
 

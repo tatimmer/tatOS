@@ -12,6 +12,7 @@
 
 
 
+sastr1 db 'device address',0
 
 
 
@@ -69,6 +70,10 @@ SetAddress:
 
 	;write device address into the request
 	mov word [SetAddressRequest+2],ax 
+
+
+	;dump the address
+	STDCALL sastr1,0,dumpeax
 
 
 	;Command Transport
@@ -185,6 +190,11 @@ MouseSetAddress:
 	STDCALL devstr2,dumpstr  ;"MOUSE"
 
 
+	;dump the address
+	mov eax,MOUSEADDRESS
+	STDCALL sastr1,0,dumpeax
+
+
 	;Command Transport
 	;********************
 	STDCALL transtr3a,dumpstr 
@@ -229,6 +239,11 @@ KeyboardSetAddress:
 
 
 	STDCALL devstr3,dumpstr    ;KEYBOARD
+
+
+	;dump the address
+	mov eax,KEYBOARDADDRESS
+	STDCALL sastr1,0,dumpeax
 
 
 	;Command Transport

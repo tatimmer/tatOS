@@ -75,6 +75,7 @@ write10:
 
 
 	;dump the lbastart, qtyblocks, memory address
+	call dumpnl
 	mov eax,ebx
 	STDCALL wrtstr8,0,dumpeax
 	mov eax,ecx

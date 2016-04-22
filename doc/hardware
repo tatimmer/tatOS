@@ -28,6 +28,7 @@ Ive tested the following:
 	* Dell Latitute & Inspiron laptops
 	* Asus Eee 1001PX 10" Netbook, Intel Atom circa 2012
 	* Acer laptop circa 2013
+	* Lenovo ThinkCenter Desktop M81 series
 
 
 * processor: 
@@ -46,7 +47,9 @@ Ive tested the following:
 	06      06      05         534    Celeron
 	06      07      03         498    Pentium III 
 	06      07      03         547    Pentium III 
-	06      07      0a        1992    Core Duo 
+	06      07      0a        1990    Core Duo 
+	06      0a      07        3280
+	06      0a      09        2390
 	06      0c      0a        1660    Atom
 	06      0d      06                Pentium M, Celeron M
 	0f      02      09                Pentium IV Xeon
@@ -73,7 +76,7 @@ and use EHCI only with no usb 1.0 support since tatOS does not support OHCI
 	one Logitch wireless mouse hangs at GET_PROTOCOL
 	left button, right button, wheel also acts as 3rd button
 	a uhci controlled port is required
-	ehci must have uhci companion controller to hand off
+	ehci must have uhci companion controller to hand off or rate matching hub
 	the Manhattan mouse has an 01 byte in the report-see tatos.config
 
 
@@ -87,7 +90,7 @@ and use EHCI only with no usb 1.0 support since tatOS does not support OHCI
 
 
 * ps2 Keyboard: 
-	ps2 keyboard is the only type supported
+	ps2 keyboard is still supported but only as backup
 	ps/2 (6-pin round connector)
 	the driver supports std US Windows style with 104 keys
 	numeric pad, arrow keys, ins/del/hom/end/Pgup/Pgdn group
@@ -95,6 +98,12 @@ and use EHCI only with no usb 1.0 support since tatOS does not support OHCI
 	scancode sets 2,3 unsupported
 	usb connector on end of chord unsupported
 	ps2init code works on HP laptops and on my Asus netbook
+
+
+* usb keyboard:
+    we now have driver code for usb keyboard that works (most of the time)
+	will get an occasional "freeze"
+	keyboard interrupt is polled by irq0 PIT 
 
 
 * video adapter: 

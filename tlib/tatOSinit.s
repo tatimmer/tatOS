@@ -143,10 +143,22 @@ tatOSinit:
 
 
 
-	;keyboard.s will set this value to 1 on CTRL+ALT+DEL
+	;/boot/keyboard.s will set this value to 1 on CTRL+ALT+DEL
 	;apps with a loop should check for 1
 	;and exit gracefully
 	mov dword [0x518],0
+
+
+
+	;usb keyboard interrupt polling frequency
+	;this value is needed in /boot/irq0.s
+	call set_usb_keyboard_polling_frequency
+
+	;set usb keyboard to not ready
+	mov dword [is_usb_keyboard_ready],0
+
+	;init getc keyboard buffer which is shared by ps2 and usb keyboard
+	mov byte [0x504],0
 
 
 

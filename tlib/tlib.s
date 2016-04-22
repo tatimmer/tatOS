@@ -104,7 +104,7 @@ dd ptinrect      ;0x10078
 dd putsn         ;0x1007c
 dd toggle        ;0x10080
 dd str2st0       ;0x10084
-dd _tlibstub     ;0x10088
+dd usbkeyboardinterrupt  ;0x10088    [1]
 dd printf        ;0x1008c
 dd read10        ;0x10090
 dd checkc        ;0x10094

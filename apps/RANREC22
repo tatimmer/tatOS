@@ -6,6 +6,11 @@
 ;Oct 2012
 ;revised Aug 2013 to use dword values
 ;and new tatOS system calls
+
+;the rectangle location isnt as random as I would like
+;most rectangles are generated in the 4th quadrant
+;the 1st and 3rd quadrant get the next most
+;lastly the 2nd quadrant gets the least
 ;**********************************************
 
 org STARTOFEXE

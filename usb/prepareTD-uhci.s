@@ -4,7 +4,7 @@
 
 ;uhci_prepareTDchain
 ;uhci_prepareInterruptTD
-;uhci_prepareInterruptTD_keyboard
+;uhci_generate_keyboard_TD
 
 
 
@@ -409,16 +409,16 @@ uhci_prepareInterruptTD:
 
 
 ;***********************************************************************************
-;uhci_prepareInterruptTD_keyboard
+;uhci_generate_keyboard_TD
 
-;this function builds a single 32 byte TD for usb keyboard using uhci
-;the TD is written to 0x1003300
+;this function builds a single 32 byte TD for usb keyboard interrupt transactions
+;using uhci, the TD is written to 0x1003300
 
 ;input:none
 ;return:none
 ;***************************************************************************
 
-uhci_prepareInterruptTD_keyboard:
+uhci_generate_keyboard_TD:
 
 	pushad
 
@@ -434,11 +434,10 @@ uhci_prepareInterruptTD_keyboard:
 
 	;2nd dword of TD (Control/Status)
 	;***********************************
-	;bit26 = low speed
-	;bit24 = issue IOC interrupt on complete (irq11 is programmed, see inituhci)
-	;bit23 = active
-	;mov dword [edi+4],0x5800000   ;low speed, active, IOC
-	mov dword [edi+4],0x4800000    ;low speed, active
+	;bit28:27 = error detection = 00 no error limit
+	;bit26    = low speed device
+	;bit23    = active
+	mov dword [edi+4],0x4800000    ;no error limit, low speed, active
 
 
 

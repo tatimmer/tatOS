@@ -1,6 +1,6 @@
 ;tatOS/usb/initdevices.s
 
-;code to reset ports and detect all devices plugged into all ports
+;code to reset ports and init usb devices plugged into ports
 ;the usb controller must first go thru its init sequence
 ;this function calls initmouse, initkeyboard and initflash
 ;we support only these devices and only 1 of each
@@ -18,18 +18,18 @@ port4str db 'PORT_INVAL',0
 port_num_dump:
 dd port0str, port1str, port2str, port3str, port4str
 
-usbdevspeed      dd 0   ;1=hi, 0=lo
+portnumHIspeed         dd 0
 which_low_speed_device dd 0
 
 
-usbdevstr0  db 'init usb devices: flash drive, keyboard, mouse',0
+usbdevstr0  db '[initdevices]',0
 usbdevstr1  db 'usb transaction failure',0
 usbdevstr2  db 'usb hub port reset failed',0
 usbdevstr3  db 'end init usb devices',0
 usbdevstr4  db 'exceeded max port #',0
-usbdevstr5  db 'nothing connected to port',0
-usbdevstr6  db 'low speed device connect',0
-usbdevstr7  db 'hi speed device connect',0
+usbdevstr5  db 'nothing connected',0
+usbdevstr6  db 'low speed device connected',0
+usbdevstr7  db 'hi  speed device connected',0
 usbdevstr8a db 'reset low speed port',0
 usbdevstr8b db 'reset hi  speed port',0
 usbdevstr9  db 'determining low speed device type',0
@@ -50,25 +50,54 @@ usbdevstr24 db 'mouse-GetConfigDescriptor 18 bytes',0
 usbdevstr26 db 'low speed device is not a keyboard',0
 usbdevstr27 db 'low speed device is not a mouse',0
 usbdevstr28 db 'reset port',0
+usbdevstr29 db 'invalid flash portnum',0
+usbdevstr30 db 'was flash plugged in during low speed device init ?',0
 
 
 
+;************************************************
+;initdevices
+
+;the usb controllers must have gone thru their init sequence first
+;before executing this function
+
+;also you must run this function first to init the low speed devices
+;because the portnumber of the hi speed flash drive is found and saved
+;then you may init the flash
+;the reason we do it this way is because the ehci root hub port must be reset
+;before the device speed can be detected
+;and this reset will kill any connected low speed device that was previously init
+
+;input: eax=0 init low speed devices
+;       eax=1 init hi speed flash drive
+;return:none
+;***********************************************
 
 
 
 initdevices:
 
-	;this function takes no input and returns no values
-	;the usb controllers must have gone thru their init sequence first
-	;before executing this function
 
 	STDCALL usbdevstr0,putscroll
+
+
+	;if user wants to initflash we jump directly to it
+	;portnumber of flash was found while scanning all ports to low speed devices
+	cmp eax,1
+	jz near .initflash
+
+
+	;continue on to scan all ports, init low speed devices
+	;and save the port number of hi speed devices
+
+
+	;init port number of flash to some invalid value
+	mov dword [portnumHIspeed],0xff
+
 
 	;0=initmouse, 1=initkeyboard
 	mov dword [which_low_speed_device],0  
 
-	;later we detect port speed and set 1=hi, 0=lo
-	mov dword [usbdevspeed],0
 
 	;start with PORT#=-1
 	mov eax,-1
@@ -90,18 +119,19 @@ initdevices:
 	STDCALL esi,putscroll
 
 
+	;just pause the scrolling strings so user can see the port# 
+	mov ebx,3000  ;ms
+	call sleep
+
 
 ;***********************************************************
 %if  USBCONTROLLERTYPE == 0  ;uhci primary
 
 	STDCALL usbdevstr11,putscroll
 
-	;uhci supports only two ports 0,1
-	mov dword [portnumber_max],1
-
-	;have we exceeded portnumber_max ?
-	mov ebx,[portnumber]
-	cmp ebx,[portnumber_max]
+	;have we exceeded the max port number ?
+	;uhci supports two ports: 0,1
+	cmp dword [portnumber],1
 	ja near .exceededMaxPortNum
 	;this is the normal way to break out of initdevices
 
@@ -121,15 +151,18 @@ initdevices:
 	jz .2
 
 
-	;hi speed device connect
-	mov dword [usbdevspeed],1  
+	;if we got here the connected device is hi speed
+	;save the portnumber of hi speed device and continue with next port
 	STDCALL usbdevstr7,putscroll  
-	jmp .resetport
+	mov eax,[portnumber]
+	mov dword [portnumHIspeed],eax
+	jmp .incport
 
 
-.2: ;low speed device connect
-	mov dword [usbdevspeed],0  
+.2: 
+	;if we got here the connected device is low speed
 	STDCALL usbdevstr6,putscroll  
+	;continue
 
 
 .resetport:
@@ -148,12 +181,9 @@ initdevices:
 
 	STDCALL usbdevstr12,putscroll
 
-	;our ehci supports four ports 0,1,2,3
-	mov dword [portnumber_max],3
-
-	;have we exceeded portnumber_max ?
-	mov ebx,[portnumber]
-	cmp ebx,[portnumber_max]
+	;have we exceeded the max portnumber ?
+	;our ehci supports four ports: 0,1,2,3
+	cmp dword [portnumber],3
 	ja near .exceededMaxPortNum
 	;this is the normal way to break out of initdevices
 
@@ -174,26 +204,21 @@ initdevices:
 	jz .2
 
 
-	;we have a HI speed device connect
-	mov dword [usbdevspeed],1  
+	;if we got here the connected device is hi speed
+	;save the portnumber of hi speed device and continue with next port
 	STDCALL usbdevstr7,putscroll  
-
-
-	;reset the hi speed port
-	STDCALL usbdevstr8b,putscroll
 	mov eax,[portnumber]
-	call ehci_portreset
-	jmp .ehci1done
-
-
+	mov dword [portnumHIspeed],eax
+	jmp .incport
 
 
 
 .2: 
 	;LOW speed device connect
 	;************************
-	mov dword [usbdevspeed],0  
+	;if we got here the connected device is low speed
 	STDCALL usbdevstr6,putscroll  
+	;continue
 
 	;release ownership of port to uhci
 	mov eax,[portnumber]
@@ -368,20 +393,17 @@ initdevices:
 
 	STDCALL usbdevstr22,putscroll
 
+	;have we exceeded the max portnumber ?
 	;root hub downstream ports are 1,2,3,4 
 	;so we have to accomodate this by adding +1 to [portnumber]
-	mov dword [portnumber_max],3
-
-	;have we exceeded portnumber_max ?
-	mov ebx,[portnumber]
-	cmp ebx,[portnumber_max]
+	cmp dword [portnumber],3
 	ja near .exceededMaxPortNum
 	;this is the normal way to break out of initdevices
 
 
 .resetport:
 
-	;reset the hub port
+	;reset the hub downstream port
 	STDCALL usbdevstr28,putscroll
 	mov eax,[portnumber]
 	add eax,1  ;because hub port starts with 1
@@ -415,16 +437,20 @@ initdevices:
 	STDCALL usbdevstr5,putscroll  
 	jmp near .incport
 
+
 .foundHIspeed:
-	;HI speed device connect
-	mov dword [usbdevspeed],1  
-	STDCALL usbdevstr7,putscroll
-	jmp .ehci2done
+	;if we got here the connected device is hi speed
+	;save the portnumber of hi speed device and continue with next port
+	STDCALL usbdevstr7,putscroll  
+	mov eax,[portnumber]
+	mov dword [portnumHIspeed],eax
+	jmp .incport
+
 
 .foundLOspeed:
-	;LOW speed device connect
-	mov dword [usbdevspeed],0  
+	;if we got here the connected device is low speed
 	STDCALL usbdevstr6,putscroll  
+	;continue
 
 
 .ehci2done:
@@ -447,14 +473,7 @@ initdevices:
 	;at this point the dword [portnumber] is known and the port is reset
 	;uhci & ehci w/companions = dword [portnumber]
 	;ehci w/root hub          = dword [portnumber]+1
-	;and we know if the device is low speed or hi speed, dword [usbdevspeed]
-
-
-	;do we have a hi speed device ?
-	;if so we assume its a flash since we dont support any other
-	cmp dword [usbdevspeed],1
-	jz near .initflash
-
+	;if its a hi speed device we saved portnumHIspeed and continued to next port
 
 
 	;LOW SPEED device detection code
@@ -466,6 +485,7 @@ initdevices:
 	;initmouse    bInterfaceProtocol could respond "not mouse"    so we try keyboard
 	;initkeyboard bInterfaceProtocol could respond "not keyboard" so we try mouse
 	;I think the likely hood of this occuring is very small
+	;remember we only support 1 keyboard and 1 mouse
 	cmp dword [which_low_speed_device],0  
 	jz .initmouse
 	cmp dword [which_low_speed_device],1  
@@ -545,13 +565,53 @@ initdevices:
 
 
 .initflash:
+
+	;the port number of the flash was determined during the 
+	;scan/init of low speed devices
+	STDCALL usbdevstr8b,putscroll  ;reset hi speed port
+
+	;do we have a valid portnum ? (did user forget to plug in flash ?)
+	cmp dword [portnumHIspeed],0xff
+	jz near .errorFlashPortNum
+
+
+%if  USBCONTROLLERTYPE == 0  ;uhci primary
+	mov eax,[portnumHIspeed]
+	call uhci_portreset  ;eax=portnum
+%endif
+
+%if  USBCONTROLLERTYPE == 1  ;ehci with uhci companion controllers
+	mov eax,[portnumHIspeed]
+	call ehci_portreset  ;eax=portnum
+%endif
+
+%if  USBCONTROLLERTYPE == 2  ;ehci with root hub
+	;if you pull out your tatOS boot flash and plug in your tatOS FAT formated flash
+	;the hub port loses power so...
+	mov eax,[portnumHIspeed]
+	add eax,1  ;because hub port starts with 1
+	call HubPortPower
+	
+	mov eax,[portnumHIspeed]
+	add eax,1  ;because hub port starts with 1
+	call HubPortReset  
+
+	cmp eax,1
+	jz near .errorTransaction
+%endif
+
+
 	call initflash
-	jmp .incport
+	jmp near .done
 
 
 
 
-
+.errorFlashPortNum:
+	STDCALL usbdevstr29,putscroll
+	STDCALL usbdevstr30,putscroll
+	mov eax,1
+	jmp .done
 .errorHubPortStatus:
 	STDCALL usbdevstr23,putscroll
 	STDCALL usbdevstr23,dumpstr

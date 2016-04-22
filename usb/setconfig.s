@@ -8,7 +8,7 @@
 
 
 
-setconfigstr3 db 'SetConfiguration: configuration value used',0
+setconfigstr3 db 'device configuration value',0
 getconfigstr4 db 'Get Configuration: configuration value received',0
 configstor dd 0
 
