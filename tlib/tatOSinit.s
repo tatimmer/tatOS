@@ -155,10 +155,11 @@ tatOSinit:
 	call set_usb_keyboard_polling_frequency
 
 	;set usb keyboard to not ready
-	mov dword [is_usb_keyboard_ready],0
+	mov dword [have_usb_keyboard],0
 
-	;init getc keyboard buffer which is shared by ps2 and usb keyboard
-	mov byte [0x504],0
+	;init getc keyboard buffers for ps2 and usb 
+	mov byte [0x504],0  ;ps2
+	mov byte [0x50b],0  ;usb
 
 
 

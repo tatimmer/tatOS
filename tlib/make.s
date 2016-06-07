@@ -2,29 +2,53 @@
 
 ;a make utility for tatOS
 
+;this version of make can handle 05 project files
+
 
 ;the make utility is for assembling a project consisting of multiple 
 ;source files. 
 
 ;This make utility performs the following actions:
 ;	1) allow the user to enter project filenames interactively
-;      these file must all be located in the current working directory
+;      the files must all be located in the current working directory
 ;   2) execute "runmake" which does the following:
 ;  		* erase the public and extern symbol tables
 ;  		* load file1 & assemble, load file2 and assemble, ...
 ;  		* run tlink to bind all extern and public symbols in all files
 
 
+;to enter filenames you press F1 or F2... then enter the filename
+;then hit "enter" to close the edit control and update the filename in memory
+
+
+;function keys assigned to each filename edit control
+%define MAKEQTYFILENAMES 5
+mkfil01 db 'F1',0
+mkfil02 db 'F2',0
+mkfil03 db 'F3',0
+mkfil04 db 'F4',0
+mkfil05 db 'F5',0
+
+
+;storage for filenames 
+;each filename may be max 11 chars in accordance with the tatOS fat16
+;filesystem which conforms to dos 8.3 but merges them into 11 chars total
+;file names are stored at 16 byte offsets in the "makefilename" buffer
+;file01 = makefilename +  0
+;file02 = makefilename + 16
+;file03 = makefilename + 32
+;and so forth...
+makefilename times 100 db 0     ;100 bytes can store 6 file names
+
+
+
+
 mkstr0 db 'runmake',0
 mkstr1 db 'tatOS MAKE utility',0
-mkstr2 db 'F1',0
-mkstr3 db 'F2',0
-mkstr4 db 'F3',0
-mkstr5 db 'F4',0
 mkstr6 db 'xxxxx',0
 mkstr9 db 'F10 = run MAKE to build executable',0
 mkstr10 db 'ESC = quit',0
-mkstr11 db 'Project filenames:',0
+mkstr11 db 'Enter asm code filenames:',0
 mkstr12 db '[make] fatreadfile returns 0 file not found',0
 mkstr13 db '[make] ttasm returns non-zero errorcode',0
 mkstr14 db '[make] success',0
@@ -48,7 +72,6 @@ mkstr20 db '[make] fatreadfile failed, attempting to link',0
 ;      V
 ;filename_n  offset n*16
 
-makefilename times 100 db 0   ;storage for 6 filenames 
 
 
 
@@ -58,7 +81,7 @@ makefilename times 100 db 0   ;storage for 6 filenames
 ;return: none
 
 ;the user will interactively enter the name
-;of up to 4 files in the current working directory
+;of up to X files in the current working directory
 ;that are to be assembled in sequence
 
 ;pressing F10 to runmake will cause the screen to scroll
@@ -70,6 +93,11 @@ makefilename times 100 db 0   ;storage for 6 filenames
 ;F2 = enter name of file2
 ;F3 = enter name of file3
 ;F4 = enter name of file4
+;      |
+;      |
+;      V
+;Fn = enter name of filen
+
 ;F10 = run make
 ;**************************************************
 
@@ -98,16 +126,20 @@ make:
 	;"Project filenames:"
 	STDCALL FONT01,100,130,mkstr11,0xefff,puts
 
-	;display the F1,F2,F3,F4 along the left margin
-	STDCALL FONT01,100,150,mkstr2,0xefff,puts
-	STDCALL FONT01,100,170,mkstr3,0xefff,puts
-	STDCALL FONT01,100,190,mkstr4,0xefff,puts
-	STDCALL FONT01,100,210,mkstr5,0xefff,puts
+
+	;display the function key assignment along the left margin
+	STDCALL FONT01,100,150,mkfil01,0xefff,puts  ;F1
+	STDCALL FONT01,100,170,mkfil02,0xefff,puts  ;F2
+	STDCALL FONT01,100,190,mkfil03,0xefff,puts  ;F3
+	STDCALL FONT01,100,210,mkfil04,0xefff,puts  ;F4
+	STDCALL FONT01,100,230,mkfil05,0xefff,puts  ;F5
+
 
 	;display the filenames
-	;initially they all say "xxxxx"
+	;the first time you run make
+	;the filenames are all blank spaces
 	mov eax,150 ;y
-	mov ecx,4   ;counter
+	mov ecx,MAKEQTYFILENAMES
 	mov esi,makefilename
 .2:
 	push FONT01
@@ -118,7 +150,7 @@ make:
 	call puts
 
 	add eax,20  ;increment y
-	add esi,16  ;increment address of string
+	add esi,16  ;increment to address of next filename string
 	loop .2
 
 
@@ -129,32 +161,42 @@ make:
 	mov ecx,165  ;y
 	mov edx,100  ;length
 	mov esi,BLA  ;color
-	call hline
+	call hline   ;file01
+
 	mov ebx,150  ;x
 	mov ecx,185  ;y
 	mov edx,100  ;length
 	mov esi,BLA  ;color
-	call hline
+	call hline   ;file02
+
 	mov ebx,150  ;x
 	mov ecx,205  ;y
 	mov edx,100  ;length
 	mov esi,BLA  ;color
-	call hline
+	call hline   ;file03
+
 	mov ebx,150  ;x
 	mov ecx,225  ;y
 	mov edx,100  ;length
 	mov esi,BLA  ;color
-	call hline
+	call hline   ;file04
+
+	mov ebx,150  ;x
+	mov ecx,245  ;y
+	mov edx,100  ;length
+	mov esi,BLA  ;color
+	call hline   ;file05
+
 
 
 
 
 
 	;"F10 = run make"
-	STDCALL FONT01,100,250,mkstr9,0xefff,puts
+	STDCALL FONT01,100,350,mkstr9,0xefff,puts
 
 	;"ESC=quit"
-	STDCALL FONT01,100,270,mkstr10,0xefff,puts
+	STDCALL FONT01,100,370,mkstr10,0xefff,puts
 
 
 	call swapbuf  ;endpaint
@@ -170,6 +212,9 @@ make:
 	jz near .doF3
 	cmp al,F4
 	jz near .doF4
+	cmp al,F5
+	jz near .doF5
+
 	cmp al,F10
 	jz near .runmake
 
@@ -177,7 +222,7 @@ make:
 
 
 .doF1:
-	;edit filename_0
+	;edit file01
 	mov ebx,150    ;x
 	mov eax,150    ;y
 	mov ecx,11     ;maxnumchars
@@ -195,7 +240,7 @@ make:
 	jmp .1
 
 .doF2:
-	;edit filename_1
+	;edit file02
 	mov ebx,150    ;x
 	mov eax,170    ;y
 	mov ecx,11     ;maxnumchars
@@ -208,7 +253,7 @@ make:
 	jmp .1
 
 .doF3:
-	;edit filename_2
+	;edit file03
 	mov ebx,150    ;x
 	mov eax,190    ;y
 	mov ecx,11     ;maxnumchars
@@ -221,7 +266,7 @@ make:
 	jmp .1
 
 .doF4:
-	;edit filename_3
+	;edit file04
 	mov ebx,150    ;x
 	mov eax,210    ;y
 	mov ecx,11     ;maxnumchars
@@ -233,6 +278,21 @@ make:
 	call fatprocessfilename
 	jmp .1
 	
+.doF5:
+	;edit file05
+	mov ebx,150    ;x
+	mov eax,230    ;y
+	mov ecx,11     ;maxnumchars
+	lea edi,[makefilename+64]
+	mov edx,0x00fbfdef ;colors
+	call gets
+
+	lea eax,[makefilename+64]
+	call fatprocessfilename
+	jmp .1
+	
+
+
 .runmake:
 	call runmake
 	call getc  ;press any key to exit
@@ -267,8 +327,8 @@ runmake:
 	;address of current makefilename being assembled
 	mov dword [ebp-4],makefilename
 
-	;init that we can process only 4 makefiles max
-	mov dword [ebp-8],4
+	;init qty of file names to assemble/link
+	mov dword [ebp-8],MAKEQTYFILENAMES
 
 
 .1: ;top of loop
@@ -319,7 +379,7 @@ runmake:
 	add dword [ebp-4],16
 
 
-	;decrement the file count, now we are max 4 files in the project
+	;decrement the file count
 	sub dword [ebp-8],1
 	jnz .1   
 

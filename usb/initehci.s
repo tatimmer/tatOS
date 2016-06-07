@@ -973,9 +973,9 @@ init_EHCI_with_companion:
 ;it has two ehci controllers, each with a "root hub"
 ;each controller has 1 upstream port and
 ;may have up to 8 down stream ports although
-;my laptop has only a total of 3 usb ports
+;my laptop has only a total of 3 physical external usb ports
 ;code also works on Lenovo desktop 
-;on both above machines bus:dev:fun 00:1d:00
+;on both above machines bus:dev:fun 00:1d:00 or 00:1a:00
 ;input:none
 ;return:
 ;*****************************************************

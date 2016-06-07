@@ -61,6 +61,7 @@ db 0
 
 
 
+usbcen0 db 'usbcentral',0
 usbcen1 db 'UHCI Primary USB controller pci config address',0
 usbcen2 db 'EHCI USB controller pci config address',0
 usbcen3 db 'UHCI Companion #1 USB controller pci config address',0
@@ -81,6 +82,8 @@ LEFTMARGIN equ 50
 
 
 UsbCentral:
+
+	STDCALL usbcen0,dumpstr
 
 	;begin paint
 	call backbufclear 
@@ -119,7 +122,7 @@ UsbCentral:
 	;end paint
 
 
-
+mov byte [0x50b],0   ;trying to put this buffer into a known state prior to getc
 	call getc
 
 	cmp al,ESCAPE
@@ -181,7 +184,9 @@ UsbCentral:
 	STDCALL usbcen11,putscroll
 	mov eax,0  ;low speed devices
 	call initdevices
+
 	jmp UsbCentral
+
 
 
 

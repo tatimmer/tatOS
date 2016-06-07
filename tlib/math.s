@@ -433,7 +433,8 @@ gia_str2 db 'leaving getangleinc',0
 
 getangleinc:
 
-	STDCALL gia_str1,dumpstr	
+	;for debug
+	;STDCALL gia_str1,dumpstr	
 
 	push ebp
 	mov ebp,esp
@@ -475,7 +476,7 @@ getangleinc:
 	;compute the arccos = included angle
 	call arccos
 	;st0=arccos(dotproduct/LA/LB) = angle in radians return value
-	call dumpst09
+	;call dumpst09   for debug
 
 	pop edi
 	pop esi

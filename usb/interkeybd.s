@@ -50,7 +50,7 @@ ukbstr20 db 'return previous cc byte',0
 ukbstr21 db 'have_keyup',0
 ukbstr22 db 'TwoDownReleasedOne',0
 ukbstr23 db 'testing dd byte',0
-ukbstr24 db 'byte [0x504]',0
+ukbstr24 db '[usbkeyboardinterrupt] value of byte [0x50b]',0
 ukbstr25 db 'TimeOut error',0
 ukbstr26 db 'previous report was cc and dd down',0
 ukbstr27 db 'save cc bytes as previous',0
@@ -229,13 +229,12 @@ usbShowKeyboardReport:
 
 ;it checks the usb interruptTD for a change 
 ;if there is a change it does the following:
-;   * convert usb keyboard report to ascii and store value at byte [0x504] 
+;   * convert usb keyboard report to ascii and store value at byte [0x50b] 
 ;   * queue up a new request
 
-;if there is no change it stores 0 at byte [0x504]
+;if there is no change it stores 0 at byte [0x50b]
 
 ;this procedure does the same work that /boot/keyboard.s does for the ps2
-;both functions store an ascii byte at 0x504 for the benefit of getc/checkc
 
 ;the Gear Head usb keyboard returns an 8 byte report [aa bb cc dd ee ff gg hh]
 ;if you only press 1 key then the result is in the cc byte
@@ -253,9 +252,12 @@ usbShowKeyboardReport:
 
 ;all the dumpstr and dumpeax calls are for debug only
 
+;with uhci, holding down a key for a prolonged period does not generate 
+;additional non-zero return values, the repeat key function only works with ehci
+
 ;input:none
 ;return:
-;      saves ascii char to byte [0x504] else 0
+;      saves ascii char to byte [0x50b] else 0
 ;      saves bytes [CTRLKEYSTATE], [ALTKEYSTATE], [SHIFTKEYSTATE] 
 
 ;*****************************************************************************
@@ -271,8 +273,8 @@ usbShowKeyboardReport:
 usbkeyboardinterrupt:
 
 	;this value gets set to 1 in initkeyboard.s
-	cmp dword [is_usb_keyboard_ready],0
-	jz near .done
+	cmp dword [have_usb_keyboard],0
+	jz near .nokeyboard
 
 
 	;call dumpnl
@@ -344,9 +346,9 @@ usbkeyboardinterrupt:
 
 
 
-	;test for a keyup report 00 00 00 00
+	;test for all keys up report 00 00 00 00
 	;we just look at the first 4 bytes of the report
-	;if they are all zeros we have keyup
+	;if they are all zeros then all keys are up
 	;STDCALL ukbstr13,dumpstr  ;testing for 00 00 00 00 keyup
 	cmp dword [KEYBOARD_REPORT_BUF],0
 	jnz .donekeyup
@@ -354,7 +356,7 @@ usbkeyboardinterrupt:
 	mov byte [CTRLKEYSTATE],0
 	mov byte [ALTKEYSTATE],0
 	mov byte [SHIFTKEYSTATE],0
-	mov byte [0x504],0
+	mov byte [0x50b],0
 	mov dword [have_keyup],1
 	mov byte [cc_byte_previous],0
 	mov dword [have_cc_and_dd],0
@@ -471,7 +473,7 @@ usbkeyboardinterrupt:
 .noCCbyte:
 	;return nothing
 	;STDCALL ukbstr3,dumpstr  ;noCCbyte
-	mov byte [0x504],0
+	mov byte [0x50b],0
 	mov byte [cc_ascii_previous],0
 	;fall thru to queueUP
 
@@ -523,22 +525,24 @@ usbkeyboardinterrupt:
 	   ;return previous cc value
        ;STDCALL ukbstr20,dumpstr ;return previous cc byte
 	   mov al,[cc_ascii_previous]
-	   mov [0x504],al
+	   mov [0x50b],al
 	   jmp .done
 
    .returnZero:
        ;STDCALL ukbstr19,dumpstr ;return 0
-	   mov byte [0x504],0
+	   mov byte [0x50b],0
 	   ;fall thru
 .done:
 
 	;mov eax,[have_keyup]
 	;STDCALL ukbstr21,0,dumpeax  ;value of have_keyup
-	;mov al,[0x504]
-	;STDCALL ukbstr24,2,dumpeax  ;value of byte 0x504
+	;mov al,[0x50b]
+	;STDCALL ukbstr24,2,dumpeax  ;value of byte 0x50b
 	;mov eax,[have_cc_and_dd]
 	;STDCALL ukbstr28,0,dumpeax  ;value of have_cc_and_dd
+	;fall thru
 
+.nokeyboard:
 	ret
 
 
@@ -561,7 +565,7 @@ usbkeyboardinterrupt:
 
 ProcessUsbKeyboardReport:
 
-	STDCALL ukbstr9,dumpstr  
+	;STDCALL ukbstr9,dumpstr  
 
 
 	;check for CTRL+ALT+DEL   (3 key combination)
@@ -583,7 +587,7 @@ ProcessUsbKeyboardReport:
 	push 0
 	call setpalette
 
-	mov byte [0x504],0
+	mov byte [0x50b],0
 	call usbkeyboardrequest
 
 
@@ -607,7 +611,7 @@ ProcessUsbKeyboardReport:
 	;************************************************
 	cmp dword [KEYBOARD_REPORT_BUF],0x001b0001
 	jnz .doneCUT 
-	mov byte [0x504],CUT
+	mov byte [0x50b],CUT
 	mov dword [have_keyup],0
 	jmp .queueUP
 .doneCUT:
@@ -617,7 +621,7 @@ ProcessUsbKeyboardReport:
 	;***************************************************
 	cmp dword [KEYBOARD_REPORT_BUF],0x00060001
 	jnz .doneCOPY
-	mov byte [0x504],COPY
+	mov byte [0x50b],COPY
 	mov dword [have_keyup],0
 	jmp .queueUP
 .doneCOPY:
@@ -627,7 +631,7 @@ ProcessUsbKeyboardReport:
 	;****************************************************
 	cmp dword [KEYBOARD_REPORT_BUF],0x00190001
 	jnz .donePASTE
-	mov byte [0x504],PASTE
+	mov byte [0x50b],PASTE
 	mov dword [have_keyup],0
 	jmp .queueUP
 .donePASTE:
@@ -673,7 +677,7 @@ ProcessUsbKeyboardReport:
 	;mov [cc_byte_previous],al                         ;save cc byte as previous
 	movzx ecx, al                                     ;put cc byte into ecx
 	movzx eax, byte [UpperCase_CC_byte_2ascii + ecx]  ;translate to UpperCase ascii
-	mov [0x504],al                                    ;ascii char saved
+	mov [0x50b],al                                    ;ascii char saved
 	mov [cc_ascii_previous],al
 	jmp .queueUP 
 .doneLSHIFT:
@@ -689,7 +693,7 @@ ProcessUsbKeyboardReport:
 	;mov [cc_byte_previous],al                         ;save cc byte as previous
 	movzx ecx, al                                     ;put cc byte into ecx
 	movzx eax, byte [UpperCase_CC_byte_2ascii + ecx]  ;translate to UpperCase ascii
-	mov [0x504],al                                    ;ascii char saved
+	mov [0x50b],al                                    ;ascii char saved
 	mov [cc_ascii_previous],al
 	jmp .queueUP 
 .doneRSHIFT:
@@ -701,7 +705,7 @@ ProcessUsbKeyboardReport:
 
 	;translate cc byte to LOWER case ascii
 	;**************************************
-	STDCALL ukbstr10,dumpstr  ;convert cc byte to ascii
+	;STDCALL ukbstr10,dumpstr  ;convert cc byte to ascii
 
 	;get the cc byte
 	mov al,[KEYBOARD_REPORT_BUF+2]   ;al=cc byte
@@ -715,7 +719,7 @@ ProcessUsbKeyboardReport:
 	;we have a normal keypress cc byte
 	mov dword [have_keyup],0
 	movzx eax, byte [LowerCase_CC_byte_2ascii + ecx]  ;translate to LowerCase
-	mov [0x504],al                                    ;ascii char saved
+	mov [0x50b],al                                    ;ascii char saved
 	mov [cc_ascii_previous],al
 	jmp .queueUP
 

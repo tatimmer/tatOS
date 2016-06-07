@@ -15,11 +15,11 @@
 ;using hub class commands (not ehci register memory maps)
 
 
-;                                        ------> Keyboard
-;  ************       **************   |     
-;  *   ehci   * ----> *  ROOT HUB  * --------> Flash
-;  ************       **************   |     
-;                                        ------> Mouse
+;                                           ------> Keyboard
+;  ************       **************      |     
+;  *   ehci   * ----> *  ROOT HUB  * -------------> Flash
+;  ************       **************      |     
+;                                           ------> Mouse
 
 
 hubstr0  db 'INIT ROOT HUB',0

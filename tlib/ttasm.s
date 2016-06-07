@@ -1733,6 +1733,9 @@ dojmp:
 ;          JMPS
 ;*************************
 
+;tom need to check this code, tried to use this in TCAD and I think it caused a
+;stack unbalance and trashed the fpu  5/4/16
+
 ;this is nasms jmp short
 ;jmps relative byte displacement
 ;jmps is a 2 byte instruction

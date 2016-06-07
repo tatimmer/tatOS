@@ -1,15 +1,9 @@
-
 ;Project: TCAD
-;main16  Feb 04, 2016
+;main03  June 06, 2016
 
 ;this is the main entry procedure for TCAD
 ;TCAD is a basic 2d cad program
 ;tcad assembles with ttasm for the tatOS operating system
-
-;this version supports the following objects:
-;  * TCD_SEGMENT
-
-;2do: circle, arc, rectangle, text, dimension
 
 
 
@@ -20,12 +14,13 @@
 
 ;EXTERN
 ;FeedbackMessageTable
-;MenusAndPopups
+;TopLevelMenus
+;PopupMenus
 ;SEGMENT-MODIFY
 ;TcadMenuJumpTable
 ;LAYERS
 ;STRINGS
-;StartOfCode
+;CODE
 ;PAINT
 ;CHECKC
 ;HOTKEY
@@ -68,6 +63,7 @@
 ;GetLayItems        (public)
 ;CreateBLink        (public)   CreateBlankLink 
 ;float2int          (public)
+;SetOrtho
 
 
 
@@ -82,6 +78,7 @@ org STARTOFEXE
 ;seg.s  = 01
 ;io.s   = 02
 ;txt.s  = 03
+;aro.s  = 04
 source 0
 
 
@@ -99,13 +96,13 @@ extern FileSaveTCD
 extern FileSavepdf
 
 ;symbols defined in seg.s
-extern segmodify
 extern segcreate
 extern segcreatek
 extern segcreatemk
 extern segcreateMI
 extern segcreMPD2
 extern segcreIPD2
+extern segmodify
 extern CornerSeg
 extern ChamferSeg
 extern ExtndTrmSeg
@@ -114,12 +111,15 @@ extern OffsetSegM
 extern RotateSegK
 extern RotateSegM
 extern SetChamSize
-extern SetTxtHight
 extern GetNearPnt
 
 ;symbols defined in txt.s
 extern txtcreate
 extern txtmodify
+
+;symbols defined in aro.s
+extern arocreate
+extern aromodify
 
 
 
@@ -142,6 +142,9 @@ public PassToPaint
 dd 0
 public headlink
 dd 0
+public OrthoMode 
+dd 1   
+
 
 
 
@@ -158,6 +161,7 @@ dd 0
 ;seg.s  starts at 0x2008000
 ;io.s   starts at 0x2010000
 ;txt.s  starts at 0x2020000
+;aro.s  starts at 0x2030000
 
 ;0x2100000-0x2200000 TCAD link list
 ;each link is 256 bytes
@@ -190,6 +194,7 @@ equ TCD_ARC      2
 equ TCD_RECT     3
 equ TCD_TEXT     4
 equ TCD_DIM      5
+equ TCD_ARROW    6
 
 
 
@@ -520,6 +525,8 @@ db 'Dump All Links',0
 
 
 
+str30:
+db 'Ortho',0
 str31:
 db 'doing fxch BAD ZOOM',0
 str32:
@@ -811,6 +818,14 @@ str173:
 db '[DelSelObj] address previous link',0
 str174:
 db '[DelSelObj] address next link',0
+str175:
+db '[arrow] Pick start point for arrow head',0
+str176:
+db '[arrow] Pick end point',0
+str177:
+db '[aromodifyx1y1] mouse pick new start point',0
+str178:
+db '[aromodifyx2y2] mouse pick new end point',0
 
 
 
@@ -950,7 +965,8 @@ dd str149,str150,str151,str155,str156            ;69,70,71,72,73
 dd str157,str158,str159,str95,str56              ;74,75,76,77,78
 dd str38,str160,str161,str162,str81              ;79,80,81,82,83
 dd str85,str66,str67,str57,strSTUB               ;84,85,86,87,88
-dd str166,str167                                 ;89,90
+dd str166,str167,str175,str176,str177            ;89,90,91,92,93
+dd str178                                        ;94
 
 
 
@@ -963,7 +979,7 @@ dd 0
 
 
 ;*********************************
-;     MenusAndPopups
+;     TopLevelMenus
 ;*********************************
 
 ;this is the data required to support 
@@ -1019,14 +1035,10 @@ draw6:
 db 'Line-ipd2',0
 draw7:
 db 'Text (t)',0
+draw8:
+db 'Arrow',0
 
-;future 2do
-;Draw??:
-;db 'Circle',0
-;Draw??:
-;db 'Arc',0
-;Draw??:
-;db 'Rectangle',0
+
 
 DrawMenuStruc:
 dd 0          ;type=menu
@@ -1037,14 +1049,14 @@ dd 0          ;y
 dd 99         ;w
 dd 0          ;h
 dd 0          ;expose
-dd 7          ;qty strings
-dd draw1,draw2,draw3,draw4,draw5,draw6,draw7
+dd 8          ;qty strings
+dd draw1,draw2,draw3,draw4,draw5,draw6,draw7,draw8
 
 
 DrawMenuProcTable:
-dd doLineMM, doLineKK, doLineMK, doLineMI, doLineMP, doLineIP
-dd doText
-;dd doCircle, doArc, doRect
+dd doLineMM, doLineKK, doLineMK, doLineMI 
+dd doLineMP, doLineIP, doText,   doArrow
+
 
 
 
@@ -1144,19 +1156,19 @@ db 'grid',0
 Misc3:
 db 'ChamfSize',0
 Misc4:
-db 'TextHeight',0
-Misc5:
 db 'MeasAng-3pts',0
-Misc6:
+Misc5:
 db 'MeasAng-2seg',0
-Misc7:
+Misc6:
 db 'MeasDist',0
-Misc8:
+Misc7:
 db 'DumpSel',0
-Misc9:
+Misc8:
 db 'DumpAll',0
-Misc10:
+Misc9:
 db 'ViewDump',0
+Misc10:
+db 'SetOrtho',0
 
 
 
@@ -1170,14 +1182,16 @@ dd 99         ;w
 dd 0          ;h
 dd 0          ;expose
 dd 10         ;qty strings
-dd Misc1,Misc2,Misc3,Misc4,Misc5,Misc6,Misc7,Misc8,Misc9,Misc10
+dd Misc1,Misc2,Misc3,Misc4,Misc5
+dd Misc6,Misc7,Misc8,Misc9,Misc10
+
 
 ;the order of these proc addresses must match the order of 
 ;strings in the dropdown !!!
 MiscMenuProcTable:
-dd doZoomReset, doGrid, doChamfSize, doTextHeight
-dd doMeasAng1, doMeasAng2, doMeasDist
-dd doDumpSel, doDumpAll, doViewDump
+dd doZoomReset, doGrid, doChamfSize, doMeasAng1 
+dd doMeasAng2, doMeasDist, doDumpSel, doDumpAll
+dd doViewDump, doSetOrtho
 
 
 
@@ -1231,6 +1245,10 @@ dd layerstr6,layerstr7,layerstr8,layerstr9,layerstr10
 
 
 
+;*********************************
+;      PopupMenus
+;*********************************
+
 
 
 ;SEGMENT MODIFY Popup
@@ -1259,9 +1277,8 @@ db 'horizontal',0
 sm11:
 db 'vertical',0
 sm12:
-db 'ortho',0
-sm13:
 db 'layer',0
+;removed "Ortho" to the main "misc" menu
 
 ;not used are "near", "midpoint", "coincident with" and "colinear with"
 ;near/coincident and midpoint all live in segment paint
@@ -1277,11 +1294,11 @@ dd 0                  ;y
 dd 130                ;width
 dd 0                  ;height exposed
 dd 0                  ;expose event
-dd 13                 ;qty option strings
+dd 12                 ;qty option strings
 ;option string addresses:
 dd sm1,sm2,sm3,sm4,sm5
 dd sm6,sm7,sm8,sm9,sm10
-dd sm11,sm12,sm13
+dd sm11,sm12
 
 
 
@@ -1314,6 +1331,31 @@ dd txtmod1, txtmod2, txtmod3, txtmod4
 
 
 
+
+;ARO MODIFY Popup
+aroTitle:
+db 'Aro Modify',0
+aromod1:
+db 'x1y1',0
+aromod2:
+db 'x2y2',0
+aromod3:
+db 'layer',0
+aromod4:
+db 'HeadSize',0
+
+AroModifyPopup:
+dd 1                  ;type=popup
+dd 0                  ;ID of selected string provided by kernel
+dd aroTitle           ;title string
+dd 0                  ;x
+dd 0                  ;y
+dd 130                ;width
+dd 0                  ;height exposed
+dd 0                  ;expose event
+dd 4                  ;qty option strings
+;option string addresses:
+dd aromod1, aromod2, aromod3, aromod4
 
 
 
@@ -1452,7 +1494,7 @@ db0 1000
 
 
 
-	;create top level menu dropdowns
+	;create top level menu dropdowns and popups
 	mov eax,105  ;dropdowncreate
 	mov ebx,FileMenuStruc
 	sysenter
@@ -1476,6 +1518,9 @@ db0 1000
 	sysenter
 	mov eax,105  ;dropdowncreate
 	mov ebx,TextModifyPopup
+	sysenter
+	mov eax,105  ;dropdowncreate
+	mov ebx,AroModifyPopup
 	sysenter
 	
 
@@ -1575,6 +1620,20 @@ AppMainLoop:
 
 
 
+	;display the Ortho mode as green=on else red=off
+	cmp dword [OrthoMode],1
+	jz .OrthoOn
+	;display OrthoMode as red=off
+	puts FONT02,520,15,str30,0xf5ef
+	jmp .doneOrtho
+.OrthoOn:
+	;display OrthoMode as green=on
+	puts FONT02,520,15,str30,0xf1ef
+.doneOrtho:
+
+
+
+
 	;display the zoom factor at x=580
 	fld qword [zoom]
 	putst0 FONT02,580,15,0xfeff,2
@@ -1582,9 +1641,8 @@ AppMainLoop:
 
 
 
-
-	;convert mouse coordinates to float
 	;display MOUSEXF, MOUSEYF lower right at x=650 and 730
+	;convert mouse coordinates to float
 	fild dword [mousex]
 	fsub dword [xorg]     ;st0=mousex-xorg
 	fdiv qword [zoom]     ;st0=(mousex-xorg)/zoom
@@ -1813,7 +1871,7 @@ DoneDrawDragBox:
 
 
 
-	;paint the top level menu dropdowns
+	;paint the top level menu dropdowns and popups
 	mov eax,106  ;dropdownpaint
 	mov ebx,FileMenuStruc
 	sysenter
@@ -1837,6 +1895,9 @@ DoneDrawDragBox:
 	sysenter
 	mov eax,106  ;dropdownpaint
 	mov ebx,TextModifyPopup
+	sysenter
+	mov eax,106  ;dropdownpaint
+	mov ebx,AroModifyPopup
 	sysenter
 
 
@@ -1884,11 +1945,11 @@ EndPaint:
 
 
 
-	;*********************
-	;  PS2 KEYBOARD
-	;*********************
+	;****************************
+	;    KEYBOARD (usb or ps2)
+	;****************************
 
-	mov eax,12  ;checkc
+	mov eax,12  ;checkc is non-blocking
 	sysenter    ;return ascii keypress in al
 	jz NoKeypress
 
@@ -2055,7 +2116,8 @@ HandleLeftMouse:
 .doneLayerMenu: 
 
 
-	;check for Segment-Modify popup selection
+
+	;check for Segment-Modify popup activity, call segmodify if reqd
 	mov eax,[SegmentModifyPopup+4]
 	cmp eax,-1
 	jz .doneSegModMenu
@@ -2076,13 +2138,13 @@ HandleLeftMouse:
 
 
 
-	;check for Text Modify popup selection
+	;check for Text Modify popup activity, call txtmodify if reqd
 	mov eax,[TextModifyPopup+4]
 	cmp eax,-1
 	jz .doneTxtModMenu
 	;pass headlink & current layer to these procs
 	;some use them and some dont
-	;eax=index into SegmentModifyProcTable, see seg.s
+	;eax=index into TextModifyProcTable, see txt.s
 	mov esi,[headlink]      ;in case proc needs it
 	mov edi,[currentlayer]  ;in case proc needs it
 	call txtmodify
@@ -2094,6 +2156,32 @@ HandleLeftMouse:
 	call UnselectAll
 	jmp AppMainLoop
 .doneTxtModMenu:
+
+
+
+
+
+	;check for Aro Modify popup activity, call aromodify if reqd
+	mov eax,[AroModifyPopup+4]
+	cmp eax,-1
+	jz .doneAroModMenu
+	;pass headlink & current layer to these procs
+	;some use them and some dont
+	;eax=index into AroModifyProcTable, see aro.s
+	mov esi,[headlink]      ;in case proc needs it
+	mov edi,[currentlayer]  ;in case proc needs it
+	call aromodify
+
+	;all aromodify procs must return valid values in eax,ebx
+	mov [FeedbackMessageIndex],eax
+	mov [LftMousProc],ebx
+
+	call UnselectAll
+	jmp AppMainLoop
+.doneAroModMenu:
+
+
+
 
 
 
@@ -2167,6 +2255,8 @@ HandleRightMouse:
 	jz .popsegment
 	cmp eax,TCD_TEXT
 	jz .poptext
+	cmp eax,TCD_ARROW
+	jz .poparo
 
 	jnz AppMainLoop ;unhandled object option
 
@@ -2184,6 +2274,15 @@ HandleRightMouse:
 	;show the text modify popup
 	mov eax,122  ;showpopup
 	mov esi,TextModifyPopup
+	sysenter
+	;handleleftmouse will process the users popup selection
+	jmp AppMainLoop
+
+
+.poparo:
+	;show the aro modify popup
+	mov eax,122  ;showpopup
+	mov esi,AroModifyPopup
 	sysenter
 	;handleleftmouse will process the users popup selection
 	jmp AppMainLoop
@@ -2471,6 +2570,14 @@ doText:
 	mov dword [LftMousProc],ebx
 	jmp AppMainLoop
 
+doArrow:
+	push [currentlayer]
+	call arocreate
+	mov dword [FeedbackMessageIndex],eax
+	mov dword [LftMousProc],ebx
+	jmp AppMainLoop
+
+
 	
 
 
@@ -2594,9 +2701,6 @@ doChamfSize:
 	call SetChamSize
 	jmp AppMainLoop
 
-doTextHeight:
-	call SetTxtHight
-	jmp AppMainLoop
 
 
 doMeasAng1:  ;3 points
@@ -2634,6 +2738,12 @@ doViewDump:
 	mov cl,0xff ;ff=background
 	sysenter
 
+	jmp AppMainLoop
+
+
+
+doSetOrtho:
+	call SetOrtho
 	jmp AppMainLoop
 
 
@@ -4851,9 +4961,16 @@ public Get1SelObj
 
 ;*************************************************
 ;ScaleObjects
+
 ;scale all selected objects by a scale factor
-;input:user is prompted to enter scale factor
+
+;input:user is prompted to enter scale factor (qword)
+;      and to make a Lclick to define the 
+;      reference point (x,y qword) 
+;      about which objects are scaled
+
 ;return:none
+
 ;object endpoints are scaled as follows:
 ;x(i) = [x(i)-x(ref)]*ScaleFactor + x(ref)
 ;y(i) is scaled in a similar fashion
@@ -5072,7 +5189,9 @@ DumpAll:
 	;get object dump proc
 	mov eax,[esi+60]
 
-	call eax  ;call it
+	;esi=address of object in link list
+	call eax  ;call object->dump
+	;must return esi=address of object in link list
 
 	mov esi,[esi+76]     ;get address of next link
 	add dword [ebp-4],1  ;inc link#
@@ -5131,6 +5250,26 @@ public float2int
 
 
 
+;********************************************************
+;SetOrtho
+;input:none
+;return:none
+
+;this allows the user to toggle "ortho" mode on/off
+;ortho mode forces object segments to be either
+;horizontal or vertical
+;********************************************************
+
+SetOrtho:
+	mov eax,[OrthoMode]
+	not eax
+	and eax,1
+	mov [OrthoMode],eax
+	ret
+
+
+
+
 
 
 
@@ -5183,4 +5322,4 @@ public float2int
 
 
 
-                               
+             

@@ -1,9 +1,43 @@
-
 ;Project: TCAD
-;txt14  Feb 04, 2016
+;txt02  June 01, 2016
 
 
 ;this file contains code and data for TCD_TEXT
+
+;this object is a single line of text max 80 chars
+;using the tatOS hershey roman small font all caps
+
+
+;TextHeightScale factor
+;text height is not input directly, but you enter a scale factor
+;the text height is determined as follows:
+;each HERSHEYROMANSMALL glyph is 9 pixels/units tall
+;they go from y=-5 to y=4 in the glyph coordinate system
+;which is centered in the middle of the glyph
+;if you set the Text Height Scale factor to 0.100
+;then on the screen the text height will measure in TCAD as
+;0.100 times 9 = 0.9
+;i.e. Text height float = 9 x TextHeightScale, float
+;the text height on the screen in pixels is =
+;                         9 x zoom x TextHeightScale, pixels
+;the zoom factor affects how the text appears on the screen
+;but it does not affect how the text height is measured
+;a scale factor of .01->.33 gives the following text heights:
+;text height   .1   .25   .5    .75   1.0   1.5   2.0  3.0
+;scale factor  .011 .028  .056  .083  .11   .167  .22  .33
+
+
+;the XC,YC values are computed and saved to the object with every
+;paint cycle
+
+
+;the text is not clipped to the screen. Instead we take advantage of 
+;the fact that the hershey glyph is made up of multiple small 
+;line segemnts and the tlib line() function employs trivial 
+;reject if an endpoint falls off the screen then that segment 
+;is just not drawn
+
+
 
 
 ;the 256 byte text link stores unique properties as follows:
@@ -38,31 +72,7 @@
 
 
 
-;TextHeightScale factor
-;************************
-;text height is not input directly, but you enter a scale factor
-;the text height is determined as follows:
-;each HERSHEYROMANSMALL glyph is 9 pixels/units tall
-;they go from y=-5 to y=4 in the glyph coordinate system
-;which is centered in the middle of the glyph
-;if you set the Text Height Scale factor to 0.100
-;then on the screen the text height will measure in TCAD as
-;0.100 times 9 = 0.9
-;i.e. Text height float = 9 x TextHeightScale, float
-;the text height on the screen in pixels is =
-;                         9 x zoom x TextHeightScale, pixels
-;the zoom factor affects how the text appears on the screen
-;but it does not affect how the text height is measured
-;a scale factor of .01->.33 gives the following text heights:
-;text height   .1   .25   .5    .75   1.0   1.5   2.0  3.0
-;scale factor  .011 .028  .056  .083  .11   .167  .22  .33
 
-
-;the text is not clipped to the screen. Instead we take advantage of 
-;the fact that the hershey glyph is made up of multiple small 
-;line segemnts and the tlib line() function employs trivial 
-;reject if an endpoint falls off the screen then that segment 
-;is just not drawn
 
 
 
@@ -193,17 +203,22 @@ dd txtmodifyxy, txtmodifyheight, txtmodifystring, txtmodifylayer
 
 
 
-;Text Properties
-;************************
+;*******************************
+;TCD_TEXT Selection Properties
+;*******************************
+
 ;this data is needed by a call to printf in txtselect
 ;to display text properties when you select some text
 ;this string is displayed at top of the screen:
-;x=xxx y=xxx height=xxx lay=xxx
 
-equ TXTPROPQTYARGS 8
+;txt: x=xxx y=xxx height=xxx lay=xxx
 
+equ TXTPRINTFQTYARGS 9
+
+txtstr0:
+db 'txt',0x3a,0
 txtstr1:
-db 'x=',0
+db '  x=',0
 txtstr2:
 db '  y=',0
 txtstr3:
@@ -221,11 +236,14 @@ txt_layer:
 dd 0
 
 txtargtype:  ;2=dword, 3=0term ascii string, 4=qword float
-dd 3,4,3,4,3,4,3,2
+dd 3,3,4,3,4,3,4,3,2
 
 txtarglist:
-dd txtstr1, txt_x, txtstr2, txt_y
-dd txtstr3, txt_height, txtstr4, txt_layer
+dd txtstr0
+dd txtstr1, txt_x
+dd txtstr2, txt_y
+dd txtstr3, txt_height
+dd txtstr4, txt_layer
 
 
 
@@ -246,7 +264,7 @@ db 'txtselect',0
 str6:
 db '[txtselect] no selection',0
 str7:
-db 'Enter TextHeightScale factor as float (default=.05)',0
+db 'Enter TextHeightScale factor as float (.01-1.0, default=.05)',0
 str8:
 db 'txtselectdrag',0
 str9:
@@ -757,7 +775,7 @@ txtselect:
 	;the string is stored in an 80 byte buffer in main.s
 	mov eax,57         ;printf
 	mov ebx,txtargtype
-	mov ecx,TXTPROPQTYARGS
+	mov ecx,TXTPRINTFQTYARGS
 	mov esi,txtarglist
 	mov edi,[ebp+20]   ;address printf buffer
 	sysenter
@@ -931,9 +949,11 @@ txtmodifyxy_11:
 ;******************************************************
 ;txtmodifyheight
 
-;this procedure works similar to layer modify
-;you should first set a new text height from
-;the main menu then invoke this function with Rclick
+;modify the height of text
+;this procedure prompts the user for a new text height
+;the new height value is saved to qword [TextHeightScale]
+;for creation of new text ojects
+;and the currently selected object height is modified
 
 ;input:none
 ;return:none
@@ -942,6 +962,18 @@ txtmodifyxy_11:
 txtmodifyheight:
 
 	dumpstr str12
+
+	;prompt user to enter new text height value
+	mov eax,54            ;comprompt
+	mov ebx,str7          ;prompt string
+	mov ecx,compromptbuf  ;destination buffer
+	sysenter
+
+	mov eax,93            ;str2st0
+	mov ebx,compromptbuf
+	sysenter              ;st0=TextHeightScale
+
+
 
 	;save address of selected object
 	mov eax,TCD_TEXT
@@ -955,15 +987,21 @@ txtmodifyheight:
 	jz .done
 
 
-	;save the current TextHeightScale factor 
-	;to offset 96 in the link
-	fld qword [TextHeightScale]
-	fstp qword [ebx+96]  ;ebx=address of link
+	;modify text height of currently selected object
+	fst qword [ebx+96]  ;ebx=address of link
+
+	;save the new text height to global
+	fstp qword [TextHeightScale]
+
 
 .done:
 	mov eax,0  ;feedback message index
 	mov ebx,0  ;left mouse handler
 	ret
+
+
+
+
 
 
 
@@ -1130,7 +1168,7 @@ txtcopy:
 	mov ebp,esp
 	sub esp,4   ;space on stack for 1 local variable
 
-	mov [ebp-4],esi  ;save address of object to copy
+	mov [ebp-4],esi  ;save address of parent object to copy
 
 	dumpstr str16
 
@@ -1139,7 +1177,7 @@ txtcopy:
 	;test return value, esi holds address of link
 
 
-	;initialize values for the object
+	;initialize values for the new text object
 	mov dword [esi],TCD_TEXT
 	mov dword [esi+8],0    ;visibility state = unselected
 	mov dword [esi+12],1   ;qty points
@@ -1183,6 +1221,35 @@ txtcopy:
 	lea ecx,[esi+120]  ;ecx=address dest string
 	mov eax,20         ;strcpy2 also copies 0 term
 	sysenter
+
+
+	;write the output device type 0=monitor  offset 208
+	mov dword [esi+208],0
+
+
+	;XC,YC offset 212,216 are computed in paint
+
+
+	;write the address of string  offset 220
+	lea edi,[esi+120]  ;edi=address of string in child link
+	mov [esi+220],edi 
+
+
+	;copy the color  offset 224
+	mov eax,[ebp-4]    ;eax=address of parent object
+	mov ecx,[eax+224]  ;ecx=parent txt color
+	mov [esi+224],ecx  ;save color to child
+
+
+	;write the font type offset 228
+	;we only support type 2 hershey roman small
+	mov dword [esi+228],2
+
+
+	;copy the linetype  offset 232
+	mov ecx,[eax+232]   ;ecx=parent linetype
+	mov [esi+232],ecx
+
 	
 	mov esp,ebp  ;deallocate locals
 	pop ebp
@@ -1964,47 +2031,6 @@ txtdump:
 
 
 
-;**************************************************
-;SetTxtHight
-;Set Text Height
-
-;this function is invoked from the Misc menu
-;allows the user to input a value for the
-;TextHeightScale factor
-
-;input:none
-;return: global qword [TextHeightScale] is stored
-
-;**************************************************
-
-public SetTxtHight
-
-	pushad
-
-	;prompt user to enter value
-	mov eax,54            ;comprompt
-	mov ebx,str7          ;prompt string
-	mov ecx,compromptbuf  ;destination buffer
-	sysenter
-
-	mov eax,93            ;str2st0
-	mov ebx,compromptbuf
-	sysenter              ;st0=TextHeightScale
-
-	fstp qword [TextHeightScale]
-
-	;should clamp this scale value to the range .01-1.0
-	;as stated above a value of .1 gives a text height of .9
-
-	;so everytime you create text
-	;you will get this size by default 
-	;unless you change it first
-
-	popad
-	ret
-
-
-
 
 
 
@@ -2165,4 +2191,8 @@ txt2pdf:
 
 
 
- 
+
+
+
+
+    

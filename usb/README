@@ -9,6 +9,11 @@ It will almost always pass the 2nd time.
 Not all flash drives behave the same. Some will go thru the init sequence quickly
 the first time without fail, others may stall or slow down at some point.
 
+There are times when a write10 may fail so I  go back and reset the 
+controller and go thru the flash init sequence again and try the write10 again
+and it fails again. Then I just reboot. Sorry thats life.
+
+
 
 POLLING
 **********

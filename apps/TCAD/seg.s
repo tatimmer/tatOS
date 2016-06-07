@@ -1,6 +1,5 @@
-
 ;Project: TCAD
-;seg02 Feb 02, 2016
+;seg02 May 25, 2016
 
 
 ;this file contains code and data for TCD_SEGMENT
@@ -141,7 +140,6 @@
 ;SegmentModifyLength
 ;SegmentModifyHorizontal
 ;SegmentModifyVertical
-;SegmentModifyOrtho
 ;SegmentModifyLayer
 
 ;OffsetSegK           (public)
@@ -190,6 +188,7 @@ extern FlipKeyProc
 extern PassToPaint
 extern headlink
 extern float2int
+extern OrthoMode
 
 ;symbols defined in io.s
 extern PDFpencolor
@@ -250,8 +249,6 @@ Xnear:
 dd 0
 Ynear:
 dd 0
-OrthoMode:
-dd 1      ;at startup Ortho mode is "on"
 zoom_pixel:
 dd 0
 pdfcurrentlayer:
@@ -404,8 +401,6 @@ str1a:
 db '[segmentselect] no selection',0
 str2:
 db 'segmentmodify',0
-str4:
-db 'OrthoMode',0
 str5:
 db 'Corner',0
 str6:
@@ -686,19 +681,22 @@ db 'flag10',0
 
 
 
-;************************
-;Segment Properties
-;************************
+;*********************************
+;TCD_SEGMENT Selection Properties
+;**********************************
 
 ;this data is needed by a call to printf in segment select
-;to display segment properties when you select a line 
+;to display segment properties when you select this object
 ;this string is displayed at top of the screen:
-;x1=xxx y1=xxx x2=xxx y2=xxx dx=xxx dy=xxx len=xxx ang=xxx lay=xxx
 
-equ QTYARGSEGPROP 18
+;seg: x1=xxx y1=xxx x2=xxx y2=xxx dx=xxx dy=xxx len=xxx ang=xxx lay=xxx
 
+equ SEGPRINTFQTYARG 19
+
+segstr0:
+db 'seg',0x3a,0
 segstr1:
-db 'x1=',0
+db '  x1=',0
 segstr2:
 db '  y1=',0
 segstr3:
@@ -717,11 +715,23 @@ segstr9:
 db '  lay=',0
 
 segargtype:  ;2=dword, 3=0term string, 4=qword float
-dd 3,4,3,4,3,4,3,4,3,4,3,4,3,4,3,4,3,2
+dd 3,3,4,3,4,3,4,3,4,3,4,3,4,3,4,3,4,3,2
+
 segarglist:
-dd segstr1,sel_X1,segstr2,sel_Y1,segstr3,sel_X2,segstr4,sel_Y2
-dd segstr5,sel_DX,segstr6,sel_DY,segstr7,sel_Length,segstr8,sel_Angle
+dd segstr0
+dd segstr1,sel_X1
+dd segstr2,sel_Y1
+dd segstr3,sel_X2
+dd segstr4,sel_Y2
+dd segstr5,sel_DX
+dd segstr6,sel_DY
+dd segstr7,sel_Length
+dd segstr8,sel_Angle
 dd segstr9,sel_Layer
+
+
+
+
 
 
 
@@ -737,8 +747,7 @@ dd SegmentModifyEndpoint,      SegmentModifyParallel
 dd SegmentModifyPerpendicular, SegmentModifyTangent   
 dd SegmentModifyEqual,         SegmentModifyAngle
 dd SegmentModifyLength,        SegmentModifyHorizontal
-dd SegmentModifyVertical,      SegmentModifyOrtho
-dd SegmentModifyLayer
+dd SegmentModifyVertical,      SegmentModifyLayer
 
 
 
@@ -2348,28 +2357,6 @@ SegmentModifyEndpoint_33:
 
 
 
-SegmentModifyOrtho:
-
-	;this allows the user to toggle "ortho" mode on/off
-	;ortho mode forces the line segment to be either
-	;horizontal or vertical
-	
-	cmp dword [OrthoMode],0
-	jz .1
-
-	mov dword [OrthoMode],0
-	mov eax,58  ;feedback message index for "OrthoMode=off"
-	jmp .done
-.1:
-	mov dword [OrthoMode],1
-	mov eax,57  ;feedback message index for "OrthoMode=on"
-
-.done:
-	mov ebx,0   ;left mouse handler
-	call UnselectAll
-	ret
-
-
 
 
 
@@ -2987,7 +2974,7 @@ segmentselect:
 	;the string is stored in a 100 byte buffer in the main module
 	mov eax,57         ;printf
 	mov ebx,segargtype
-	mov ecx,QTYARGSEGPROP
+	mov ecx,SEGPRINTFQTYARG
 	mov esi,segarglist
 	mov edi,[ebp+20]   ;address printf buffer
 	sysenter
@@ -7747,17 +7734,7 @@ segmentpdf:
 ;fadd [eax]       ;add value to st0
 
 
-;mov eax,3  ;dumpreg
-;sysenter
-
-;mov eax,9     ;dumpebx
-;mov ecx,dum2  ;address string
-;mov edx,0     ;dword register size
 
 
 
-
-
-
-
-                                        
+  

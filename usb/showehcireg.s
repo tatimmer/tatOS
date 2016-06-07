@@ -316,6 +316,9 @@ show_ehci_reg:
 	STDCALL sprm6,SPRMLIST+0x500,eaxstr
 
 	;N_PORTS Number of Ports (0=undefined)
+	;unfortunately the value reported here is not always correct
+	;my Lenova reports a value of 3 ports but there are actually 6 ports on
+	;the back controlled by one ehci
 	mov eax,ebx
 	and eax,0xf
 	STDCALL sprm7,SPRMLIST+0x600,eaxstr

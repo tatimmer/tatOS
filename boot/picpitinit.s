@@ -79,6 +79,12 @@ picstart:
 	;irq7=bit7 = parallel port
 	
 	;note: usb controller initialization needs the pit for sleep()
+
+	;as of May 2016 we are only using the usb keyboard
+	;still we need to enable ps2 keyboard (irq1)
+	;because bios uses this to enable our usb keyboard on start up 
+	;until we take control
+
 	mov al,11111000b    ;enable pit, ps2 keyboard, pic2
 	;mov al,11111010b   ;enable pit, pic2
 	;mov al,11111100b   ;enable pit and ps2 keyboard

@@ -1,13 +1,14 @@
 
-tatOS/apps/TCAD/README01
+tatOS/apps/TCAD/README
 
-Jan 19, 2016
+June 2016
 
-tcad is a 2d cadd program for tatOS
+TCAD is a 2d cadd program for tatOS
 
 This version supports:
    * TCD_SEGEMENT
    * TCD_TEXT
+   * TCD_ARROW
    * export to tcd and pdf files
 
 
@@ -15,24 +16,17 @@ This README is a crash coarse on how to assemble and use tcad.
 
 
 [1] read the sources 
-main.s = the main module and program entry are here
-seg.s  = code/data to draw segments/lines
-io.s   = read/write tcd files, export to pdf
-txt.s  = code/data to draw text
-
-tcdxx = sample tcd file
-pdfxx = sample pdf file
+main.s  = the main module and program entry are here
+io.s    = read/write tcd files, export to pdf
+seg.s   = code/data to draw segments/lines
+txt.s   = code/data to draw text
+aro.s   = code/data to draw arrows
 
 
 [2] assemble, link & run
 to generate the TCAD executable for tatOS, press F10 within tedit
-to bring up the make utility and type in the names of the 4 files
-that make up the project:
-
-   * main
-   * seg
-   * io
-   * txt
+to bring up the make utility and type in the names of the 
+project files
 
 Then press F10 to "run make" which will assemble and link the project.
 Finally ESC to tedit and press F11 to run the executable.
@@ -63,7 +57,7 @@ To un-select, hit the ESC key.
 
 Link List
 ***********
-All objects drawn by TCAD are stored in a link list.
+All objects drawn by TCAD are stored in a double link list.
 See function CreateBLink in main.s for the organization of each link.
 You can dump all the links with dumpall or just those selected with 
 dumpsel.
@@ -142,4 +136,7 @@ Thanks for trying TCAD.
 Tom Timmermann
 Janesville, WI 
 
-     
+
+
+
+

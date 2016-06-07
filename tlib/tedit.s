@@ -2217,9 +2217,9 @@ te_menu db 'tedit: F1=Open F2=Save F3=Metrics F4=calc F6=Dump F8=Clear F9=Asm F1
 
 
 ;jump table to handle non-printable keydowns
-;see tatos.inc where these are defined
+;see tatOS.inc where these are defined
 ;doNot is just a stub routine for tedit unsupported keys
-;this table must mirror the non displayable keydowns listed in tatos.inc
+;this table must mirror the non displayable keydowns listed in tatOS.inc
 ;in the same order starting with 0x80 for F1 key and continuing
 teditjumptable:
 dd te_doF1, te_doF2, te_doF3, te_doF4, te_doNot
@@ -2228,10 +2228,10 @@ dd te_doF11, te_doF12
 dd te_doEscape, te_doNot, te_doNot, te_doNot
 dd te_doNot, te_doNot,  te_doBkspace, te_doHome
 dd te_doEnd, te_doUp, te_doDown, te_doLeft, te_doRight
-dd te_doPageUP, te_doPageDN, te_doNot, te_doNot
-dd te_doDelete, te_doNot, te_doNot, te_doEnter
+dd te_doPageUP, te_doPageDN, te_doNot, te_doNot ;PAGEUP, PAGEDN, CENTER, INSERT
+dd te_doDelete, te_doNot, te_doNot, te_doEnter  ;DELETE, PRNTSCR, SCRLOCK, ENTER
 dd te_doCut, te_doCopy, te_doPaste
-dd te_doNot, te_doNot
+dd te_doNot, te_doNot, te_doNot                 ;GUI, MENU, BREAK
 
 
 

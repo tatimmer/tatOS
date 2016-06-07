@@ -22,14 +22,14 @@ These low memory addresses from 0x500-0x700 is reserved for
 global bytes, words and dwords.
 
 0x500 dword   address of linear frame buffer LBF
-0x504 byte    ascii keypress
+0x504 byte    ps2 keyboard ascii return value buffer
 0x505 byte    drive number we are booting from 
 0x506 byte    set to 1 if Ctrl  key down else set to 0 [CTRLKEYSTATE]
 0x507 byte    set to 1 if Shift key down else set to 0 [SHIFTKEYSTATE]
 0x508 byte    set to 1 if Alt   key down else set to 0 [ALTKEYSTATE]
 0x509 byte    holds the keyboard scan code setnum should be 0x41
 0x50a byte    set to 1 if SPACE key down else set to 0 [SPACEKEYSTATE]
-0x50b byte    
+0x50b byte    usb keyboard ascii return value buffer
 0x50c dword   Software interrupt.s bitmask errors
 0x510 byte    Real Time Clock MONTH in BCD
 0x511 byte    Real Time Clock DAY   in BCD

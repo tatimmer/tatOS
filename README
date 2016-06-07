@@ -1,4 +1,4 @@
-README - tatOS - Feb 2016
+README - tatOS - April 2016
 
 Welcome to tatOS - "programming for the common man in assembler"
 
@@ -25,8 +25,8 @@ This version of tatOS supports these usb devices:
 * usb keyboard
 * usb flash drive
 
-This version of tatOS is still dependent on the ps2 keyboard. 
-The ps2 mouse driver is included for reference only.
+I now use ehci w/root hub exclusively. The Lenovo desktop does not have ps2 ports.
+The ps2 keyboard driver and ps2 mouse driver are included for reference only.
 
 Not supported:
 * ohci and usb 3.0 xhci usb controllers 
@@ -81,7 +81,7 @@ There are 3 fonts available which support the ascii character set.
 See put.s for functions to display ascii characters and strings.
 
 A special memory block called the "dump" (tlib/dump.s) is used by the kernel and your 
-apps to write ascii strings about what is going on.
+apps to write ascii strings (logging) about what is going on.
  
 To shut down tatOS just hold down your power button.
 
@@ -96,7 +96,7 @@ See /tlib and /usb source code for all OS function capability.
 See /apps for sample applications that can be assembled by ttasm and run 
 under tatOS directly from the tedit text editor.
 
-tatOS is written in assembly with NASM and developed on a Debian Linux machine.
+tatOS is written in x86 assembly with NASM and developed on a Debian Linux machine.
 Thanks for trying tatOS. 
 
 Tom Timmermann

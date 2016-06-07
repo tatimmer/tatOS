@@ -22,7 +22,8 @@ hpstr5 db 'reset 1=reset signalling asserted',0
 hpstr6 db 'port power 1=not powered OFF state',0
 hpstr7 db 'low speed device attached 0=full or hi speed 1=low speed',0
 hpstr8 db 'hi speed device attached 0=full speed 1= hi speed',0
-hpstr9 db 'building list control strings',0
+hpstr9 db 'Please wait - building list control strings',0
+hpstr10 db 'HUB_BQTYDOWNSTREAMPORTS',0
 
 
 
@@ -37,6 +38,10 @@ showehciroothubports:
 
 	;show the program title
 	STDCALL FONT01,0,20,hpstr0,0xefff,puts
+
+	;show the qty of hub down stream ports
+	movzx eax,byte [HUB_BQTYDOWNSTREAMPORTS]
+	STDCALL 0,40,0xefff,hpstr10,puteaxstr
 
 	;message to tell user we are building list control strings
 	;this string will get overwritten by the list control

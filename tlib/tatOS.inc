@@ -231,7 +231,7 @@ LBAMAX equ 488000
 %define RIGHT    0x98
 %define PAGEUP   0x99
 %define PAGEDN   0x9a
-%define CENTER   0x9b
+%define CENTER   0x9b   ;tom what key is this ???
 %define INSERT   0x9c
 %define DELETE   0x9d
 %define PRNTSCR  0x9e

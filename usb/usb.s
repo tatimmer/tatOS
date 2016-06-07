@@ -88,7 +88,8 @@ LinkPointer            dd 0
 BufferPointer          dd 0
 mouse_hubportnum       dd 0
 keyboard_hubportnum    dd 0
-is_usb_keyboard_ready  dd 0
+have_usb_keyboard      dd 0
+
 
 
 

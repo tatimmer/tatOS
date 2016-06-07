@@ -69,6 +69,7 @@
 ;swapbuf
 ;getc
 ;checkc
+;dumpreg  (remember that it uses eax=3)
 
 
 
@@ -946,7 +947,7 @@ _getslope:
 _getlength:
 	;mov eax,95
 	;st0=dx, st1=dy
-	call getlength
+	call getlength  ;returns st0=length
 	jmp near Exit
 
 _intersection:

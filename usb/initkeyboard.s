@@ -38,6 +38,7 @@ usbkbstr8  db 'keyboard-SetConfiguration',0
 usbkbstr9  db 'keyboard-usb transaction failure',0
 usbkbstr10 db 'success init usb keyboard',0
 usbkbstr11 db '[initkeyboard] device is not a keyboard, bInterfaceProtocol != 1',0
+usbkbstr12 db 'done initkeyboard, setting byte 0x50b to 0',0
 
 
 
@@ -65,6 +66,8 @@ usbkbstr11 db '[initkeyboard] device is not a keyboard, bInterfaceProtocol != 1'
 ;************************************************************
 
 initkeyboard:
+
+	mov dword [have_usb_keyboard],0  ;not ready
 
 
 %if USBCONTROLLERTYPE == 2  ;ehci w/root hub
@@ -228,14 +231,14 @@ initkeyboard:
 .notkeyboard:
 	STDCALL usbkbstr11,putscroll
 	STDCALL usbkbstr11,dumpstr
-	mov dword [is_usb_keyboard_ready],0  ;not ready
+	mov dword [have_usb_keyboard],0  ;not ready
 	mov eax,2
 	jmp .done
 
 .errorTransaction:
 	STDCALL usbkbstr9,putscroll
 	STDCALL pressanykeytocontinue,putscroll
-	mov dword [is_usb_keyboard_ready],0  ;not ready
+	mov dword [have_usb_keyboard],0  ;not ready
 	mov eax,1
 	jmp .done
 
@@ -243,7 +246,7 @@ initkeyboard:
 	STDCALL usbkbstr10,putscroll
 
 	;set usb keyboard to 1= ready
-	mov dword [is_usb_keyboard_ready],1
+	mov dword [have_usb_keyboard],1
 
 %if USBCONTROLLERTYPE == 2
 	;generate the static keyboard interrupt TD, see prepareTD-ehci.s
@@ -256,7 +259,16 @@ initkeyboard:
 	call usbkeyboardrequest
 
 	mov eax,0
+
 .done:
+
+;tom this code is in conflict with a line above
+;tom this too failed to pervent the initdevices code from executing multiple times
+;mov dword [KEYBOARD_REPORT_BUF],0
+
+	;zero out the usb keyboard ascii keypress buffer
+	mov byte [0x50b],0
+	STDCALL usbkbstr12,dumpstr
 	ret
 
 

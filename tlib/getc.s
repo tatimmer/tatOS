@@ -1,6 +1,6 @@
 ;tatOS/tlib/getc.s
 
-;functions to act on ps2 keyboard presses
+;functions to act on ps2 or usb keyboard presses
 
 ;getc, checkc, GetKeyState
 
@@ -13,8 +13,8 @@
 
 ;************************************************************************
 ;getc
-;get a single keypress from 0x504
-;this function will poll/block until a key on the ps2 keyboard is pressed
+;get a single keypress from 0x504 or 0x50b
+;this function will poll/block until a key on a ps2 or usb keyboard is pressed
 
 ;this version also handles ListControlKeydown
 ;if a list control is being displayed by a kernel or user app
@@ -22,14 +22,12 @@
 ;ListControlKeydown for processing
 
 ;input:none
+;return: al=ascii char returned
 
-;return:
-;al=ascii char is returned
 ;   tatOS.inc has some defines like F1,F2,SPACE,TAP,NL,ESCAPE...
 ;   or 0x31 is for the number 1 ...and so forth
-;   see font01.inc to get the ascii value of the letters and numbers
 
-getcstr1 db 'getc returns',0
+getcstr1 db '[getc] return value in al',0
 ;***********************************************************************
 
 getc:
@@ -37,25 +35,39 @@ getc:
 
 	sti  ;need ps2 interrupt
 
+
+	;if you have enabled the usb keyboard then we check byte [0x50b]
+	;else for ps2 keyboard we check byte [0x504]
+	cmp dword [have_usb_keyboard],1
+	jz .dousb
+	mov ebx,0x504   ;buffer for ps2 keyboard (irq1)
+	jmp .getc_mainloop
+.dousb:
+	mov ebx,0x50b   ;buffer for usb keyboard 
+
+
+	;loop until we read a non-zero value
+	;all program execution is blocked until we get a non-zero value
+
 .getc_mainloop:
-	;wait for irq1 to give us the keypress
-	;the byte is stored at address 0x504
-	;see keyboard.s
-	cmp byte [0x504],0
+	cmp byte [ebx],0
 	je .getc_mainloop
+
 
 	cli ;disable interrupt
 
 
 	;return the ascii char in al
-	mov al,[0x504]
+	mov al,[ebx]
+
+
+	;reset for subsequent read operations
+	mov byte [ebx],0
 
 
 	;if you want to dump every keypress uncomment this line
 	;STDCALL getcstr1,2,dumpeax
 
-	;reset for subsequent read operations
-	mov byte [0x504],0
 
 	;if we have a list control, it needs to handle the keypress also
 	cmp dword [list_HaveList],1
@@ -71,9 +83,10 @@ getc:
 ;***********************************************
 ;checkc
 ;same as above except does not block
-;returns immediately if byte [0x504]=0
+;returns immediately if byte [0x504] or [0x50b] = 0
+
 ;input:none
-;return:al=ascii char 
+;return: al=ascii char 
 ;zf is set   if the keyboard buffer is empty and al=0
 ;zf is clear if a key has been pressed and al=ascii char
 
@@ -88,14 +101,26 @@ checkc:
 
 	xor eax,eax  ;al=0
 
-	cmp byte [0x504],0
+
+	;if you have enabled the usb keyboard then we check byte [0x50b]
+	;else for ps2 keyboard we check byte [0x504]
+	cmp dword [have_usb_keyboard],1
+	jz .dousb
+	mov ebx,0x504   ;buffer for ps2 keyboard (irq1)
+	jmp .check_keyboard_buffer
+.dousb:
+	mov ebx,0x50b   ;buffer for usb keyboard 
+
+
+.check_keyboard_buffer:
+	cmp byte [ebx],0
 	jz .done  ;zf is set if keypress buffer empty
 
 	;return the ascii char in al
-	mov al,[0x504]
+	mov al,[ebx]
 
 	;reset for subsequent read operations
-	mov byte [0x504],0
+	mov byte [ebx],0
 
 .done:
 
@@ -108,7 +133,7 @@ checkc:
 ;*******************************************************
 ;GetKeyState
 ;userland function to obtain the state of special keys
-;on the ps2 keyboard
+;on the ps2 or usb keyboard
 ;input:
 ;to obtain state of CTRL  key set ebx=0
 ;to obtain state of SHIFT key set ebx=1

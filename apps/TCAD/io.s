@@ -1,10 +1,12 @@
-
 ;Project: TCAD
-;io21  Feb 04, 2016
+;io02  June 05, 2016
 
 ;this file contains code and data for reading and writting tcd files
 ;a tcd file is the native graphics file for TCAD
+
 ;this file also contains code for exporting to pdf
+
+;FileOpenTCD must be updated for each new tcad graphic object
 
 
 ;FileSaveTCD   (public)
@@ -29,6 +31,7 @@ extern headlink
 extern InitLink1
 extern segmentread
 extern txtread
+extern aroread
 
 
 
@@ -63,6 +66,8 @@ equ TCD_ARC      2
 equ TCD_RECT     3
 equ TCD_TEXT     4
 equ TCD_DIM      5
+equ TCD_ARROW    6
+
 equ TCD_VERSION  2     ;currently supported version number
 equ SIZEOFTCDHEADER 48
 
@@ -484,15 +489,24 @@ public FileSaveTCD
 
 ;***********************************************************
 ;FileOpenTCD
-;input:none
-;return: eax = address of a 28 byte structure
-;containing the following values:
-;       dword value of sizeoflinklist
-;       qword value of zoom    (offset 4)
-;       qword value of xorg    (offset 12)
-;       qword value of yorg    (offset 20)
-;if there is an error, then returns eax=0
 
+;this function currently supports:
+;	TCD_SEGMENT
+;	TCD_TEXT
+;	TCD_ARROW
+
+;you must update this functions code for new objects
+
+;input:none
+
+;return: eax = address of a 28 byte structure
+;        containing the following values:
+;        dword value of sizeoflinklist
+;        qword value of zoom    (offset 4)
+;        qword value of xorg    (offset 12)
+;        qword value of yorg    (offset 20)
+
+;if there is an error, then returns eax=0
 ;***********************************************************
 
 public FileOpenTCD
@@ -501,7 +515,6 @@ public FileOpenTCD
 	mov ebp,esp
 	sub esp,4
 	;[ebp-4]  qty of objects read from tcd file so far
-
 
 
 
@@ -515,7 +528,6 @@ public FileOpenTCD
 	mov eax,72          ;fatreadfile
 	mov ebx,0x2300000   ;address to store file data
 	sysenter
-
 
 
 
@@ -590,6 +602,10 @@ public FileOpenTCD
 	cmp eax,TCD_TEXT
 	jz .readText
 
+	cmp eax,TCD_ARROW
+	jz .readArrow
+
+
 	;if we got here we have some unsupported object type
 	jmp .error4
 
@@ -602,6 +618,11 @@ public FileOpenTCD
 
 .readText:
 	call txtread
+	;must return esi=address of next object in tcd file
+	jmp .2
+
+.readArrow:
+	call aroread
 	;must return esi=address of next object in tcd file
 	jmp .2
 
@@ -878,13 +899,6 @@ public FileSavepdf
 
 
 
-push esi
-mov eax,9    ;dumpebx
-mov ebx,esi  ;value to dump
-mov ecx,iostr4
-mov edx,0    ;0=reg32
-sysenter
-pop esi
 
 
 
@@ -909,10 +923,6 @@ pop esi
 
 
 
-
-	;0 terminate the graphic stream
-	;tom we apparently need this in here, but why ?????
-	;mov byte [edi],0
 
 
 
@@ -1015,7 +1025,7 @@ pop esi
 
 
 	;XREF  cross reference
-	;we have 4 objects
+	;we hav 6 objects
 	;each object starts at a predictable offset from 
 	;beginning of the file
 
@@ -1067,7 +1077,7 @@ pop esi
 	mov eax,19  ;strcpy
 	sysenter
 
-	;"/Size 5" means there are 5 objects in xref
+	;"/Size 6" means there are 6 objects in xref
 	;"/Root 1 0 R" gives the location of the Catalog
 	mov esi,str21
 	mov eax,19  ;strcpy
@@ -1163,4 +1173,6 @@ pop esi
 
 
 
-                      
+
+
+   

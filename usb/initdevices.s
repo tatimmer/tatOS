@@ -5,18 +5,22 @@
 ;this function calls initmouse, initkeyboard and initflash
 ;we support only these devices and only 1 of each
 
-;with uhci we only support two ports 0,1
-;with ehci we support four ports 0,1,2,3
 
-
-
+;we have capability to check up to 8 usb ports
 port0str db 'PORT0',0
 port1str db 'PORT1',0
 port2str db 'PORT2',0
 port3str db 'PORT3',0
-port4str db 'PORT_INVAL',0
+port4str db 'PORT4',0
+port5str db 'PORT5',0
+port6str db 'PORT6',0
+port7str db 'PORT7',0
+port8str db 'PORT8',0
+portINVL db 'PORT_INVAL',0
 port_num_dump:
 dd port0str, port1str, port2str, port3str, port4str
+dd port5str, port6str, port7str, port8str, portINVL
+
 
 portnumHIspeed         dd 0
 which_low_speed_device dd 0
@@ -25,7 +29,7 @@ which_low_speed_device dd 0
 usbdevstr0  db '[initdevices]',0
 usbdevstr1  db 'usb transaction failure',0
 usbdevstr2  db 'usb hub port reset failed',0
-usbdevstr3  db 'end init usb devices',0
+usbdevstr3  db 'end usb initdevices (press any key to continue)',0
 usbdevstr4  db 'exceeded max port #',0
 usbdevstr5  db 'nothing connected',0
 usbdevstr6  db 'low speed device connected',0
@@ -52,6 +56,7 @@ usbdevstr27 db 'low speed device is not a mouse',0
 usbdevstr28 db 'reset port',0
 usbdevstr29 db 'invalid flash portnum',0
 usbdevstr30 db 'was flash plugged in during low speed device init ?',0
+usbdevstr31 db 'you have 5 seconds to press the SPACE bar',0
 
 
 
@@ -107,13 +112,10 @@ initdevices:
 .incport:
 
 	;increment the port number
-	;for uhci we support downstream ports 0,1
-	;for ehci w/ companions downstream ports 0,1,2,3
-	;for ehci w/ root hub downstream port numbers are 1,2,3,4
 	add dword [portnumber],1
 
 
-	;show the port number: PORT0/PORT1/PORT2/PORT3
+	;show the port number: PORT0/PORT1/PORT2...
 	mov eax,[portnumber]
 	mov esi,[port_num_dump + eax*4]
 	STDCALL esi,putscroll
@@ -182,7 +184,8 @@ initdevices:
 	STDCALL usbdevstr12,putscroll
 
 	;have we exceeded the max portnumber ?
-	;our ehci supports four ports: 0,1,2,3
+	;this ehci supports four ports: 0,1,2,3
+	;this was written for my VIA pci addon card with 4 ports
 	cmp dword [portnumber],3
 	ja near .exceededMaxPortNum
 	;this is the normal way to break out of initdevices
@@ -394,10 +397,14 @@ initdevices:
 	STDCALL usbdevstr22,putscroll
 
 	;have we exceeded the max portnumber ?
-	;root hub downstream ports are 1,2,3,4 
-	;so we have to accomodate this by adding +1 to [portnumber]
-	cmp dword [portnumber],3
-	ja near .exceededMaxPortNum
+	;we determined HUB_BQTYDOWNSTREAMPORTS during init root hub
+	;the value may exceed the number of visible external ports
+	;there may be internal ports (or possibly unwired/unused ports)
+	;root hub downstream ports are 1,2,3,4... 
+	movzx eax,byte [HUB_BQTYDOWNSTREAMPORTS]
+	sub eax,1
+	cmp eax,[portnumber]
+	jbe near .exceededMaxPortNum
 	;this is the normal way to break out of initdevices
 
 
@@ -551,6 +558,34 @@ initdevices:
 
 .keyboardsuccess:
 	mov dword [which_low_speed_device],0  ;0=try initmouse
+
+	;implement a hack here
+	;if the user runs initdevices after bootup this is not reqd
+	;but if he runs a second time, the user will press F1 to start initdevices
+	;from usb central and after initkeyboard is complete, the keyboard will act 
+	;like its stuck with F1 held down and usbkeyboardinterrupt will continue to
+	;return 0x80 which is our representation of the F1 key
+	;and when initdevices is complete it returns to usbcentral and starts initdevices
+	;all over again. So if we now press any key this will "unstick" the keyboard 
+	;buffer and gives us an "all keys up" report. As alternate we could possibly 
+	;power down the hub ports then power up [ClearHubFeature(PORT_POWER)]. 
+	;prompt user to press the space bar 
+	STDCALL usbdevstr31,putscroll
+	mov ebx,1000
+	call sleep
+	STDCALL usbdevstr31,putscroll
+	mov ebx,1000
+	call sleep
+	STDCALL usbdevstr31,putscroll
+	mov ebx,1000
+	call sleep
+	STDCALL usbdevstr31,putscroll
+	mov ebx,1000
+	call sleep
+	STDCALL usbdevstr31,putscroll
+	mov ebx,1000
+	call sleep
+
 	jmp near .incport
 
 .notkeyboard:
@@ -646,9 +681,14 @@ initdevices:
 	;fall thru
 .done:
 	push eax
+	STDCALL usbdevstr3,dumpstr
 	STDCALL usbdevstr3,putscroll
 	STDCALL pressanykeytocontinue,putscroll
+
+mov byte [0x50b],0   ;trying to put this buffer into a known state prior to getc
 	call getc
+
 	pop eax
 	ret
+
 
