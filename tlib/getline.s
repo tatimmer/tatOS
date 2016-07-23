@@ -5,6 +5,7 @@
 
 ;************************************************
 ;getline
+
 ;reads an ascii text file 
 ;lines are terminated by NEWLINE/NL/0xa
 ;the file must be terminated with 0
@@ -16,7 +17,7 @@
 ;    this would indicate a code label
 ;    colon not allowed within ascii string bounded by ''
 ;    SPACE not allowed on code label line 
-;  * if ; semicolon is read stop saving bytes but read to end of line
+;  * if ; semicolon is read stop saving bytes but read to end of line (comment)
 ;  * if 80 chars have been read and not 0 terminator, quit with error
 ;  * if leading SPACE or TAB, ignore
 
@@ -31,7 +32,7 @@
 ;   1=blank line found
 ;	2=error:parse error or buffer full and not 0 terminated
 ;   3=found 0 (eof)
-;   5=code_label: (ends with :)
+;   5=code_label: (string ends with colon:)
 
 ;we no longer return 4 comment line, its folded in with blank line
 ;this function will now silently eat up comment lines by itself
@@ -48,6 +49,11 @@ glstr1          db 'getline return value',0
 ;************************************************
 
 getline:
+
+	push ebx
+	push ecx
+	push edx
+	push edi
 
 	cld
 
@@ -176,6 +182,11 @@ getline:
 .done:
 	mov byte [edi],0          ;terminate dest string 
 	;STDCALL glstr1,0,dumpeax  ;for debug only
+
+	pop edi
+	pop edx
+	pop ecx
+	pop ebx
 	ret
 
 

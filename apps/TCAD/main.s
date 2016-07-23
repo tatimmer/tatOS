@@ -1,9 +1,11 @@
 ;Project: TCAD
-;main03  June 06, 2016
+;main26  July 20, 2016
 
 ;this is the main entry procedure for TCAD
 ;TCAD is a basic 2d cad program
 ;tcad assembles with ttasm for the tatOS operating system
+;see tatOS/apps/TCAD/README for details
+
 
 
 
@@ -29,7 +31,7 @@
 ;HandleMiddleMouse
 ;HandleWheelAwayScreen
 ;HandleWheelTowardScreen
-;PS2 KEYBOARD
+;KEYBOARD
 ;doEscape
 ;Pan
 ;ResetBackground
@@ -79,6 +81,7 @@ org STARTOFEXE
 ;io.s   = 02
 ;txt.s  = 03
 ;aro.s  = 04
+;bez.s  = 05
 source 0
 
 
@@ -121,6 +124,10 @@ extern txtmodify
 extern arocreate
 extern aromodify
 
+;symbols defined in bez.s
+extern bezcreate
+extern bezmodify
+
 
 
 
@@ -162,10 +169,10 @@ dd 1
 ;io.s   starts at 0x2010000
 ;txt.s  starts at 0x2020000
 ;aro.s  starts at 0x2030000
+;bez.s  starts at 0x2040000
 
 ;0x2100000-0x2200000 TCAD link list
-;each link is 256 bytes
-;this allows for a max of 0x1000 or 4096 graphic objects
+;each link is a variable qty of bytes depending on object requirements
 equ STARTTCADLINKLIST 0x2100000
 
 ;0x2200000-0x2400000 scratch memory to build/load a tcd file
@@ -195,6 +202,7 @@ equ TCD_RECT     3
 equ TCD_TEXT     4
 equ TCD_DIM      5
 equ TCD_ARROW    6
+equ TCD_BEZIER   7
 
 
 
@@ -411,6 +419,7 @@ dd 0
 
 
 
+
 ;*******************
 ;link list pointers
 ;*******************
@@ -420,6 +429,8 @@ dd 0
 newlink:
 dd 0
 currentlink:
+dd 0
+selectedlink:
 dd 0
 
 
@@ -462,9 +473,18 @@ db0 16
 
 
 
+
+
+
+
 ;******************
-;  local STRINGS
+;  STRINGS
 ;******************
+
+;some strings are local to main.s
+
+;some strings are feedback messages so are referenced in other files
+;by integer/index in the feedback message table
 
 
 str1:
@@ -823,9 +843,24 @@ db '[arrow] Pick start point for arrow head',0
 str176:
 db '[arrow] Pick end point',0
 str177:
-db '[aromodifyx1y1] mouse pick new start point',0
+db '[arrow] select new x1y1',0
 str178:
-db '[aromodifyx2y2] mouse pick new end point',0
+db '[arrow] select new x2y2',0
+str179:
+db '[CreateBLink] link address exceeds 0x2200000, fail to allocate',0
+
+str180:
+db '[bezier] select new x1y1 start point',0
+str181:
+db '[bezier] select new x2y2 control point',0
+str182:
+db '[bezier] select new x3y3 control point',0
+str183:
+db '[bezier] select new x4y4 end point',0
+str184:
+db '[segment] select new x1y1 start point',0
+str185:
+db '[segment] select new x2y2 end point',0
 
 
 
@@ -966,8 +1001,13 @@ dd str157,str158,str159,str95,str56              ;74,75,76,77,78
 dd str38,str160,str161,str162,str81              ;79,80,81,82,83
 dd str85,str66,str67,str57,strSTUB               ;84,85,86,87,88
 dd str166,str167,str175,str176,str177            ;89,90,91,92,93
-dd str178                                        ;94
+dd str178,str180,str181,str182,str183            ;94,95,96,97,98
+dd str184,str185                                 ;99,100
 
+
+;tom there are a number of obsolete strings in this table
+;I think str64, 69, 70-78, 97-100 
+;investigate further before removing
 
 
 ;to display a particular message just set this value to 0,1,2...
@@ -1037,6 +1077,8 @@ draw7:
 db 'Text (t)',0
 draw8:
 db 'Arrow',0
+draw9:
+db 'Bezier',0
 
 
 
@@ -1049,13 +1091,15 @@ dd 0          ;y
 dd 99         ;w
 dd 0          ;h
 dd 0          ;expose
-dd 8          ;qty strings
+dd 9          ;qty strings
 dd draw1,draw2,draw3,draw4,draw5,draw6,draw7,draw8
+dd draw9
 
 
 DrawMenuProcTable:
 dd doLineMM, doLineKK, doLineMK, doLineMI 
 dd doLineMP, doLineIP, doText,   doArrow
+dd doBezier
 
 
 
@@ -1255,30 +1299,34 @@ dd layerstr6,layerstr7,layerstr8,layerstr9,layerstr10
 smTitle:
 db 'Segment Modify',0
 sm1:
-db 'x1,y1-k',0
+db 'x1y1',0
 sm2:
-db 'x2,y2-k',0
+db 'x2y2',0
 sm3:
-db 'endpoint-m',0
+db 'x1y1-kb',0
 sm4:
-db 'para To',0
+db 'x2y2-kb',0
 sm5:
-db 'perp To',0
+db 'para To',0
 sm6:
-db 'tang To',0
+db 'perp To',0
 sm7:
-db 'equal To-m',0
+db 'tang To',0
 sm8:
-db 'angle From-k',0
+db 'equal To-m',0
 sm9:
-db 'length-k',0
+db 'angle From-k',0
 sm10:
-db 'horizontal',0
+db 'length-k',0
 sm11:
-db 'vertical',0
+db 'horizontal',0
 sm12:
+db 'vertical',0
+sm13:
 db 'layer',0
-;removed "Ortho" to the main "misc" menu
+sm14:
+db 'markers',0
+
 
 ;not used are "near", "midpoint", "coincident with" and "colinear with"
 ;near/coincident and midpoint all live in segment paint
@@ -1294,11 +1342,11 @@ dd 0                  ;y
 dd 130                ;width
 dd 0                  ;height exposed
 dd 0                  ;expose event
-dd 12                 ;qty option strings
+dd 14                 ;qty option strings
 ;option string addresses:
 dd sm1,sm2,sm3,sm4,sm5
 dd sm6,sm7,sm8,sm9,sm10
-dd sm11,sm12
+dd sm11,sm12,sm13,sm14
 
 
 
@@ -1356,6 +1404,38 @@ dd 0                  ;expose event
 dd 4                  ;qty option strings
 ;option string addresses:
 dd aromod1, aromod2, aromod3, aromod4
+
+
+
+
+;BEZ MODIFY Popup
+bezTitle:
+db 'Bezier Modify',0
+bezmod1:
+db 'x1y1',0
+bezmod2:
+db 'x2y2',0
+bezmod3:
+db 'x3y3',0
+bezmod4:
+db 'x4y4',0
+bezmod5:
+db 'layer',0
+bezmod6:
+db 'markers',0
+
+BezModifyPopup:
+dd 1                  ;type=popup
+dd 0                  ;ID of selected string provided by kernel
+dd bezTitle           ;title string
+dd 0                  ;x
+dd 0                  ;y
+dd 130                ;width
+dd 0                  ;height exposed
+dd 0                  ;expose event
+dd 6                  ;qty option strings
+;option string addresses:
+dd bezmod1, bezmod2, bezmod3, bezmod4, bezmod5, bezmod6
 
 
 
@@ -1521,6 +1601,9 @@ db0 1000
 	sysenter
 	mov eax,105  ;dropdowncreate
 	mov ebx,AroModifyPopup
+	sysenter
+	mov eax,105  ;dropdowncreate
+	mov ebx,BezModifyPopup
 	sysenter
 	
 
@@ -1899,6 +1982,9 @@ DoneDrawDragBox:
 	mov eax,106  ;dropdownpaint
 	mov ebx,AroModifyPopup
 	sysenter
+	mov eax,106  ;dropdownpaint
+	mov ebx,BezModifyPopup
+	sysenter
 
 
 
@@ -1945,9 +2031,9 @@ EndPaint:
 
 
 
-	;****************************
-	;    KEYBOARD (usb or ps2)
-	;****************************
+	;*********************
+	;    KEYBOARD (usb)
+	;*********************
 
 	mov eax,12  ;checkc is non-blocking
 	sysenter    ;return ascii keypress in al
@@ -1957,16 +2043,22 @@ EndPaint:
 
 	;HOTKEY definitions
 
-	cmp al,99   ;'c' create a circle (we dont support this yet)
+	cmp al,97   ;'a' create arrow
+	jz doArrow
+
+	cmp al,98   ;'b' create bezier
+	jz doBezier
+
+	cmp al,99   ;'c' create circle (we dont support this yet)
 	jz doCircle
 
-	cmp al,100  ;'d' measure distance
+	cmp al,100  ;'d' distance measure
 	jz doMeasDist
 
 	cmp al,102  ;'f' flip
 	jz doFlipKeyHandler
 
-	cmp al,108  ;'l' create a line by 2 mouse picks
+	cmp al,108  ;'l' create line segment
 	jz doLineMM
 
 	cmp al,111  ;'o' open tcd
@@ -1978,9 +2070,15 @@ EndPaint:
 	cmp al,115  ;'s'  save tcd
 	jz doFileSavetcd
 
-	cmp al,116  ;'t'  create some text
+	cmp al,116  ;'t'  create text
 	jz doText
 
+	
+	cmp al,RIGHT
+	jz doNext
+
+	cmp al,LEFT
+	jz doPrevious
 
 	cmp al,COPY
 	jz doCopy
@@ -2127,11 +2225,9 @@ HandleLeftMouse:
 	mov esi,[headlink]      ;in case proc needs it
 	mov edi,[currentlayer]  ;in case proc needs it
 	call segmodify
-
 	;all segmentmodify procs must return valid values in eax,ebx
 	mov [FeedbackMessageIndex],eax
 	mov [LftMousProc],ebx
-
 	call UnselectAll
 	jmp AppMainLoop
 .doneSegModMenu:
@@ -2148,16 +2244,12 @@ HandleLeftMouse:
 	mov esi,[headlink]      ;in case proc needs it
 	mov edi,[currentlayer]  ;in case proc needs it
 	call txtmodify
-
 	;all txtmodify procs must return valid values in eax,ebx
 	mov [FeedbackMessageIndex],eax
 	mov [LftMousProc],ebx
-
 	call UnselectAll
 	jmp AppMainLoop
 .doneTxtModMenu:
-
-
 
 
 
@@ -2171,15 +2263,31 @@ HandleLeftMouse:
 	mov esi,[headlink]      ;in case proc needs it
 	mov edi,[currentlayer]  ;in case proc needs it
 	call aromodify
-
 	;all aromodify procs must return valid values in eax,ebx
 	mov [FeedbackMessageIndex],eax
 	mov [LftMousProc],ebx
-
 	call UnselectAll
 	jmp AppMainLoop
 .doneAroModMenu:
 
+
+
+	;check for Bez Modify popup activity, call bezmodify if reqd
+	mov eax,[BezModifyPopup+4]
+	cmp eax,-1
+	jz .doneBezModMenu
+	;pass headlink & current layer to these procs
+	;some use them and some dont
+	;eax=index into BezModifyProcTable, see aro.s
+	mov esi,[headlink]      ;in case proc needs it
+	mov edi,[currentlayer]  ;in case proc needs it
+	call bezmodify
+	;all bezmodify procs must return valid values in eax,ebx
+	mov [FeedbackMessageIndex],eax
+	mov [LftMousProc],ebx
+	call UnselectAll
+	jmp AppMainLoop
+.doneBezModMenu:
 
 
 
@@ -2257,6 +2365,8 @@ HandleRightMouse:
 	jz .poptext
 	cmp eax,TCD_ARROW
 	jz .poparo
+	cmp eax,TCD_BEZIER
+	jz .popbez
 
 	jnz AppMainLoop ;unhandled object option
 
@@ -2283,6 +2393,15 @@ HandleRightMouse:
 	;show the aro modify popup
 	mov eax,122  ;showpopup
 	mov esi,AroModifyPopup
+	sysenter
+	;handleleftmouse will process the users popup selection
+	jmp AppMainLoop
+
+
+.popbez:
+	;show the bez modify popup
+	mov eax,122  ;showpopup
+	mov esi,BezModifyPopup
 	sysenter
 	;handleleftmouse will process the users popup selection
 	jmp AppMainLoop
@@ -2466,16 +2585,13 @@ doFileOpentcd:
 	mov [sizeoflinklist],ebx
 
 	fld  qword [eax+4]  ;zoom
-	fst  qword [zoom]
-	fstp qword [zoom_reset]
+	fstp  qword [zoom]
 
 	fld  qword [eax+12] ;xorg
-	fst  qword [xorg]
-	fstp qword [xorg_reset]
+	fstp  qword [xorg]
 
 	fld  qword [eax+20] ;yorg
-	fst  qword [yorg]
-	fstp qword [yorg_reset]
+	fstp  qword [yorg]
 
 	jmp AppMainLoop
 
@@ -2507,6 +2623,14 @@ doExit:
 
 doMove:
 	call MoveObjects
+	jmp AppMainLoop
+
+doNext:
+	call SelectNext
+	jmp AppMainLoop
+
+doPrevious:
+	call SelectPrevious
 	jmp AppMainLoop
 
 doCopy:
@@ -2577,9 +2701,12 @@ doArrow:
 	mov dword [LftMousProc],ebx
 	jmp AppMainLoop
 
-
-	
-
+doBezier:
+	push [currentlayer]
+	call bezcreate
+	mov dword [FeedbackMessageIndex],eax
+	mov dword [LftMousProc],ebx
+	jmp AppMainLoop
 
 doCircle:
 	;not implemented yet
@@ -3007,17 +3134,25 @@ public InitLink1
 ;CreateBLink
 ;Create Blank Link
 
-;version January 2016
+;version July 2016
 
 ;this function allocates some memory for another graphic object
-;and attaches the link to the end of our double link list
-;each link of the list is 0x100=256 bytes
-;the first 112 bytes are common
-;the remaining bytes may be used by the object as need be 
-;the "dat" pointer also makes provision for unique object data
+;and attaches the link to the end of a double link list
+
+;each link of the list may be a variable qty of bytes
+;since each object has unique size requirements
+;link size requested should be an even number of dwords
+;the std link size is 256 bytes of 0x100
+;objects such as segment, arrow, text and bezier use a 256 byte link
+;polyline and polygon require a larger link to store all the point data
+
+;the first 112 bytes of each link are common and of fixed format
+;for all links.  the remaining bytes may be used by the object 
+;as need be.  the "dat" pointer also makes provision for unique 
+;object data.
 
 
-;The structure of each link is as follows:
+;The structure of the first 112 bytes of each link is as follows:
 
 ;offset  size     description
 ; 0      dword    object type
@@ -3044,7 +3179,7 @@ public InitLink1
 ;88      qword    Y1  object endpoint 1
 ;96      qword    X2  object endpoint 2  (if applicable)
 ;104     qword    Y2  object endpoint 2  
-;this is the end of the common data
+;this is the end of the common fixed format data
 
 
 
@@ -3116,7 +3251,7 @@ public InitLink1
 ;offset[72] address of prev link in the list
 ;offset[76] address of next link in the list
 
-;offset[80  we reserve 32 bytes for (4) qwords
+;offset[80]  we reserve 32 bytes for (4) qwords
 ;these are x1,y1,x2,y2 object coordinates
 ;not all objects will use all of these and some may need more
 ;80  qword X1 dbl prec floating point
@@ -3124,28 +3259,10 @@ public InitLink1
 ;96  qword X2
 ;104 qword Y2
 
-;offset[112->256] available for unique object data
-;additional x,y coordinates may be stored
-;TCD_TEXT ascii bytes are saved here
 
 
 
-;for type=TEXT we need 16 bytes for x,y location
-;plus one byte for text height leaving 183 bytes for
-;ascii characters
-
-;for type=MTEXT we have same as above but also need
-;one byte for width of rectangle that text fits in
-
-;for type=POLYLINE we have enough space for only 12 points
-
-;for type=DIMALIGNED we need ? bytes
-
-;for type=ARC we need ? bytes
-
-
-
-;input:none
+;input: push qty bytes reqd (i.e. sizeof object link)  [ebp+8]
 
 ;return:
 ;on success ZF is set and esi holds address of the new link
@@ -3155,32 +3272,53 @@ public InitLink1
 ;public symbols can only be 11 bytes
 public CreateBLink
 
+	push ebp
+	mov ebp,esp
+
 	push eax
 	push ebx
 	push ecx
 	push edx
 	push edi
-	push ebp
 
 	dumpstr str22
+	
+
+	;check to make sure we havent exceed 0x2200000
+	;which is the max address for the TCAD link list
+	;0x2100000->0x2200000 TCAD link list
+	mov eax,[taillink]  ;address of last link currently
+	add eax,[ebp+8]     ;sizeof link being requested
+	cmp eax,0x2200000
+	jb .1
+
+
+	;if we got here there is no more room to allocate new links
+	dumpstr str179  ;alloc failed
+	jmp .done
+	
+
+
+.1:
 
 	;****************       **************
 	;    taillink   *  ---> *  newlink   *
 	;****************       **************
 
-	mov ebp, [taillink]  ;the last link of the list currently
-	mov esi, [newlink]   ;new links are always appended to the list
 
+	mov esi, [newlink]   ;new links are always appended to the list
 
 
 	;zero out all fields of the newlink 
 	;to erase previous garbage
-	mov edi,esi  ;edi=address of link
+	mov edi,esi      ;edi=address of link
 	cld
-	mov ecx,256  ;qty bytes to write
-	mov al,0     ;write 0 byte
-	repstosb     ;al->[edi], edi++
+	mov ecx,[ebp+8]  ;qty bytes to write
+	mov al,0         ;write 0 byte
+	repstosb         ;al->[edi], edi++
 
+
+	mov edi, [taillink]  ;the last link of the list currently
 
 
 	;initialization of link data is the responsiblity
@@ -3198,8 +3336,8 @@ public CreateBLink
 
 
 	;case 2: all other cases append newlink after taillink
-	mov [ebp+76],esi       ;taillink->next=newlink
-	mov [esi+72],ebp       ;newlink->prev=taillink
+	mov [edi+76],esi       ;taillink->next=newlink
+	mov [esi+72],edi       ;newlink->prev=taillink
 	mov dword [esi+76],0   ;newlink->next=0
 	mov [taillink],esi     ;save the new taillink
 
@@ -3210,25 +3348,25 @@ public CreateBLink
 	;return value
 	mov esi,[newlink]
 
-	;increment our link pointer
+	;increment link pointer
 	;this will be the starting address of the next link
-	add dword [newlink],256 
+	mov eax,[ebp+8]
+	add [newlink],eax  ;qty bytes requested 
 
 	;increment link count
 	inc dword [sizeoflinklist] 
 
 
-	;check to make sure we havent exceeded 8000 links/objects
-	;????????????????
-
 .done:
-	pop ebp
+
 	pop edi
 	pop edx
 	pop ecx
 	pop ebx
 	pop eax
-	ret
+
+	pop ebp
+	retn 4
 	
 
 
@@ -3425,6 +3563,7 @@ IdleLeftMouseHandler:
 	push esi           ;preserve
 
 	;esi=address of object to hit test
+	push 1                 ;do hit testing
 	push ObjectProperties  ;pass address of printf buffer
 	push MOUSEYF           ;pass address of MOUSEYF
 	push MOUSEXF           ;pass address of MOUSEXY
@@ -3892,6 +4031,9 @@ public UnselectAll
 
 	;makes drag box possible
 	mov dword [HaveLeftMousePick],0 
+
+	;address of selected link using RIGHT or LEFT arrow
+	mov dword [selectedlink],0
 
 	ret
 
@@ -5272,6 +5414,135 @@ SetOrtho:
 
 
 
+;*****************************************
+;SelectNext
+
+;pressing the RIGHT arrow will display the
+;next object in the link list as selected
+;if no object is currently selected you get the
+;headlink. If you are at the tail link we jump
+;back and give you the headlink.
+
+;input:none
+;return:none
+;******************************************
+
+SelectNext:
+
+	;do we have a selected object ?
+	cmp dword [selectedlink],0
+	jnz .2
+
+.1:
+	;get address of headlink
+	mov esi,[headlink]
+	jmp .3
+
+
+.2:
+	;unselect the currently selected link
+	mov esi,[selectedlink]
+	mov dword [esi+8],0
+	
+	;get address of next link
+	mov esi,[esi+76]   
+
+	;is the address valid ?
+	cmp esi,0
+	jz .1  ;if not get address of headlink
+
+
+.3:
+	;save address of selected link
+	mov [selectedlink],esi
+
+
+	;call object->select proc
+	;this will make the object selected
+	;and display object properties across top of screen
+	;we will skip hit testing
+	push 0                 ;0=skip hit testing
+	push ObjectProperties  ;pass address of printf buffer
+	push MOUSEYF           ;pass address of MOUSEYF
+	push MOUSEXF           ;pass address of MOUSEXY
+	push zoom              ;pass address of zoom factor
+	mov eax,[esi+52]       ;get address of object selection proc
+	call eax               ;call object->select proc 
+
+
+.done:
+	ret
+
+
+
+
+
+
+;*****************************************
+;SelectPrevious
+
+;pressing the LEFT arrow will display the
+;previous object in the link list as selected
+;if no object is currently selected you get the
+;headlink. If you are at the headlink we
+;keep you at the headlink, so you know you are
+;at the beginning.
+
+;input:none
+;return:none
+;******************************************
+
+
+SelectPrevious:
+
+	;do we have a selected object ?
+	cmp dword [selectedlink],0
+	jnz .2
+
+.1:
+	;get address of headlink
+	mov esi,[headlink]
+	jmp .3
+
+
+.2:
+	;unselect the currently selected link
+	mov esi,[selectedlink]
+	mov dword [esi+8],0
+	
+	;get address of previous link
+	mov esi,[esi+72]
+
+	;is the address valid ?
+	cmp esi,0
+	jz .1  ;if not get address of headlink
+
+
+.3:
+	;save address of selected link
+	mov [selectedlink],esi
+
+
+	;call object->select proc
+	;this will make the object selected
+	;and display object properties across top of screen
+	;we will skip hit testing
+	push 0                 ;0=skip hit testing
+	push ObjectProperties  ;pass address of printf buffer
+	push MOUSEYF           ;pass address of MOUSEYF
+	push MOUSEXF           ;pass address of MOUSEXY
+	push zoom              ;pass address of zoom factor
+	mov eax,[esi+52]       ;get address of object selection proc
+	call eax               ;call object->select proc 
+
+
+.done:
+	ret
+
+
+
+
+
 
 
 
@@ -5322,4 +5593,4 @@ SetOrtho:
 
 
 
-             
+                                

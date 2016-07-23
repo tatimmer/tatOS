@@ -1,12 +1,18 @@
 ;Project: TCAD
-;io02  June 05, 2016
+;io03  July 20, 2016
+
 
 ;this file contains code and data for reading and writting tcd files
 ;a tcd file is the native graphics file for TCAD
 
 ;this file also contains code for exporting to pdf
 
-;FileOpenTCD must be updated for each new tcad graphic object
+;When adding a new TCD object this file must be updated as follows:
+;  * add extern for new object read proc
+;  * add equate for new object TCD identification number
+;  * add code in FileOpenTCD to call the object read poc
+
+
 
 
 ;FileSaveTCD   (public)
@@ -32,6 +38,7 @@ extern InitLink1
 extern segmentread
 extern txtread
 extern aroread
+extern bezread
 
 
 
@@ -67,6 +74,7 @@ equ TCD_RECT     3
 equ TCD_TEXT     4
 equ TCD_DIM      5
 equ TCD_ARROW    6
+equ TCD_BEZIER   7
 
 equ TCD_VERSION  2     ;currently supported version number
 equ SIZEOFTCDHEADER 48
@@ -494,6 +502,7 @@ public FileSaveTCD
 ;	TCD_SEGMENT
 ;	TCD_TEXT
 ;	TCD_ARROW
+;     TCD_BEZIER
 
 ;you must update this functions code for new objects
 
@@ -598,12 +607,12 @@ public FileOpenTCD
 
 	cmp eax,TCD_SEGMENT
 	jz .readSegment
-
 	cmp eax,TCD_TEXT
 	jz .readText
-
 	cmp eax,TCD_ARROW
 	jz .readArrow
+	cmp eax,TCD_BEZIER
+	jz .readBezier
 
 
 	;if we got here we have some unsupported object type
@@ -623,6 +632,11 @@ public FileOpenTCD
 
 .readArrow:
 	call aroread
+	;must return esi=address of next object in tcd file
+	jmp .2
+
+.readBezier:
+	call bezread
 	;must return esi=address of next object in tcd file
 	jmp .2
 
@@ -1175,4 +1189,4 @@ public FileSavepdf
 
 
 
-   
+    

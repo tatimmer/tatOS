@@ -6,7 +6,7 @@
 
 ;****************************************************************
 ;rectangle
-;draws an unfilled rectangular box 1 pixel wide
+;draws an unfilled rectangular box, line width = 1 pixel
 
 ;if YORIENT=1 then x,y is the upper left corner of the rect
 ;the rect is drawn to the right and down

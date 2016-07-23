@@ -216,7 +216,8 @@ the carry flag can be used for rounding up (adc eax,0)
 
 
 carry vs overflow
-carry means the "unsigned" answer cannot be represented in the current size.  overflow means the "signed" answer (2's compliment) cannot be represented in the current size.
+carry means the "unsigned" answer cannot be represented in the current size.  
+overflow means the "signed" answer (2's compliment) cannot be represented in the current size.
 
 
 cdq
@@ -524,10 +525,12 @@ in the   signed world 0xffffffff < 0 so use jg or jl
 
 
 jump table
-need "dd" because each label is a 32bit address
+need "dd" because each label is a 32bit address (i.e. codelabel:)
 mytable:
 dd label1, label2, default, label3, label4
-jmp [mytable+eax*4]  ;eax=0->10 for 9 choices
+jmp [mytable+ecx*4]  ;eax=0->10 for 9 choices
+you can also make a "push" table of string addresses and push them on the stack
+in a loop like this:  push dword [mytable + ecx*4]
 
 
 

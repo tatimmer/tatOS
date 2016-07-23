@@ -1,4 +1,4 @@
-;tatOS/tlib/tlibEntryProc.s
+;tatOS/tlib/tlibentry.s
 
 
 ;tlibEntryProc
@@ -93,7 +93,8 @@ valstr1 db 'tlibentry:ValidateUserAddress:invalid address',0
 %macro VALIDATE 1
 	push %1
 	call ValidateUserAddress
-	jc near Exit
+	;if address is invalid we return to user app without calling kernel function
+	jc near Exit  
 %endmacro
 
 ;***********************************************************
@@ -155,10 +156,11 @@ dd _pickoption, _gets, _dropdowncreate, _dropdownpaint         ;103,104,105,106
 dd _strchr, _rotateline, _getangleinc, _toggle, _offset        ;107,108,109,110,111
 dd _gethubinfo, _hypot, _dumpFPUstatus, _dumpview              ;112,113,114,115
 dd _dumpst09, _arccos, _strlenB, _st02str, _inflaterect        ;116,117,118,119,120
-dd _dumpreset, _showpopup, _dumpstrquote, _linepdf             ;121,122,123,124
+dd _dumpreset, _showpopup, _dumpstrquote, _line2pdf, _bezier   ;121,122,123,124,125
+dd _ptinpoly, _bez2pdf                                         ;126,127
 
 ;dont forget to increment this tom when you add a function to this table !!!
-%define MAXTLIBFUNCTIONID 124
+%define MAXTLIBFUNCTIONID 127
 ;**********************************************************************************
 
 tlibEntryProc:
@@ -1173,7 +1175,7 @@ _dumpstrquote:
 	call dumpstrquote
 	jmp near Exit
 
-_linepdf:
+_line2pdf:
 	;mov eax,124
 	VALIDATE edi  
 	push edi      ;destination pdf buffer
@@ -1181,11 +1183,34 @@ _linepdf:
 	push ecx      ;y1
 	push edx      ;x2
 	push esi      ;y2
-	call linepdf
+	call line2pdf
 	jmp near Exit
 
+_bezier:
+	;mov eax,125
+	VALIDATE ecx  
+	push ebx      ;linetype
+	push ecx      ;address of points x1,y1,x2,y2,x3,y3,x4,y4
+	push edx      ;color
+	call bezier
+	jmp near Exit
 
+_ptinpoly:
+	;mov eax,126
+	;ecx=qty points in polygon
+	VALIDATE esi  ;address polygon points	
+	VALIDATE edi  ;address of point to check
+	call ptinpoly
+	jmp near Exit
 
+_bez2pdf:
+	;mov eax,127
+	VALIDATE ebx ;address of destination pdf buffer
+	VALIDATE ecx ;address of bezier points x1y1x2y2x3y3x4y4
+	push ebx
+	push ecx
+	call bez2pdf
+	jmp near Exit
 
 
 

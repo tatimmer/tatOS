@@ -183,6 +183,7 @@ dumpview:
 ;***************************************************
 
 dumpstr:
+
 	push ebp
 	mov ebp,esp
 	pushad
@@ -335,10 +336,10 @@ dumpchar:
 
 ;*******************************************************************************
 ;dumpst0
-;dump the contents of the fpu st0 register
+;dump the contents of the fpu st0 register with a string tag preceeding
 
 ;this works opposite of dumpeax, first string tag appears then value in st0
-;"my string tag"1.234
+;"my string tag "1.234
 ;"Length of Apple = "3.456
 
 ;the value in st0 defaults to 3 decimal places
@@ -437,13 +438,16 @@ dumpst09:
 
 ;****************************************************************
 ;dumpeax
+
 ;displays contents of al/ax/eax as ascii hex 
 ;or as signed decimal
 ;then display a SPACE then display an ascii string
 ;example:  "ff123456 This is the value of apple"
+
 ;input: 
 ;push address of string tag, if address=0 then skip string
 ;push register size 0=dword, 1=word, 2=byte, 3=signed decimal
+
 ;return: none
 ;****************************************************************
 
@@ -713,6 +717,7 @@ dumpPoints:
 ;   push starting memory address   [ebp+12]
 ;   push qty bytes to convert      [ebp+8]
 ;return:none
+dumpmemstr1 db 'dumpmem',0
 ;**********************************************
 
 dumpmem:
@@ -720,6 +725,8 @@ dumpmem:
 	push ebp
 	mov ebp,esp
 	pushad
+
+	STDCALL dumpmemstr1,dumpstr
 
 	;alloc some memory for this
 	;Aug 2011 this is our first function in all of tatOS to use alloc
@@ -998,7 +1005,7 @@ dumpFPUstatus:
 	jc .empty
 	jp .denormal
 
-	;if we got here we have a zero value (ZF=1, PF=0, CF=0)
+	;if we got here, the value in st0 is "zero" (ZF=1, PF=0, CF=0)
 	STDCALL fpusta1,dumpstr
 	jmp .doCW
 

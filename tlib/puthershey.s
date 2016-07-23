@@ -449,7 +449,7 @@ HersheyMoveTo:
 ;result:
 ;if output to graphics monitor:
 ;a line is drawn from HersheyX1,HersheyY1 to LineToX,LineToY
-;else strings are written to pdf file using linepdf()
+;else strings are written to pdf file using line2pdf()
 ;******************************************************************
 
 HersheyLineTo:
@@ -492,7 +492,7 @@ HersheyLineTo:
 	push dword [HersheyY1]    ;y1  from MoveTo
 	push dword [HersheyX2]    ;x2
 	push dword [HersheyY2]    ;y2
-	call linepdf
+	call line2pdf
 	pop esi
 	pop edi
 	;returns eax=address of next byte to be written to pdf buffer

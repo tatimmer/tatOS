@@ -49,7 +49,7 @@ db 'F8      = show EHCI controller registers',NL
 %endif
 
 db NL
-db 'F1      = init usb controller & low speed devices',NL
+db 'F1      = init usb controller & low speed devices, detect flash',NL
 db 'F2      = init flash drive',NL
 db 'F6      = format flash drive with tatOS FAT16 no partition',NL
 db 'F7      = show usb mouse report',NL

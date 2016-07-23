@@ -951,9 +951,10 @@ te_doF9:
 	;*********************
 
 te_doF10:
-	;this allows you to enter file names interactively
+	;this allows you to load a makefile
+	;and edit file names interactively
 	;and then run the make utility
-	call make
+	call makeDialog
 	jmp near tedit_endkeypress
 
 

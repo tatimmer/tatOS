@@ -1,5 +1,5 @@
 ;Project: TCAD
-;txt02  June 01, 2016
+;txt04  July 17, 2016
 
 
 ;this file contains code and data for TCD_TEXT
@@ -353,6 +353,7 @@ public txtcreate
 	dumpstr str1
 
 
+	push 256
 	call CreateBLink
 	;test return value, esi holds address of link
 
@@ -698,8 +699,15 @@ txtpaint:
 ;where bounding box of string1 is inside the bounding
 ;box of string2.  then must select by dragbox
 
+;the dword HitTest is 0=skip hit testing or 1=do hit testing
+;when user hits RIGHT or LEFT arrow we skip hit testing and
+;just mark the object as selected and build the object properties
+;string.
+
+
 ;input:
 ;esi = address of SEGMENT object to check
+;push dword HitTest            [ebp+24]
 ;push address of printf buffer [ebp+20]
 ;push address qword MOUSEYF    [ebp+16]
 ;push address qword MOUSEXF    [ebp+12]
@@ -719,7 +727,12 @@ txtselect:
 	dumpstr str5
 
 	;save address of SEGMENT object for later
-	mov [ebp-4],esi 
+	mov [ebp-4],esi
+
+
+	cmp dword [ebp+24],0
+	jz .skipHitTest
+
 
 
 	;get mouse xy in screen coordinates
@@ -741,6 +754,8 @@ txtselect:
 	jnz .nopick        ;mouse is not within bounding box
 
 	
+
+.skipHitTest:
 	
 
 	;now toggle the line selection state to 1,0,1,0...
@@ -793,7 +808,13 @@ txtselect:
 .done:
 	mov esp,ebp  ;deallocate locals
 	pop ebp
-	retn 16
+	retn 20
+
+
+
+
+
+
 
 
 
@@ -1173,6 +1194,7 @@ txtcopy:
 	dumpstr str16
 
 
+	push 256
 	call CreateBLink
 	;test return value, esi holds address of link
 
@@ -1668,6 +1690,7 @@ public txtread
 
 
 	;create a new blank link
+	push 256
 	call CreateBLink
 	;returns esi=address of object link
 
@@ -2195,4 +2218,4 @@ txt2pdf:
 
 
 
-    
+      

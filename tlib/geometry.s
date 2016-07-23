@@ -1394,6 +1394,8 @@ grid:
 ;return:
 ;the x,y dword points are written to the destination buffer
 
+;note: user must ffree st0,st1,st2,st3 after calling this function
+
 ;local
 rose_thetainc  dq 0.0174532
 rose_theta     dq 0.0

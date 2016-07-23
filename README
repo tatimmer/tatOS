@@ -1,6 +1,8 @@
-README - tatOS - April 2016
+README - tatOS - July 2016
 
 Welcome to tatOS - "programming for the common man in assembler"
+
+What's new: bezier, bez2pdf,  apps/TCAD update
 
 tatOS is an x86 32 bit hobby operating system that gets worked on in my spare time. 
 It has provided many hours of programming enjoyment (perhaps too many !)
@@ -50,6 +52,8 @@ This is the only mode supported.  A tatOS app can draw over the entire 800x600 p
 screen with graphic primitives like line, circle, arc, text, rectangle, 
 or draw to a private pixel buffer. See functions in /tlib. 
 See tlib/video.s for swaping pixel buffers to the screen.
+
+tatOS supports the following file formats: txt & bmp for input and pdf for output.
 
 tatOS can not read or write to your hard drive so dont worry.
 

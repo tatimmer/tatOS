@@ -1,4 +1,4 @@
-README-tatOS  Dec 2013
+README-tatOS  June 2016
 
 
 Q: What is tatOS ?
@@ -229,7 +229,6 @@ This happens most often when going thru the flash drive init sequence.
 The best thing to do is wait for your computer to "warm up" after booting.
 Linux calls this "waiting for the device to settle".
 You must reinit the controller and flash after a failed transaction.
-If fatwritefile fails, do a restore FAT2->Fat1  (see xxd.s)
 
 
 

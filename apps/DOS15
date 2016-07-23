@@ -41,7 +41,7 @@ db 'value of ebx',0
 	dumpstr str1
 
 	mov ebx,3
-	dumpebx ebx,str2
+	dumpebx ebx,str2,0  ;eax=9, ebx=value, ecx=addressofstring, edx=regsize
 
 	swapbuf
 	getc

@@ -295,6 +295,7 @@ dd _tlibstub               ;0x10310
 %include "tlib/datetime.s"
 %include "tlib/time.s"
 %include "tlib/line.s"
+%include "tlib/polygon.s"
 %include "tlib/dump.s"
 %include "tlib/controls.s"
 %include "tlib/string.s"
@@ -337,6 +338,7 @@ dd _tlibstub               ;0x10310
 %include "tlib/clipboard.s"
 %include "tlib/dropdown.s"
 %include "tlib/make.s"
+%include "tlib/bezier.s"
 
 
 

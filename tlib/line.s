@@ -3,7 +3,7 @@
 ;various functions to draw lines:
 
 ;hline, vline, line, polyline, linepolar
-;linepdf
+;line2pdf
 
 
 
@@ -498,7 +498,7 @@ line:
 
 
 ;************************************************************
-;linepdf
+;line2pdf
 
 ;this function will write 3 ascii strings which define
 ;a line in a pdf file:
@@ -511,6 +511,8 @@ line:
 ;l = LineTo operator
 ;S = stroke operator
 
+;all the x,y coordinates are dword unclipped screen coordinates
+
 ;input:
 ;push dword address of destination buffer to write pdf strings  [ebp+24]
 ;push dword x1    [ebp+20]
@@ -522,7 +524,7 @@ line:
 ;        eax=edi=address of next byte to be written to pdf buffer
 ;***********************************************************
 
-linepdf:
+line2pdf:
 
 	push ebp
 	mov ebp,esp

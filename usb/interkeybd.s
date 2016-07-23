@@ -637,6 +637,19 @@ ProcessUsbKeyboardReport:
 .donePASTE:
 
 
+
+	;check for PRINTSCREEN
+	;************************
+	cmp dword [KEYBOARD_REPORT_BUF],0x00460000
+	jnz .donePRINTSCREEN
+	call printscreen
+	mov dword [have_keyup],0
+	jmp .queueUP
+.donePRINTSCREEN:
+
+
+
+
 	;check for LCTRL down
 	cmp byte [KEYBOARD_REPORT_BUF],1
 	jnz .doneLCTRL

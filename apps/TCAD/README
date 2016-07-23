@@ -1,7 +1,6 @@
-
 tatOS/apps/TCAD/README
 
-June 2016
+July 2016
 
 TCAD is a 2d cadd program for tatOS
 
@@ -9,6 +8,7 @@ This version supports:
    * TCD_SEGEMENT
    * TCD_TEXT
    * TCD_ARROW
+   * TCD_BEZIER
    * export to tcd and pdf files
 
 
@@ -21,37 +21,55 @@ io.s    = read/write tcd files, export to pdf
 seg.s   = code/data to draw segments/lines
 txt.s   = code/data to draw text
 aro.s   = code/data to draw arrows
+bez.s   = code/data to draw beziers
 
 
 [2] assemble, link & run
 to generate the TCAD executable for tatOS, press F10 within tedit
-to bring up the make utility and type in the names of the 
-project files
+this is an interactive make utility
+press "l" to load a makefile
+edit file names as desired
+press "m" to make the TCAD executable
 
-Then press F10 to "run make" which will assemble and link the project.
 Finally ESC to tedit and press F11 to run the executable.
 
 
 
 
-[3] to draw lines with the mouse press the 'l' key
-endpoints may be defined with Lclicks
-See the Draw menu for other line drawing options including
-(k) keyboard, (i) intersection, (pd2) perpendicularTo
-As you hover with the mouse, yellow boxes will be drawn around
-existing endpoints or midpoints, a yellow angle is drawn if the
-mouse is hover over a line segment but not near an endpoint.
+To Draw
+**********
+l = keyboard shortcut to draw line segments
+b = keyboard shortcut to draw cubic beziers
+a = keyboard shortcut to draw arrows
+t = keyboard shortcut to draw text
+o = keyboard shortcut to open a .tcd file
+s = keyboard shortcut to save a .tcd file
 
-[4] hold the middle mouse button down to pan
-roll the mouse wheel to zoom
+Most object endpoints are defined with mouse clicks.
+Follow the prompts at bottom of the screen
+A few object endpoints can be defined/modified with keyboard input.
 
-[5] press F12 to quit
+See the Draw menu for other object drawing options.
 
-[6] Object selection is done with the Lclick or drag box.
-Selected objects are shown with a dashed pixel pattern.
-Many functions require you to indicate that you are done selecting
-by hitting the ENTER key or alternately do Rclick.
-To un-select, hit the ESC key.
+
+
+Yellow Box
+***********
+As you hover with the mouse, yellow boxes will be drawn around some
+existing object points.  The yellow boxes can be used to attach other objects.
+
+
+
+Pan/Zoom
+**********
+hold the middle mouse button down to pan
+roll the mouse wheel to zoom in/out
+
+
+
+Quit
+*****
+press F12 to quit TCAD
 
 
 
@@ -64,6 +82,82 @@ dumpsel.
 
 
 
+Popup Menu
+*************
+All selected objects have a popup menu that can be displayed with Rclick.
+The allows you to modify the selected object. 
+Only 1 object can be selected to invoke this menu.
+
+
+
+Selection
+************
+Objects can be selected by:
+   * Lclick on line type object 
+   * Lclick within the bounding polygon for objects like bezier
+   * drag box (Lclick upper left then lower right)
+   * RIGHT or LEFT arrow keys will cycle thru the link list and select.
+     The LEFT arrow will select the previous link.
+     The RIGHT arrow will select the next link. 
+	
+Selected objects are shown with dashed lines.
+Hit ESC to deselect all objects.
+
+
+
+Slide Mode
+*************
+Slide mode allows the user to dynamically redefine an end point
+or control point of an object that already exists. The dword stored 
+within the link takes on the following values:
+0xffffffff = disable slide mode
+0 = redefine x1y1
+1 = redefine x2y2
+n = redefine xnyn
+Slide mode is invoked by selecting an object then displaying the 
+object popup menu with a Rclick, then selecting a point to redefine
+(x1y1, x2,y2, xnyn).Exit slide mode with an Lclick to define the point 
+location.
+
+
+
+Markers
+*********
+Markers are little square boxes to indicate the location of object
+endpoints and control points. The object starting point x1y1 
+has a double box. Markers can be shown or hidden by selecting the 
+object then Rclick->markers from the popup menu.
+
+
+
+Delete
+*********
+To delete an object select it then hit Delete.
+
+
+
+Escape Key
+************
+Unselect All.
+Do not hit ESC in the middle of object creation (fixme tom).
+ 
+
+
+pdf export
+***********
+Every TCAD object can be saved to a pdf file. This is an ascii text file.
+The layer color is used as the pen color, but we reverse the black/white pen
+since tcad draws on a black screen and the pdf file is written to a page with a 
+white background.  Currently only solid lines are supported.
+You must pan/zoom the graphics objects to fit the screen since we use an 800x600 
+pdf "page" size that matches our graphics monitor, and object "screen coordinates" 
+are exported to the pdf file not floating point coordinates. 
+
+
+
+
+For Programmers
+**************
 A few notes about some key variables:
 
 dword [CurrentObjectLink] holds address of a link in the list

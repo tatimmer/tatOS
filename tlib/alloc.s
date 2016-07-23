@@ -45,7 +45,7 @@
 ;at any time/order regardless of when it was allocated. 
 ;Also allocated memory blocks need not be contiguous.
 
-;tatos.init inits the MAT with all zeros
+;tatOS.init inits the MAT with all zeros
 
 
 ;******************************************************************
@@ -216,11 +216,7 @@ alloc:
 	xor eax,eax
 .done:
 	mov eax,[allocStartOfMemory]
-
-%If VERBOSEDUMP
 	STDCALL allocstr4,0,dumpeax     ;memory address returned
-%endif
-
 	popad
 	mov esi,[allocStartOfMemory]  ;return value
 	ret
@@ -237,8 +233,8 @@ alloc:
 
 ;input:
 ;esi=address in heap of memory block to free
-;this must be an address that was returned by the alloc function
-;otherwise undefined behavior
+;    this must be an address that was returned by the alloc function
+;    otherwise undefined behavior
 
 ;return:
 ;ZF is clear on success and set on error

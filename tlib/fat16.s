@@ -1369,17 +1369,15 @@ fatloadvbrfatrootdir:
 
 fatreadfile:
 
-	STDCALL fatstr55,dumpstr
-
 	push ebp
 	mov ebp,esp
-
 	push ebx
 	push ecx
 	push edx
 	push esi
 	push edi
 
+	STDCALL fatstr55,dumpstr
 
 	STDCALL FILENAME,fatfindfile  ;only searches the CWD
 	;returns address of DIRENTRY in esi
@@ -2591,6 +2589,7 @@ fatgetfilename:
 
 fatprocessfilename:
 
+	pushad
 	mov edx,eax  ;save copy of string address for later
 
 	;is the filename string less than 11 char ?
@@ -2614,6 +2613,7 @@ fatprocessfilename:
 
 .terminate:
 	mov byte [edx+11],0  ;terminate the 12th byte
+	popad
 	ret
 
 

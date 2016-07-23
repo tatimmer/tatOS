@@ -48,11 +48,17 @@
 
 ;***************************************************
 ;putbits
+
 ;display a rectangular grid of pixels
 ;may be any width or height
 ;starting pixel is upper left corner of the bitmap
 ;bits array is 2d top down left to right
 ;each 'bit' is a byte value index into the DAC (0-255)
+
+;note the bits array does not contain padding bytes
+;it is device "independent"
+;so we can only write 1 row of bytes at a time
+;and then skip over the particular device padding bytes
 
 ;input:
 ;push xstart           [ebp+24]
@@ -454,13 +460,15 @@ putscriptT:
 ViewBitsMenu:
 db 'Bitmap Viewer and  Converter',NL
 db '*****************************',NL
-db 'F1=Display unformatted bits array using std palette, user gives width,height',NL
-db 'F2=Display a BTS file',NL
-db 'F3=Convert a Windows 8 bit 256 color bmp to BTS',NL
-db 'F4=Convert a Windows 24 bit DIB to grayscale BTS',NL
-db 'F5=Convert BTS to Windows 8 bit 256 color bmp',NL
-db 'F6=Display BMP file info',NL
-db 'F7=Save IMAGEBUFFER to flash as BTS file (following PrntScrn)',NL
+db 'F1=Load & display file of unformatted bits using std palette',NL
+db '   user must give width,height',NL
+db 'F2=Display whats in the IMAGEBUFFER (after PrintScreen)',NL
+db 'F3=Save IMAGEBUFFER to flash as BTS file',NL
+db 'F4=Load and display a BTS file',NL
+db 'F5=Load Windows 8 bit 256 color bmp file and save as BTS file std palette',NL
+db 'F6=Load BTS file & save as Windows 8 bit 256 color bmp file',NL
+db 'F7=Load Windows 24 bit DIB file and save as grayscale BTS file',NL
+db 'F8=Display BMP file info',NL
 db 'F12=quit',NL
 db 0
 
@@ -521,6 +529,8 @@ BitmapViewer:
 	jz near .doF6
 	cmp al,F7
 	jz near .doF7
+	cmp al,F8
+	jz near .doF8
 	cmp al,F12
 	jz near .done
 
@@ -535,7 +545,10 @@ BitmapViewer:
 	jmp near .paint
 	
 
-.doF1: ;Display an unformatted bits array
+
+
+.doF1: ;Load and Display an unformatted bits array
+       ;user is prompted to enter the bitmap width/height
 
 	;user to select a file to open
 	mov ebx,0     ;list/display/select files only
@@ -576,7 +589,6 @@ BitmapViewer:
 	call str2eax
 	jnz .keyboard
 	mov [bmheight],eax
-
 .doneF1:
 	mov dword [BitsPaintOption],1
 	jmp .paint
@@ -584,7 +596,35 @@ BitmapViewer:
 
 
 
-.doF2: ;display a BTS file
+.doF2:  ;Display whats in the IMAGEBUFFER (after PrintScreen)
+		;this is a BTS file in memory
+		;nothing to do but showit !
+	mov dword [BitsPaintOption],2
+	jmp .paint
+
+
+
+
+.doF3: ;save IMAGEBUFFER to flash as BTS file
+
+	;pushing the PrintScreen button writes a BTS file to the IMAGEBUFFER
+	;here we save to flash
+
+	;prompt user for filename to save and store at COMPROMPTBUF
+	STDCALL shellstr6,fatgetfilename
+	jnz .keyboard  ;user hit ESC
+
+	;save the file
+	STDCALL IMAGEBUFFER,480016,fatwritefile
+	;returns eax=0 on success else nonzero on erro
+
+	mov dword [BitsPaintOption],0
+	jmp .paint  ;just to refresh the screen
+
+
+
+
+.doF4: ;Load and Display a BTS file
 
 	;user to select a file to open
 	mov ebx,0     ;list/display/select files only
@@ -600,12 +640,12 @@ BitmapViewer:
 	jz .keyboard  ;error
 
 	mov dword [BitsPaintOption],2
-	jmp .paint
+	jmp .paint  ;just to refresh the screen
 
 
 	
 
-.doF3:  ;convert a Windows 256 color bitmap to BTS with std palette
+.doF5:  ;Load Windows 8 bit 256 color bitmap and save as BTS file std palette
 
 	;user to select a file
 	mov ebx,0     ;list/display/select files only
@@ -640,7 +680,42 @@ BitmapViewer:
 
 
 
-.doF4:  ;convert a Windows 24bit DIB to grayscale BTS
+
+.doF6:  ;Load BTS file and save as Windows 8 bit bmp file
+
+	;user to select a file
+	mov ebx,0     ;list/display/select files only
+	call filemanager
+	jz .keyboard   ;user hit esc
+	;otherwise the 11char filename string is at FILENAME (0x198fb00)
+
+	;load the BTS from flash to memory
+	push dword [BitsViewerMemory]
+	call fatreadfile
+	;return eax=filesize
+	cmp eax,0
+	jz .keyboard  ;error
+
+	;convert the BTS to bmp
+	mov edi,[BitsViewerMemory]
+	call convertBTSbmp  ;returns ecx=filesize else 0
+
+	;prompt user for filename to save and store at COMPROMPTBUF
+	STDCALL bitstr8,fatgetfilename
+	jnz .keyboard
+
+	;save the file
+	STDCALL IMAGEBUFFER,ecx,fatwritefile
+	;returns eax=0 on success else nonzero on erro
+
+	mov dword [BitsPaintOption],0
+	jmp .paint  ;just to refresh the screen
+
+
+
+
+
+.doF7:  ;Load Windows 24bit DIB and save as grayscale BTS file
 
 	;user to select a file
 	mov ebx,0     ;list/display/select files only
@@ -673,39 +748,9 @@ BitmapViewer:
 
 
 
-.doF5:  ;convert BTS to Windows 8 bit bmp
-
-	;user to select a file
-	mov ebx,0     ;list/display/select files only
-	call filemanager
-	jz .keyboard   ;user hit esc
-	;otherwise the 11char filename string is at FILENAME (0x198fb00)
-
-	;load the BTS from flash to memory
-	push dword [BitsViewerMemory]
-	call fatreadfile
-	;return eax=filesize
-	cmp eax,0
-	jz .keyboard  ;error
-
-	;convert the BTS to bmp
-	mov edi,[BitsViewerMemory]
-	call convertBTSbmp  ;returns ecx=filesize else 0
-
-	;prompt user for filename to save and store at COMPROMPTBUF
-	STDCALL bitstr8,fatgetfilename
-	jnz .keyboard
-
-	;save the file
-	STDCALL IMAGEBUFFER,ecx,fatwritefile
-	;returns eax=0 on success else nonzero on erro
-
-	mov dword [BitsPaintOption],0
-	jmp .paint  ;just to refresh the screen
 
 
-
-.doF6:  ;Display bmp file info like bmwidth, bmheight, numcolors ...
+.doF8:  ;Display bmp file info like bmwidth, bmheight, numcolors ...
 
 	;user to select a file
 	mov ebx,0     ;list/display/select files only
@@ -726,24 +771,6 @@ BitmapViewer:
 
 
 
-.doF7: ;save IMAGEBUFFER to flash as BTS file
-
-	;pushing the PrintScreen button writes a BTS file to the IMAGEBUFFER
-	;here we save to flash
-
-	;prompt user for filename to save and store at COMPROMPTBUF
-	STDCALL shellstr6,fatgetfilename
-	jnz .keyboard  ;user hit ESC
-
-	;save the file
-	STDCALL IMAGEBUFFER,480016,fatwritefile
-	;returns eax=0 on success else nonzero on erro
-
-	STDCALL bitstr6,bitstr7,popupmessage
-	jmp .keyboard
-
-
-
 
 
 .paint: ;our paint routine for BitmapViewer
@@ -753,6 +780,7 @@ BitmapViewer:
 	
 	;Option 0
 	;show the menu
+	;this will just get over written by the other options
 	STDCALL FONT01,10,0,ViewBitsMenu,0xefff,putsml
 
 
@@ -779,6 +807,7 @@ BitmapViewer:
 	
 	;Option 2
 	;display BTS file previously loaded to IMAGEBUFFER
+	;or created by PrintScreen
 	cmp dword [BitsPaintOption],2
 	jnz .doneOption2
 	STDCALL IMAGEBUFFER,0,0,putBTSfile  ;sets palette if gray or custom
@@ -815,9 +844,12 @@ BitmapViewer:
 
 ;***********************************************************
 ;printscreen
+
 ;this function creates a BTS file 800x600 of the entire screen
 ;the file data is written to IMAGEBUFFER
-;called from keyboard.s when PrtScrn button is pressed
+;after the PrintScreen button is pressed
+;there are exactly 48,000 pixels saved with no padding bytes included
+
 ;input:none
 ;return:none
 prntscrstr1 db 'printscreen',0
@@ -846,18 +878,32 @@ printscreen:
 	mov eax,[setpalettetype]  ;value saved in setpalette()
 	mov dword [IMAGEBUFFER+12],eax 
 
-	;now the bits, top down left to right
-	;each bit is an index into the colortable
-	mov esi,[LFB]            ;start of linear frame buffer
-	lea edi,[IMAGEBUFFER+16]
-	mov ecx,480000
-	cld
-	rep movsb
 
+	;now copy the bits
+	;we will only copy 800 bits across 
+	;and ignore padding bytes at the end of each scanline
+	;padding bytes are device dependent
+	mov edx,[BPSL]      ;bytesperscanline (this is device dependent)
+	sub edx,800 
+	;edx hold qty bytes from end of one row to start of next row
 
-	STDCALL prntscrstr1,prntscrstr3,popupmessage
+	cld                       ;increment
+	mov eax,600               ;height
+	mov esi,[LFB]             ;source is linear frame buffer
+	lea edi,[IMAGEBUFFER+16]  ;destination address for the bits
+
+	;copy pixels 1 row at a time, but not the padding bytes
+.1:	
+	mov ecx,800         ;800 bytes per row, rep destroys ecx so restore for next row
+	rep movsb           ;esi->edi, esi++, edi++  copy entire row of pixels
+	dec eax             ;one less row, 600,599,598...
+	je .done
+	add esi,edx         ;inc video buffer to next row (i.e. skip over padding bytes)
+	jmp .1
+
 
 .done:
+	;could provide some feedback to the user like maybe a message at the bottom ?
 	ret
 
 
@@ -866,9 +912,9 @@ printscreen:
 
 ;*****************************************************
 ;putmarker
+
 ;display a small bitmap marker at a point
 ;sets pixels directly to BACKBUF
-;each marker fits in a 5x5 bitmap
 ;x,y is the center of the bitmap
 
 ;input
@@ -876,10 +922,15 @@ printscreen:
 ;push color          [ebp+16]
 ;push x              [ebp+12]
 ;push y              [ebp+8]
+
 ;return:sets bits in BACKBUF at location
 
 ;marker styles are as follows:
-;1=square, 2=X, 3=cross
+
+;1=square 5x5
+;2=X      5x5
+;3=cross  5x5
+;4=dblsqr 9x9  (a 5x5 and 9x9 square)
 ;****************************************************
 
 putmarker:
@@ -888,51 +939,157 @@ putmarker:
 	mov ebp,esp
 	pushad
 
+
+	;markers will not be drawn if off screen
+	;to prevent apps like tcad from panning markers off screen 
+	;causing the backbuf to wrap them, same code is used for line drawing
+	;make sure x is within range 0-799
+	cmp dword [ebp+12],0
+	setge bl
+	cmp dword [ebp+12],799
+	setle bh
+	add bl,bh
+	cmp bl,2
+	jnz near .error
+	;make sure y is within range 0-599
+	cmp dword [ebp+8],0
+	setge bl
+	cmp dword [ebp+8],599
+	setle bh
+	add bl,bh
+	cmp bl,2
+	jnz near .error
+
+
 	push dword [ebp+12]
 	push dword [ebp+8]
 	call getpixadd    ;returns address in edi
+	
+	;edi holds address of center point of the marker
 
-	mov ebx,[ebp+16]  ;color in ebx
+	;put the color in each byte of ebx
+	mov eax,[ebp+16]  ;al=color byte
+	mov bl,al         ;ebx=000000cc
+	rol ebx,8
+	mov bl,al         ;ebx=0000cccc
+	rol ebx,8
+	mov bl,al         ;ebx=00cccccc
+	rol ebx,8         
+	mov bl,al         ;ebx=cccccccc
 
-	mov eax,[ebp+20]  
+
+	mov eax,[ebp+20]  ;eax=marker style
+
+	;which marker ?
 	cmp eax,1
 	jz near .dosquare
 	cmp eax,2
 	jz near .doX
 	cmp eax,3
 	jz near .docross
+	cmp eax,4
+	jz near .dodblsqr
+
+	;if user enters 0 or >4 we silently exit and draw no markers
 	jmp near .done
+
+
+
+.dodblsqr:
+	;here we do the outer square first
+	;then fall thru and do the inner square
+	;the top and bottom row we set 9 pixels
+	;all other rows we set 2 pixels
+
+	;row y-4
+	sub edi,[BPSL]
+	sub edi,[BPSL]
+	sub edi,[BPSL]
+	sub edi,[BPSL]
+	mov [edi-4],ebx  ;sets bytes at edi-4, edi-3, edi-2, edi-1
+	mov [edi],ebx    ;sets bytes at edi,   edi+1, edi+2, edi+3
+	mov [edi+4],bl 
+
+	;row y-3
+	add edi,[BPSL]
+	mov [edi-4],bl  
+	mov [edi+4],bl 
+
+	;row y-2
+	add edi,[BPSL]
+	mov [edi-4],bl 
+	mov [edi+4],bl 
+
+	;row y-1
+	add edi,[BPSL]
+	mov [edi-4],bl 
+	mov [edi+4],bl 
+
+	;row y
+	add edi,[BPSL]
+	mov [edi-4],bl 
+	mov [edi+4],bl 
+
+	;row y+1
+	add edi,[BPSL]
+	mov [edi-4],bl 
+	mov [edi+4],bl 
+
+	;row y+2
+	add edi,[BPSL]
+	mov [edi-4],bl 
+	mov [edi+4],bl 
+
+	;row y+3
+	add edi,[BPSL]
+	mov [edi-4],bl 
+	mov [edi+4],bl 
+
+	;row y+4
+	add edi,[BPSL]
+	mov [edi-4],ebx  ;sets bytes at edi-4, edi-3, edi-2, edi-1
+	mov [edi],ebx    ;sets bytes at edi,   edi+1, edi+2, edi+3
+	mov [edi+4],bl 
+
+	;fall thru to do the inner square also
+	;but first adjust edi back to the row of the center pixel
+	sub edi,[BPSL]
+	sub edi,[BPSL]
+	sub edi,[BPSL]
+	sub edi,[BPSL]
 
 .dosquare:
-	;row y-2
+
+	;row y-2  top row
 	sub edi,[BPSL]
 	sub edi,[BPSL]
-	mov [edi-2],bl   ;tom you could set dword instead of 4 bytes to speed up
-	mov [edi-1],bl 
-	mov [edi],  bl
-	mov [edi+1],bl 
+	mov [edi-2],ebx  ;sets bytes at edi-2, edi-1, edi, edi+1
 	mov [edi+2],bl 
+
 	;row y-1
 	add edi,[BPSL]
-	mov [edi-2],bl 
-	mov [edi+2],bl 
+	mov [edi-2],bl  
+	mov [edi+2],bl  
+
 	;row y
 	add edi,[BPSL]
-	mov [edi-2],bl 
-	mov [edi+2],bl 
+	mov [edi-2],bl  
+	mov [edi+2],bl  
+
 	;row y+1
 	add edi,[BPSL]
-	mov [edi-2],bl 
-	mov [edi+2],bl 
-	;row y+2
+	mov [edi-2],bl  
+	mov [edi+2],bl  
+
+	;row y+2   bottom row same as top row
 	add edi,[BPSL]
-	mov [edi-2],bl 
-	mov [edi-1],bl 
-	mov [edi],  bl
-	mov [edi+1],bl 
+	mov [edi-2],ebx  ;sets bytes at edi-2, edi-1, edi, edi+1
 	mov [edi+2],bl 
 	jmp near .done
+
+
 .docross:
+
 	;row y-2
 	sub edi,[BPSL]
 	sub edi,[BPSL]
@@ -954,8 +1111,10 @@ putmarker:
 	add edi,[BPSL]
 	mov [edi],bl 
 	jmp near .done
+
 
 .doX:
+
 	;row y-2
 	sub edi,[BPSL]
 	sub edi,[BPSL]
@@ -976,7 +1135,9 @@ putmarker:
 	add edi,[BPSL]
 	mov [edi-2],bl 
 	mov [edi+2],bl 
+	jmp near .done
 
+.error:
 .done:
 	popad
 	pop ebp

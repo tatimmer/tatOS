@@ -7872,9 +7872,9 @@ test4fpureg:
 ;there should be no spaces within the letters
 ;byte and word access is unsupported, only dword memory access
 
-;this is the only instruction that supports the SIB byte 
+;this is the only instruction in ttasm that supports the SIB byte 
 
-;TIP: if your assemble fails, trying moving the array declaration
+;TIP: if your assembly fails, trying moving the array declaration
 ;to the beginning before the code  (i.e. jmp over data to code)
 
 ;locals

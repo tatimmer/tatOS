@@ -1,13 +1,25 @@
 ;Project: TCAD
-;seg02 May 25, 2016
+;seg18 July 20, 2016
 
 
 ;this file contains code and data for TCD_SEGMENT
 ;a segment is just a line of finite length
 ;having a start x1,y1 and endpoint x2,y2
 
+;if you modify the segment object link you must also edit the
+;following procs since they all call CreateBLink for creating
+;new segment objects:
 
-;the segment link stores unique properties as follows:
+;   * segmentcreate
+;   * segcreatek
+;   * segmentread
+;   * OffsetSegmentMakeNewLink
+;   * OffsetSegmentM_22
+;   * segmentcreatemk_11
+;   * segmentcreateMI_33
+
+
+;the 256 byte segment link stores unique properties as follows:
 
 ;offset size description
 ;80  qword x1
@@ -26,6 +38,8 @@
 ;164 dword y1      ditto
 ;168 dword x2      ditto
 ;172 dword y2      ditto
+;176 dword show/hide point markers
+;180 dword slide mode
 
 
 ;the Draw menu gives a variety of options for drawing lines:
@@ -132,7 +146,8 @@
 ;segmodify      (public)
 ;SegmentModifyX1Y1
 ;SegmentModifyX2Y2
-;SegmentModifyEndpoint
+;SegmentModifyX1Y1k
+;SegmentModifyX2Y2k
 ;SegmentModifyParallel
 ;SegmentModifyPerpendicular
 ;SegmentModifyEqual
@@ -141,6 +156,7 @@
 ;SegmentModifyHorizontal
 ;SegmentModifyVertical
 ;SegmentModifyLayer
+;SegmentModifyMarkers
 
 ;OffsetSegK           (public)
 ;OffsetSegM           (public)
@@ -156,6 +172,7 @@
 ;SEGMENTPOLAR2CARTESIAN
 ;WHICHSEGMENTENDPOINT
 ;SaveMidPoint
+;OffsetSegmentMakeNewLink
 
 
 
@@ -738,16 +755,17 @@ dd segstr9,sel_Layer
 ;SegmentModifyProcTable
 ;***********************
 ;This is a call table of addresses for functions to modify segments
-;the order of procs in this table must match the strings
+;the order and qty of procs in this table must match the strings
 ;in the segment modify dropdown menu, see main.s
 
 SegmentModifyProcTable:
-dd SegmentModifyX1Y1,          SegmentModifyX2Y2
-dd SegmentModifyEndpoint,      SegmentModifyParallel
-dd SegmentModifyPerpendicular, SegmentModifyTangent   
-dd SegmentModifyEqual,         SegmentModifyAngle
-dd SegmentModifyLength,        SegmentModifyHorizontal
-dd SegmentModifyVertical,      SegmentModifyLayer
+dd SegmentModifyX1Y1,      SegmentModifyX2Y2
+dd SegmentModifyX1Y1k,     SegmentModifyX2Y2k
+dd SegmentModifyParallel,  SegmentModifyPerpendicular
+dd SegmentModifyTangent,   SegmentModifyEqual
+dd SegmentModifyAngle,     SegmentModifyLength
+dd SegmentModifyHor,       SegmentModifyVer
+dd SegmentModifyLayer,     SegmentModifyMarkers
 
 
 
@@ -939,25 +957,16 @@ public segmodify
 
 
 ;********************************************************
-;SegmentModifyX1Y1
+;SegmentModifyX1Y1k
 ;allow the user to redefine P1 starting point of segment
+;via keyboard
 ;input: prompts user for new x1,y1 value via keyboard
 ;return: eax=dword [FeedbackMessageIndex]
 ;*********************************************************
 
-SegmentModifyX1Y1:
+SegmentModifyX1Y1k:
 
-	;prompt user to select segment to modify
-;	mov eax,65 ;feedback message index
-;	mov ebx,0  ;idle left mouse handler
-;	mov dword [PassToPaint],SegmentModifyX1Y1_11
-;	ret
-
-;	as of Jan 2016 the user must now preselect the segment
-;	then Rclick to invoke the segment modify popup
-
-
-SegmentModifyX1Y1_11:
+SegmentModifyX1Y1k_11:
 
 	;redefine Segment P1 via keyboard
 
@@ -1017,19 +1026,9 @@ SegmentModifyX1Y1_11:
 
 
 
-SegmentModifyX2Y2:
+SegmentModifyX2Y2k:
 
-	;prompt user to select segment to modify
-;	mov eax,66 ;feedback message index
-;	mov ebx,0  ;idle left mouse handler
-;	mov dword [PassToPaint],SegmentModifyX2Y2_11
-;	ret
-
-;	as of Jan 2016 the user must now preselect the segment
-;	then Rclick to invoke the segment modify popup
-
-
-SegmentModifyX2Y2_11:
+SegmentModifyX2Y2k_11:
 
 	;redefine Segment P2 via keyboard
 
@@ -1114,18 +1113,6 @@ SegmentModifyX2Y2_11:
 ;********************************************************
 
 SegmentModifyParallel:
-
-;	dumpstr str33
-	;prompt user to select segment to modify
-;	mov eax,68 ;feedback message index
-;	mov ebx,0  ;idle left mouse handler
-;	mov dword [PassToPaint],SegmentModifyParallel_11
-;	ret
-
-;	as of Jan 2016 the user must preselect the segement
-;	to modify then Rclick to invoke the segment modify popup
-
-
 
 SegmentModifyParallel_11:
 
@@ -1310,20 +1297,6 @@ SegmentModifyParallel_55:
 ;**********************************************************
 
 SegmentModifyPerpendicular:
-
-;	dumpstr str41
-
-	;prompt user to select segment to modify
-;	mov eax,69 ;feedback message index
-;	mov ebx,0  ;idle left mouse handler
-;	mov dword [PassToPaint],SegmentModifyPerpendicular_11
-;	ret
-
-;	as of Jan 2016 the user must preselect the segment to 
-;	modify then Rclick to invoke the segment modify popup
-
-
-
 
 SegmentModifyPerpendicular_11:
 
@@ -1519,19 +1492,6 @@ SegmentModifyTangent:
 
 SegmentModifyEqual:
 
-;	dumpstr str12
-
-	;prompt user to select segment to modify
-;	mov eax,75 ;feedback message index
-;	mov ebx,0  ;idle left mouse handler
-;	mov dword [PassToPaint],SegmentModifyEqual_11
-;	ret
-
-;	as of Jan 2016 the user must preselect the segment
-;	to modify and Rclick to invoke segment modify popup
-
-
-
 SegmentModifyEqual_11:
 
 	;this is a post paint handler
@@ -1680,19 +1640,6 @@ SegmentModifyEqual_33:
 
 
 SegmentModifyAngle:
-
-;	dumpstr str62
-
-	;prompt user to select segment to modify
-;	mov eax,76 ;feedback message index
-;	mov ebx,0  ;idle left mouse handler
-;	mov dword [PassToPaint],SegmentModifyAngle_11
-;	ret
-
-;	as of Jan 2016 user must preselect segment to modify
-;	then Rclick to invoke segment modify popup
-
-
 
 SegmentModifyAngle_11:
 
@@ -1871,17 +1818,6 @@ SegmentModifyAngle_33:
 
 SegmentModifyLength:
 
-;	dumpstr str50
-
-	;prompt user to select segment to modify
-;	mov eax,77 ;feedback message index
-;	mov ebx,0  ;idle left mouse handler
-;	mov dword [PassToPaint],SegmentModifyLength_11
-;	ret
-
-;	as of Jan 2016 user must preselect segment to modify
-;	then Rclick to invoke segment modify popup
-
 
 SegmentModifyLength_11:
 
@@ -1979,29 +1915,16 @@ SegmentModifyLength_22:
 
 
 ;**********************************************
-;SegmentModifyHorizontal
+;SegmentModifyHor
 ;make a line segment horizontal
 ;user is prompted to pick a segment to modify
 ;and pick the pivot point
 ;***********************************************
 
 
-SegmentModifyHorizontal:
+SegmentModifyHor:
 
-;	dumpstr str90
-
-	;prompt user to select segment to modify
-;	mov eax,78 ;feedback message index
-;	mov ebx,0  ;idle left mouse handler
-;	mov dword [PassToPaint],SegmentModifyHorizontal_11
-;	ret
-
-;	as of Jan 2016 user must preselect segment to modify
-;	and Rclick to invoke segment modify popup
-
-
-
-SegmentModifyHorizontal_11:
+SegmentModifyHor_11:
 
 	;this is a post paint handler
 	;we got here after user selected a segment to modify horizontal
@@ -2034,7 +1957,7 @@ SegmentModifyHorizontal_11:
 	mov eax,25   ;feedback message index
 
 	;set new left mouse handler
-	mov ebx,SegmentModifyHorizontal_22
+	mov ebx,SegmentModifyHor_22
 
 .done:
 	ret
@@ -2042,7 +1965,7 @@ SegmentModifyHorizontal_11:
 
 
 
-SegmentModifyHorizontal_22:
+SegmentModifyHor_22:
 
 	dumpstr str92
 
@@ -2080,13 +2003,13 @@ SegmentModifyHorizontal_22:
 	;reset handlers and feedback message to defaults
 	mov eax,0  ;feedback message index
 	mov ebx,0  ;default left mouse handler
-	mov dword [FlipKeyProc],SegmentModifyHorizontal_33
+	mov dword [FlipKeyProc],SegmentModifyHor_33
 	call UnselectAll
 	ret
 
 
 
-SegmentModifyHorizontal_33:
+SegmentModifyHor_33:
 
 	;we got here after user hit the flip key
 
@@ -2107,7 +2030,7 @@ SegmentModifyHorizontal_33:
 
 
 ;**********************************************
-;Segment Modify Vertical
+;SegmentModifyVert
 ;make a line segment vertical
 ;user is prompted to pick a segment to modify
 ;and pick the pivot point
@@ -2115,22 +2038,9 @@ SegmentModifyHorizontal_33:
 ;***********************************************
 
 
-SegmentModifyVertical:
+SegmentModifyVer:
 
-;	dumpstr str96
-
-	;prompt user to select segment to modify
-;	mov eax,79 ;feedback message index
-;	mov ebx,0  ;idle left mouse handler
-;	mov dword [PassToPaint],SegmentModifyVertical_11
-;	ret
-
-;	as of Jan 2016 user must preselect segment to modify
-;	and Rclick to invoke segment modify popup
-
-
-
-SegmentModifyVertical_11:
+SegmentModifyVer_11:
 
 	;this is a post paint handler
 	;we got here after user selected a seg to modify vertical
@@ -2159,14 +2069,14 @@ SegmentModifyVertical_11:
 	mov eax,27   ;feedback message index
 
 	;set new left mouse handler
-	mov ebx,SegmentModifyVertical_22
+	mov ebx,SegmentModifyVer_22
 
 .done:
 	ret
 
 
 
-SegmentModifyVertical_22:
+SegmentModifyVer_22:
 
 	dumpstr str98
 
@@ -2207,14 +2117,14 @@ SegmentModifyVertical_22:
 	;reset handlers and feedback message to defaults
 	mov eax,0  ;feedback message index
 	mov ebx,0  ;default left mouse handler
-	mov dword [FlipKeyProc],SegmentModifyVertical_33
+	mov dword [FlipKeyProc],SegmentModifyVer_33
 	call UnselectAll
 
 	ret
 
 
 
-SegmentModifyVertical_33:
+SegmentModifyVer_33:
 
 	;we got here after user hit the flip key
 
@@ -2235,120 +2145,129 @@ SegmentModifyVertical_33:
 
 
 
-;***************************************************
-;SegmentModifyEndpoint
-;move P1 or P2 segment endpoint to a new location
-;via mouse picks
-;***************************************************
-
-SegmentModifyEndpoint:
-
-	;prompt user to select segment to modify
-;	mov eax,67 ;feedback message index
-;	mov ebx,0  ;idle left mouse handler
-;	mov dword [PassToPaint],SegmentModifyEndpoint_11
-;	ret
-
-;	as of Jan 2016 the user must preselect the segment
-;	then Rclick to invoke the segment modify popup
 
 
 
-SegmentModifyEndpoint_11:
+SegmentModifyX1Y1:
 
-	;this is a post paint handler
-	;we got here after user selected segement to modify
+	;modify the segment start point via mouse pick
+	;user must preselect then Rclick->popup "x1y1"
 
-	dumpstr str114
-
+	;save address of selected object
 	mov eax,TCD_SEGMENT
 	call GetSelObj
+	;returns:
+	;eax=qty selected objects else 0 if none selected
+	;ebx=address of 1st selected object
+	;ecx=address of 2nd selected object
+
 	cmp eax,0
 	jz .done
 
-	mov dword [object],ebx  ;save selected segment
+	mov dword [object],ebx ;save address of object
 
-	;prompt user to pick endpoint to move
-	mov eax,45   ;feedback message index
+	;show markers (if not)
+	mov dword [ebx+176],1
+
+	;put x1,y1 in slide mode
+	mov dword [ebx+180],0
+
+
+	;prompt user to pick new location for x1y1
+	mov eax,99   ;feedback message index
 	
 	;and set new left mouse handler
-	mov ebx,SegmentModifyEndpoint_22
-	jmp .done
-
+	mov ebx,SegmentModifyX1Y1_11
 
 .done:
 	ret
 
 
-SegmentModifyEndpoint_22:
+
+SegmentModifyX1Y1_11:
 
 	;this is a left mouse handler
-	;we got here after user picked an endpoint to move
-
+	;we got here after user picked new location for x1y1
 
 	call GetMousePnt
 	;returns st0=qword MOUSEXF, st1=qword MOUSEYF
 
-	;save reference point
-	fstp qword [point1X]
-	fstp qword [point1Y]
 
-	;prompt user to pick destination point
-	mov eax,46  ;feedback message index
+	;save new x1y1
+	mov esi,[object]  ;esi=address of TCD_SEGMENT
+	fstp qword [esi+80]
+	fstp qword [esi+88]
 
-	;and set new left mouse handler
-	mov ebx,SegmentModifyEndpoint_33
+
+	;disable slide mode
+	mov dword [esi+180],0xffffffff
+
+	mov eax,0  ;feedback message index
+	mov ebx,0  ;left mouse handler
 
 	ret
 
 
 
-SegmentModifyEndpoint_33:
-
-	;this is a left mouse handler
-	;we got here after user picked desitination endpoint
-
-	call GetMousePnt
-	;returns st0=qword MOUSEXF, st1=qword MOUSEYF
-
-	;save reference point
-	fstp qword [point2X]
-	fstp qword [point2Y]
 
 
-	;get which endpoint is the one to move
-	mov esi,[object]          ;our object
-	mov ebx,point1X           ;our endpoint to move
-	call WhichSegmentEndpoint ;eax=1 or 2 endpoint designation
+
+
+SegmentModifyX2Y2:
+
+	;modify the segment End point via mouse pick
+	;user must preselect then Rclick->popup "x2y2"
+
+
+	;save address of selected object
+	mov eax,TCD_SEGMENT
+	call GetSelObj
+	;returns:
+	;eax=qty selected objects else 0 if none selected
+	;ebx=address of 1st selected object
+	;ecx=address of 2nd selected object
 
 	cmp eax,0
 	jz .done
-	cmp eax,1
-	jz .moveP1
 
-	;P2 was selected so move P2
-	fld  qword [point2X]
-	fstp qword [esi+96]
-	fld  qword [point2Y]
-	fstp qword [esi+104]
-	jmp .done
+	mov dword [object],ebx ;save address of object
+
+	;show markers (if not)
+	mov dword [ebx+176],1
+
+	;put x2,y2 in slide mode
+	mov dword [ebx+180],1
 
 
-.moveP1:
-
-	;P1 was selected so move P1
-	fld  qword [point2X]
-	fstp qword [esi+80]
-	fld  qword [point2Y]
-	fstp qword [esi+88]
+	;prompt user to pick new location for x2y2
+	mov eax,100   ;feedback message index
+	
+	;and set new left mouse handler
+	mov ebx,SegmentModifyX2Y2_11
 
 .done:
+	ret
 
-	;reset handlers and feedback message to defaults
+
+
+SegmentModifyX2Y2_11:
+
+	;this is a left mouse handler
+	;we got here after user picked new location for x2y2
+
+	call GetMousePnt
+	;returns st0=qword MOUSEXF, st1=qword MOUSEYF
+
+	;save new x2y2
+	mov esi,[object]
+	fstp qword [esi+96]
+	fstp qword [esi+104]
+
+	;disable slide mode
+	mov dword [esi+180],0xffffffff
+
 	mov eax,0  ;feedback message index
-	mov ebx,0  ;default left mouse handler
-	call UnselectAll
-
+	mov ebx,0  ;left mouse handler
 	ret
 
 
@@ -2403,15 +2322,53 @@ SegmentModifyLayer:
 
 
 
+
+
+
+SegmentModifyMarkers:
+
+	;show/hide the point markers of the selected object
+	;this is a popup menu proc
+
+	;save address of selected object
+	mov eax,TCD_SEGMENT
+	call GetSelObj
+	;returns:
+	;eax=qty selected objects else 0 if none selected
+	;ebx=address of 1st selected object
+	;ecx=address of 2nd selected object
+
+	cmp eax,0
+	jz .done
+
+
+	;toggle the show/hide marker
+	mov eax,[ebx+176]
+	not eax
+	and eax,1
+	mov [ebx+176],eax ;save it
+	
+.done:
+	mov eax,0
+	mov ebx,0
 	ret
+
+
+
+
+
 
 
 
 
 ;*************************************************************
 ;segmentread  version=01
+
 ;this procedure is called when reading a tcd file
 ;with object type == TCD_SEGMENT
+
+;this proc must contain the same link init code as 
+;segmentcreate
 
 ;input:
 ;esi= address of segment object data to read in tcd file
@@ -2436,6 +2393,7 @@ public segmentread
 	push esi  ;preserve starting address of TCD_SEGMENT data in tcd file
 
 
+	push 256
 	call CreateBLink
 	;returns esi=address of object link 
 
@@ -2516,6 +2474,12 @@ public segmentread
 	;ymid
 	fld  qword [esi+72]
 	fstp qword [edi+120]
+
+
+	mov dword [edi+176],0           ;hide markers
+	mov dword [edi+180],0xffffffff  ;disable slide mode
+
+
 
 
 	;debug: esi=address of link, lets see what weve got
@@ -2717,7 +2681,7 @@ segmentcopy:
 	mov ebx,[ebp+8]   ;ebx=address of DeltaY
 
 
-	;this function takes no inputs
+	push 256
 	call CreateBLink
 	;returns esi = address of child segment 
 
@@ -2764,6 +2728,14 @@ segmentcopy:
 	fstp qword [esi+104] 
 
 	call SaveMidPoint
+
+
+	;init  show/hide point markers
+	mov dword [esi+176],0
+
+	;init slide mode 
+	mov dword [esi+180],0xffffffff
+
 	
 	pop ebp
 	retn 8  ;cleanup 2 args
@@ -2790,9 +2762,15 @@ segmentcopy:
 ;that will display the segment properties:
 ;"x1,y1,x2,y2,length,angle"
 
+;the dword HitTest is 0=skip hit testing or 1=do hit testing
+;when user hits RIGHT or LEFT arrow we skip hit testing and
+;just mark the object as selected and build the object properties
+;string.
+
 
 ;input:
 ;esi = address of SEGMENT object to check
+;push dword HitTest            [ebp+24]
 ;push address of printf buffer [ebp+20]
 ;push address qword MOUSEYF    [ebp+16]
 ;push address qword MOUSEXF    [ebp+12]
@@ -2834,6 +2812,9 @@ segmentselect:
 	;save address of SEGMENT object for later
 	mov [ebp-4],esi 
 
+
+	cmp dword [ebp+24],0
+	jz .skipHitTest
 
 
 	;get mouse xy in screen coordinates
@@ -2906,8 +2887,12 @@ segmentselect:
 
 
 
+.skipHitTest:
+
+
 	;if we got here mouse is on the infinite line
-	;we have a selection
+	;we have a selection, or user hit RIGHT or LEFT arrow
+	;in which case we just skipped hit testing altogether
 
 
 	;now toggle the line selection state to 1,0,1,0...
@@ -2994,7 +2979,7 @@ segmentselect:
 .done:
 	mov esp,ebp  ;deallocate locals
 	pop ebp
-	retn 16
+	retn 20
 
 
 
@@ -3333,7 +3318,78 @@ segmentpaint:
 
 
 
-	;esi=address of seg object
+
+
+	;MARKERS
+	;check if user wants any of the point markers are to be displayed
+	mov esi,[ebp-12]  ;esi=address of TCD_SEGMENT
+	cmp dword [esi+176],1
+	jnz .doneMarker
+
+	;check for slide mode
+	;this mode redefines x,y to be at the mouse
+	cmp dword [esi+180],0xffffffff
+	jz .doneslide
+
+	;we are in slide mode
+	cmp dword [esi+180],0
+	jz .slide0
+	cmp dword [esi+180],1
+	jz .slide1
+	jmp .doneslide
+
+.slide0:
+	;define x1y1 for slide mode
+	mov eax,[ebp+20]  ;mousex screen
+	mov [esi+160],eax ;x1
+	mov eax,[ebp+16]  ;mousey screen
+	mov [esi+164],eax ;y1
+	jz .doneslide
+.slide1:
+	;define x2y2 for slide mode
+	mov eax,[ebp+20]  ;mousex screen
+	mov [esi+168],eax ;x2
+	mov eax,[ebp+16]  ;mousey screen
+	mov [esi+172],eax ;y2
+	jz .doneslide
+.doneslide:
+
+
+
+	;display markers
+	;user may show/hide these markers from the Rclick/popup
+
+	;display marker at x1,y1
+	;this is the start point, it gets the dblsqr marker #4
+	mov esi,[ebp-12]  ;esi=address of TCD_SEGMENT
+	mov eax,50        ;tatOS/tlib/putmarker
+	mov ebx,4         ;style=dblsqr
+	mov ecx,[ebp-4]   ;color
+	mov edx,[esi+160] ;x1
+	mov esi,[esi+164] ;y1
+	sysenter
+
+	;display marker at x2,y2
+	;the endpoint get a single square marker #1
+	mov esi,[ebp-12]  ;esi=address of TCD_BEZIER
+	mov eax,50        ;tatOS/tlib/putmarker
+	mov ebx,1         ;style=square
+	mov ecx,[ebp-4]   ;color
+	mov edx,[esi+168] ;x2
+	mov esi,[esi+172] ;y2
+	sysenter
+
+.doneMarker:
+
+
+
+
+
+
+
+
+	;SEGMENT
+	;esi=address of TCD_SEGMENT object
 	mov esi,[ebp-12]
 
 
@@ -3410,9 +3466,18 @@ segmentpaint:
 
 
 
+	mov esi,[ebp-12]  ;address of segment object
+
+
+	;if we are in slide mode then no Yellow Box testing
+	cmp dword [esi+180],0xffffffff
+	jnz .slidemode
+
+
+
+
 	;copy clipped endpoints to InflatedBoundingBox
 	cld
-	mov esi,[ebp-12]  ;address of segment object
 	add esi,160       ;address of clipped screen coordinates
 	mov edi,InflatedBoundingBox
 	mov ecx,16
@@ -3691,6 +3756,7 @@ segmentpaint:
 
 
 
+.slidemode:
 .bothEndpointsUndefined:
 	;just zero out the UnclippedEndpoints buffer
 	mov esi,UnclippedEndpoints
@@ -3733,14 +3799,13 @@ segmentpaint:
 	mov edx,0
 
 .done:
-;return values are in eax,ebx,ecx,edx
-;eax=0 mouse is not over an endpoint or near this segment
-;eax=1 mouse is over segement start/mid/end point
-;eax=2 mouse is "near" the segment somewhere between the endpoints
-;ebx = X screen coordinates of YellowBoxPoint
-;ecx = Y screen coordinates of YellowBoxPoint
-;edx = address of YellowBoxPoint float coordinates for GetMousePoint
-
+	;return values are in eax,ebx,ecx,edx
+	;eax=0 mouse is not over an endpoint or near this segment
+	;eax=1 mouse is over segement start/mid/end point
+	;eax=2 mouse is "near" the segment somewhere between the endpoints
+	;ebx = X screen coordinates of YellowBoxPoint
+	;ecx = Y screen coordinates of YellowBoxPoint
+	;edx = address of YellowBoxPoint float coordinates for GetMousePoint
 	mov esp,ebp       ;deallocate local variables
 	pop ebp
 	retn 28           ;cleanup 7 args on stack
@@ -3763,6 +3828,8 @@ segmentpaint:
 ;set new [LeftMouseHandler]
 ;set new [FeedbackMessageIndex]
 
+;segmentread must contain similar code to this one
+
 ;input:
 ;push dword [currentlayer]   [ebp+8]
 
@@ -3780,6 +3847,7 @@ public segcreate
 	dumpstr str104
 
 
+	push 256
 	call CreateBLink
 	;test return value, esi holds address of link
 
@@ -3813,6 +3881,11 @@ public segcreate
 	fst  qword [esi+104] 
 	fst  qword [esi+112]
 	fstp qword [esi+120]
+
+
+	mov dword [esi+176],0           ;hide markers
+	mov dword [esi+180],0xffffffff  ;disable slide mode
+
 
 
 	;save the object link address for the other segmentcreate procs
@@ -4014,6 +4087,7 @@ public segcreatek
 
 	;create new link, assign default handlers, assign endpoints
 
+	push 256
 	call CreateBLink
 	;test return value, esi holds address of link
 
@@ -4047,6 +4121,11 @@ public segcreatek
 	fstp qword [esi+96]
 	fld  qword [Y2]
 	fstp qword [esi+104]
+
+
+	mov dword [esi+176],0           ;hide markers
+	mov dword [esi+180],0xffffffff  ;disable slide mode
+
 
 
 	;save midpoint to the link at offset xmid=112, ymid=120
@@ -4192,6 +4271,7 @@ segmentcreatemk_11:
 
 	;create new link, assign default handlers, assign endpoints
 
+	push 256
 	call CreateBLink
 	;test return value, esi holds address of link
 
@@ -4225,6 +4305,11 @@ segmentcreatemk_11:
 	fstp qword [esi+96]
 	fld  qword [Y2]
 	fstp qword [esi+104]
+
+
+	mov dword [esi+176],0           ;hide markers
+	mov dword [esi+180],0xffffffff  ;disable slide mode
+
 
 
 	;save midpoint to the link at offset xmid=112, ymid=120
@@ -4397,6 +4482,7 @@ segmentcreateMI_33:
 
 
 	;create new segement
+	push 256
 	call CreateBLink
 	;test return value, esi holds address of link
 
@@ -4434,6 +4520,13 @@ segmentcreateMI_33:
 
 	;save the mid point to the link
 	call SaveMidPoint
+
+
+	mov dword [esi+176],0           ;hide markers
+	mov dword [esi+180],0xffffffff  ;disable slide mode
+
+
+
 
 
 .error:
@@ -4544,6 +4637,7 @@ segmentcreateMPD2_22:
 
 
 	;create new segement
+	push 256
 	call CreateBLink
 	;test return value, esi holds address of link
 
@@ -4766,6 +4860,7 @@ segmentcreateIPD2_33:
 
 
 	;create new segement
+	push 256
 	call CreateBLink
 	;test return value, esi holds address of link
 
@@ -4920,6 +5015,7 @@ OffsetSegmentMakeNewLink:
 	pop edx
 
 	;create a new segment object
+	push 256
 	call CreateBLink
 	mov dword [esi],TCD_SEGMENT     ;type=line
 	mov [esi+4],edi               ;current layer
@@ -4939,6 +5035,11 @@ OffsetSegmentMakeNewLink:
 	mov dword [esi+60],segmentdump
 	mov dword [esi+64],segmentselectdrag
 	mov dword [esi+68],segmentpdf
+
+
+
+	mov dword [esi+176],0           ;hide markers
+	mov dword [esi+180],0xffffffff  ;disable slide mode
 
 
 
@@ -5098,6 +5199,7 @@ OffsetSegmentM_22:
 	pop edx
 
 	;create a new segment object
+	push 256
 	call CreateBLink
 	mov dword [esi],TCD_SEGMENT     ;type=line
 	mov [esi+4],edi                 ;current layer
@@ -5117,6 +5219,12 @@ OffsetSegmentM_22:
 	mov dword [esi+60],segmentdump
 	mov dword [esi+64],segmentselectdrag
 	mov dword [esi+68],segmentpdf
+
+
+
+	mov dword [esi+176],0           ;hide markers
+	mov dword [esi+180],0xffffffff  ;disable slide mode
+
 
 
 	;now add DX,DY to Segment1 endpoint coordinates
@@ -6533,6 +6641,7 @@ ChamferSegments_22:
 
 	
 	;create new blank chamfer segment
+	push 256
 	call CreateBLink              ;esi=address new link
 	mov dword [esi],TCD_SEGMENT   ;type=line
 	mov [esi+4],edi               ;current layer
@@ -7331,6 +7440,12 @@ DLstr19c:
 db 'x2 screen coordinate, pixels',0
 DLstr19d:
 db 'y2 screen coordinate, pixels',0
+
+DLstr20:
+db 'show/hide markers',0
+DLstr21:
+db 'slide mode',0
+
 ;************************************************
 
 segmentdump:
@@ -7449,6 +7564,17 @@ segmentdump:
 
 	mov ebx,[esi+172]       ;y2 screen coordinate
 	dumpebx ebx,DLstr19d,3
+
+
+
+	;show/hide markers
+	mov ebx,[esi+176]
+	dumpebx ebx,DLstr20,3
+
+	;slide mode
+	mov ebx,[esi+180]
+	dumpebx ebx,DLstr21,3
+
 
 	ret
 
@@ -7737,4 +7863,4 @@ segmentpdf:
 
 
 
-  
+                 

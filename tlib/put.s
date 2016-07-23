@@ -600,9 +600,11 @@ puteaxbin:
 
 ;***************************************************
 ;puteaxstr
+
 ;displays the contents of eax as hex then a SPACE
 ;then adds a string tag. similar function is dumpeax
 ;"xxxxxxxx This is the contents of eax"
+
 ;input
 ;push xloc,pixel                         [ebp+20]
 ;push yloc,pixel                         [ebp+16]
@@ -612,6 +614,7 @@ puteaxbin:
 ;***************************************************
 
 puteaxstr:
+
 	push ebp
 	mov ebp,esp
 	pushad

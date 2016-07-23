@@ -210,6 +210,11 @@ tatOSinit:
 
 
 
+	;value used by tatOS/tlib/make.s
+	mov dword [qtyMakefiles],0
+
+
+
 	;tom do not write a 0 to the dump here
 	;that will terminate the dump and prevent any additional strings
 	;from being displayed

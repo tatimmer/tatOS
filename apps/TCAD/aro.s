@@ -1,5 +1,5 @@
 ;Project: TCAD
-;aro05  June 07, 2016
+;aro11  July 18, 2016
 
 
 ;this file contains code and data for TCD_ARROW
@@ -47,10 +47,6 @@
 ;176  dword  P2x screen coordinate
 ;180  dword  P1y screen coordinate
 
-
-;note:
-;the object "paint"  routine must retn 28 
-;the object "select" routine must retn 16
 
 
 
@@ -432,6 +428,7 @@ public arocreate
 	dumpstr str1  ;arocreate
 
 
+	push 256
 	call CreateBLink
 	;test return value, esi holds address of link
 
@@ -1090,8 +1087,15 @@ aropaint:
 ;all object->select procs are passed the following args
 ;all object->select procs must clean up 16 bytes off the stack
 
+;the dword HitTest is 0=skip hit testing or 1=do hit testing
+;when user hits RIGHT or LEFT arrow we skip hit testing and
+;just mark the object as selected and build the object properties
+;string.
+
+
 ;input:
 ;esi = address of TCD_ARROW object to check
+;push dword HitTest            [ebp+24]
 ;push address of printf buffer [ebp+20]
 ;push address qword MOUSEYF    [ebp+16]
 ;push address qword MOUSEXF    [ebp+12]
@@ -1135,6 +1139,9 @@ aroselect:
 	;save address of object for later
 	mov [ebp-4],esi 
 
+
+	cmp dword [ebp+24],0
+	jz .skipHitTest
 
 
 	;get mouse xy in screen coordinates
@@ -1203,6 +1210,9 @@ aroselect:
 
 
 
+
+.skipHitTest:
+
 	;if we got here mouse is "on" the arrow shaft
 	;we have a selection
 
@@ -1259,7 +1269,7 @@ aroselect:
 .done:
 	mov esp,ebp  ;deallocate locals
 	pop ebp
-	retn 16
+	retn 20
 
 
 
@@ -1687,6 +1697,7 @@ arocopy:
 	dumpstr str15
 
 
+	push 256
 	call CreateBLink
 	;test return value, esi holds address of link
 
@@ -1791,12 +1802,12 @@ aromirror:
 
 	dumpstr str15
 
-	;edi=address of parent segment to mirror
+	;edi=address of parent to mirror
 	mov edi,esi
 
 
-	;first make a copy of the parent segment with DeltaX=DeltaY=0.0
-	;esi=address parent segment
+	;first make a copy of the parent with DeltaX=DeltaY=0.0
+	;esi=address parent 
 	push zero     ;DeltaX=0.0
 	push zero     ;DetlaY=0.0
 	call arocopy
@@ -2085,6 +2096,7 @@ public aroread
 	push esi  ;preserve starting address of TCD_ARROW data in tcd file
 
 
+	push 256
 	call CreateBLink
 	;returns esi=address of object link 
 
@@ -2384,7 +2396,7 @@ DLstr0:
 db 0xa
 db 'TCD_ARROW',0
 DLstra:
-db 'address of object object/link',0
+db 'address of object link',0
 DLstr1:
 db 'object type',0
 DLstr2:
@@ -2745,4 +2757,4 @@ ComputeArrowHeadEndPoints:
 
 
 
-                     
+                         
